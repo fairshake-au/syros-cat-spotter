@@ -412,12 +412,12 @@ export const en = {
   // SYC-517 (517-B): the colony's centre by tapping a map.
   "centre.link": "Set the centre on a map",
   "centre.title": "Set the centre",
-  "centre.intro": "Tap where the colony is. You will see the spot before anything is saved.",
+  "centre.intro": "Move the map until the pin is on the colony. You will see the spot before anything is saved.",
   "centre.confirm": "Set the centre here, in {place}?",
   "centre.now": "The centre now",
   "centre.new": "The new centre",
   "centre.save": "Set the centre here",
-  "centre.off": "That's off Syros. Tap a spot on the island.",
+  "centre.off": "That's off Syros. Choose a spot on the island.",
   "centre.again": "Start again on the map",
   "centre.clear": "Clear the centre",
   "centre.clearHint": "The colony will have no centre until you set one.",
@@ -558,7 +558,7 @@ export const en = {
   "sproblem.notesLong": "The notes are too long.",
   "sproblem.directionsLong": "“How to find it” is too long.",
   "sproblem.reason": "Say why, in a few words.",
-  "sproblem.position": "Tap the map to set the position, or type it as two numbers, like 37.44470 and 24.94170, on Syros.",
+  "sproblem.position": "Put the pin on the spot on the map, choose an area, or type the position as two numbers, like 37.44470 and 24.94170, on Syros.",
   "sproblem.outside": "That spot is outside Syros, so it can't be picked.",
   "sproblem.area": "That area isn't on our list. Choose one from the list.",
   "sproblem.colony": "That colony doesn't exist.",
@@ -572,8 +572,7 @@ export const en = {
   "sproblem.backToMove": "Back to moving the site",
 
   "new.title": "Add a feeding site",
-  "new.intro":
-    "Tap the map where the feeding spot is. You'll check the spot on the next page, and nothing is saved until you press Save.",
+  "new.intro": "Move the map until the pin is on the feeding spot. You'll check the spot on the next page, and nothing is saved until you press Save.",
   "new.private": "A new site is always private: only people signed in here can see it.",
   "new.typedTitle": "Type a position instead",
   "new.typedWarning": "Don't copy numbers from other map apps. Ask a colleague who has been there.",
@@ -601,8 +600,7 @@ export const en = {
   "confirm.checkTap": "Details for checking the tap",
 
   "move.title": "Move",
-  "move.intro":
-    "Tap the map where the site really is. You'll check the new spot and say why on the next page, and nothing is saved until you press Save.",
+  "move.intro": "Move the map until the pin is where the site really is. You'll check the new spot and say why on the next page, and nothing is saved until you press Save.",
   "move.now": "Where it is now",
   "move.new": "The new spot",
   "move.legend": "Grey marker: where the site is now. Outlined marker: the new spot.",

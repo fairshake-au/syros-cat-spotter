@@ -28,8 +28,6 @@ import { recordMappingEvent } from "../lib/mappingEvents";
 import { currentColonyOf } from "../lib/colonyMembership";
 import { deleteTestSightings } from "../test/sightings";
 import { guardianOn, newColony } from "../test/roleKit";
-import { viewAround, tapToPosition } from "../lib/mapTiles/geometry";
-import { mintTileToken } from "../lib/mapTiles/tileToken";
 
 // SYC-209 PR 2.1: the Colonies pages. Spec tests 14 (colony names), 11 (part:
 // one history row per change, in the same transaction), 16 (escaping) and 12
@@ -1095,14 +1093,16 @@ describe("test 12 (part): refusals", () => {
   });
 });
 
-// SYC-517 (decision 517-B), PR E task E1: the colony's centre is set by tapping
-// a map, not by typing numbers.
+// SYC-517 (decision 517-B), PR E task E1: the colony's centre is set on a
+// map, not by typing numbers. SYC-705 Task 2b.7: drag the map under a fixed
+// pin; with no map, an area from the list or typed numbers.
 describe("the colony's centre by map (517-B)", () => {
-  const tap = () => {
-    const view = viewAround({ lat: 37.4447, lng: 24.9417 }, 16);
-    const spot = tapToPosition(view, 179, 190, 190)!;
-    return { spot, body: { view: mintTileToken({ ...view, size: 179 as const }), size: "179", x: "190", y: "190" } };
+  /** What the map's form sends: the pin's spot. */
+  const pin = () => {
+    const spot = { lat: 37.444712, lng: 24.941734 };
+    return { spot, body: { lat: String(spot.lat), lng: String(spot.lng) } };
   };
+  const mapDataIn = (html: string) => JSON.parse(decoded(/data-map="([^"]*)"/.exec(html)![1]!));
   const hidden = (html: string, name: string) =>
     decoded(new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!);
 
@@ -1116,26 +1116,44 @@ describe("the colony's centre by map (517-B)", () => {
     expect(html).not.toContain("Centre, latitude");
   });
 
-  it("the map page starts on Ermoupoli when there is no centre, and has the typed fallback folded away", async () => {
+  it("the map page starts on Ermoupoli when there is no centre; the no-map path offers the areas and typed numbers", async () => {
     const id = await makeColony(unique("cm-page"));
     const res = await get(`/api/team/colonies/${id}/centre`);
     expect(res.status).toBe(200);
-    expect(res.text).toContain('class="mappage"');
-    expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/pick"`);
-    expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/map"`);
-    expect(res.text).toContain("<summary>Type a position instead</summary>");
-    expect(res.text).not.toMatch(/<script/i);
+    expect(mapDataIn(res.text)).toMatchObject({ mode: "place", formId: "pickform", centre: [37.4447, 24.9417], zoom: 15 });
+    expect(res.text).toContain(`<form method="post" action="/api/team/colonies/${id}/centre/pick" id="pickform" class="pickform">`);
+    expect(res.text).not.toContain("/centre/map");
+    expect(res.text).toContain(`<form method="post" action="/api/team/colonies/${id}/centre/pick" class="areapick">`);
+    expect(res.text).toContain('<details class="typedfold" open><summary>Type a position instead</summary>');
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
+    // The old zoom and pan route is gone.
+    expect((await post(`/api/team/colonies/${id}/centre/map`, { vz: "12", vx: "1", vy: "1" })).status).toBe(404);
   });
 
-  it("a tap shows 'Set the centre here, in {place}?' and saves nothing; saving sets it and the history says where", async () => {
+  it("an area from the list sets the centre on that area's middle (a colony has no 'approximate' mark)", async () => {
+    const id = await makeColony(unique("cm-area"));
+    const res = await post(`/api/team/colonies/${id}/centre/pick`, { area: "kini" });
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/Set the centre here, in Kini\?/);
+    expect(Number(hidden(res.text, "lat"))).toBe(37.4436);
+    expect(res.text).not.toContain('name="approximate"');
+    const unknown = await post(`/api/team/colonies/${id}/centre/pick`, { area: "atlantis" });
+    expect(unknown.status).toBe(400);
+    expect(unknown.text).not.toMatch(/<script/i);
+  });
+
+  it("the pin shows 'Set the centre here, in {place}?' and saves nothing; saving sets it and the history says where", async () => {
     const id = await makeColony(unique("cm-pick"));
-    const { body, spot } = tap();
+    const { body, spot } = pin();
     const before = await eventsOf(id);
     const res = await post(`/api/team/colonies/${id}/centre/pick`, body);
     expect(res.status).toBe(200);
     expect(res.text).toMatch(/Set the centre here, in [^<?]+\?/);
     expect(res.text).toContain("Open map");
-    expect(res.text).toContain(`<form method="post" action="/api/team/colonies/${id}">`);
+    expect(res.text).toContain(`<form method="post" action="/api/team/colonies/${id}" id="detailsform">`);
+    // The small place map is inside that form: dragging it rewrites the centre it sends.
+    expect(mapDataIn(res.text)).toMatchObject({ mode: "place", formId: "detailsform" });
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     expect(Number(hidden(res.text, "lat"))).toBeCloseTo(spot.lat, 9);
     expect(await eventsOf(id)).toHaveLength(before.length);
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
@@ -1151,8 +1169,10 @@ describe("the colony's centre by map (517-B)", () => {
     const id = await makeColony(unique("cm-off"));
     const res = await post(`/api/team/colonies/${id}/centre/pick`, { lat: "38.5", lng: "26.0" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(res.text).toContain("That&#39;s off Syros. Choose a spot on the island.");
     expect(res.text).toContain(`action="/api/team/colonies/${id}/centre/pick"`);
+    // A 400 keeps the strict header: no map, the no-map path only.
+    expect(res.text).not.toMatch(/<script/i);
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
   });
 
@@ -1171,19 +1191,19 @@ describe("the colony's centre by map (517-B)", () => {
     const page = await get(`/api/team/colonies/${mine}/centre`, g.cookie);
     expect(page.status).toBe(200);
     expect(page.text).not.toContain("Open map");
-    const res = await post(`/api/team/colonies/${mine}/centre/pick`, tap().body, { cookie: g.cookie });
+    const res = await post(`/api/team/colonies/${mine}/centre/pick`, pin().body, { cookie: g.cookie });
     expect(res.status).toBe(200);
     expect(res.text).toMatch(/Set the centre here, in /);
     expect(res.text).not.toContain("Open map");
     expect((await get(`/api/team/colonies/${other}/centre`, g.cookie)).status).toBe(403);
-    expect((await post(`/api/team/colonies/${other}/centre/pick`, tap().body, { cookie: g.cookie })).status).toBe(403);
+    expect((await post(`/api/team/colonies/${other}/centre/pick`, pin().body, { cookie: g.cookie })).status).toBe(403);
   });
 
   it("a hand-posted off-island centre is refused and the row is unchanged", async () => {
     const id = await makeColony(unique("cm-hand"));
     const res = await post(`/api/team/colonies/${id}`, { lat: "38.5", lng: "26" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(res.text).toContain("That&#39;s off Syros. Choose a spot on the island.");
     expect(await colonyRow(id)).toMatchObject({ lat: null, lng: null });
   });
 

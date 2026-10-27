@@ -12,7 +12,7 @@ export const CENTRE_ZOOM = 16;
 /**
  * Reads the map's pin, typed numbers or (colony centres only) an area from
  * the list. A spot off the island, or (for a colony) one `areaFor` calls Off
- * Syros, is refused with "That's off Syros. Tap a spot on the island." An
+ * Syros, is refused with "That's off Syros. Choose a spot on the island." An
  * area's centre may sit anywhere on Syros, so it skips the second check: it
  * is the area being moved that decides what is near. An area's own centre is
  * never chosen from the list of areas (`allowArea: false`).

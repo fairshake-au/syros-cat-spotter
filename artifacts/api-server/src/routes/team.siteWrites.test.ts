@@ -1522,7 +1522,7 @@ describe("the confirmation page's small map: drag it to move the pin, inside the
 
   it("the colony an add page was opened for is still chosen on Check the spot, whichever way the spot came", async () => {
     const colonyId = await makeColony();
-    for (const body of [{ area: "kini" }, { lat: "37.4447", lng: "24.9417" }]) {
+    for (const body of [{ area: "kini" }, { lat: "37.4447", lng: "24.9417" }] as Array<Record<string, string>>) {
       const res = await post("/api/team/sites/pick", { ...body, colonyId: String(colonyId) });
       expect(res.text).toContain(`<option value="${colonyId}" selected>`);
     }

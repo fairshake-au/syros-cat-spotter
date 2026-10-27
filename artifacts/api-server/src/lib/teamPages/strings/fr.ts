@@ -375,12 +375,12 @@ export const fr: Record<StringKey, string> = {
   // SYC-517 (517-B): the colony's centre by tapping a map.
   "centre.link": "Définir le centre sur une carte",
   "centre.title": "Définir le centre",
-  "centre.intro": "Touche l’endroit où se trouve la colonie. Tu verras l’endroit avant que quoi que ce soit soit enregistré.",
+  "centre.intro": "Déplacez la carte jusqu’à ce que l’épingle soit sur la colonie. Vous verrez l’endroit avant que quoi que ce soit ne soit enregistré.",
   "centre.confirm": "Définir le centre ici, dans le secteur {place} ?",
   "centre.now": "Le centre actuel",
   "centre.new": "Le nouveau centre",
   "centre.save": "Définir le centre ici",
-  "centre.off": "C’est en dehors de Syros. Touche un endroit sur l’île.",
+  "centre.off": "C’est en dehors de Syros. Choisissez un endroit sur l’île.",
   "centre.again": "Recommencer sur la carte",
   "centre.clear": "Retirer le centre",
   "centre.clearHint": "La colonie n’aura pas de centre tant que tu n’en définis pas un.",
@@ -519,7 +519,7 @@ export const fr: Record<StringKey, string> = {
   "sproblem.notesLong": "Les notes sont trop longues.",
   "sproblem.directionsLong": "« Comment le trouver » est trop long.",
   "sproblem.reason": "Dis pourquoi, en quelques mots.",
-  "sproblem.position": "Touche la carte pour définir la position, ou tape-la sous forme de deux nombres, comme 37.44470 et 24.94170, sur Syros.",
+  "sproblem.position": "Placez l’épingle sur l’endroit sur la carte, choisissez un quartier, ou tapez la position sous forme de deux nombres, comme 37.44470 et 24.94170, sur Syros.",
   "sproblem.outside": "Cet endroit est en dehors de Syros, il ne peut donc pas être choisi.",
   "sproblem.area": "Ce quartier n’est pas dans notre liste. Choisissez-en un dans la liste.",
   "sproblem.colony": "Cette colonie n’existe pas.",
@@ -533,8 +533,7 @@ export const fr: Record<StringKey, string> = {
   "sproblem.backToMove": "Retour au déplacement du point",
 
   "new.title": "Ajouter un point de nourrissage",
-  "new.intro":
-    "Touche la carte là où se trouve le point de nourrissage. Tu vérifieras l’endroit sur la page suivante, et rien n’est enregistré tant que tu n’as pas appuyé sur Enregistrer.",
+  "new.intro": "Déplacez la carte jusqu’à ce que l’épingle soit sur le point de nourrissage. Vous vérifierez l’endroit à la page suivante, et rien n’est enregistré avant que vous appuyiez sur Enregistrer.",
   "new.private": "Un nouveau point est toujours privé : seules les personnes connectées ici peuvent le voir.",
   "new.typedTitle": "Taper une position à la place",
   "new.typedWarning": "Ne copie pas de chiffres depuis d’autres applis de cartes. Demande à un collègue qui y est allé.",
@@ -563,8 +562,7 @@ export const fr: Record<StringKey, string> = {
   "confirm.checkTap": "Détails pour vérifier le toucher",
 
   "move.title": "Déplacer",
-  "move.intro":
-    "Touche la carte là où se trouve vraiment le point. Tu vérifieras le nouvel endroit et diras pourquoi sur la page suivante, et rien n’est enregistré tant que tu n’as pas appuyé sur Enregistrer.",
+  "move.intro": "Déplacez la carte jusqu’à ce que l’épingle soit là où se trouve vraiment le point. Vous vérifierez le nouvel endroit et direz pourquoi à la page suivante, et rien n’est enregistré avant que vous appuyiez sur Enregistrer.",
   "move.now": "Où il est maintenant",
   "move.new": "Le nouvel endroit",
   "move.legend": "Repère gris : où le point est maintenant. Repère avec contour : le nouvel endroit.",
