@@ -10,7 +10,13 @@ Session worktree: `built-switched-off-features-255ea4`, branch `claude/syc-150-m
 - Adversarial review done (Sonnet; 1 blocker, 12 major, 9 minor), all folded in (cd30c0a09). Review notes: `docs/specs/reviews/move-a-sighting-review.md`.
 - Rendered: https://claude.ai/artifact/45ocXzt9XAvY4zswn3SEg1
 
+## Samuel's answers
+- 26 Oct, D1 (only photo on a cat): "Design this together with the merge contemplated in SYC-59".
+- 26 Oct, scope: "All of SYC-59" — detection triggers AND the merge, in this spec, with moving.
+
 ## Next
+- Research SYC-59: proposal §6, matching-game §7.2/§14, when-the-photo-check-fails (New cats to check), SYC-410/531, SYC-59 comments (followers/unfollows, claims, coat readings, agreeWithClip, writeObservation canonical checks).
+- Widen spec: detection → merge → undo, plus move/split/new cat. Re-run adversarial review on the widened spec.
 - Decisions D1–D6 to Samuel one at a time (AskUserQuestion); record answers in spec §5 and on SYC-150.
 - File D5 follow-up (guardians moving photos) once D5 is answered.
 - After spec approval: implementation plan with model delegation; stop for approval.
