@@ -89,6 +89,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # SYC-746: Replit refuses to publish a build whose install holds a package
+      # with a critical advisory (26 Oct 2026: maplibre-gl 5.6.2 passed CI,
+      # merged, then blocked every publish). This checks the whole lockfile, dev
+      # packages too, because Replit's firewall looks at what gets installed.
+      # Critical only: the high findings docs/dependency-security.md records as
+      # patched or accepted would fail a "high" gate. No ignore list: if a
+      # critical advisory has no fix, decide that in a ticket, not in this file.
+      - name: No package has a critical advisory (Replit blocks the publish)
+        run: pnpm audit --audit-level critical
+
       - name: Security patches are applied (braces, node-forge)
         run: pnpm run test:dependency-security
 
