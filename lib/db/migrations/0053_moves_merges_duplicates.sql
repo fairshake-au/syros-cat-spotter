@@ -140,7 +140,8 @@ ALTER TABLE "points_ledger" ADD CONSTRAINT "points_ledger_award_ck" CHECK (("poi
 --            and a move row of this transaction carries its id, this
 --            sighting and these two cats. A merge moves the merged-away
 --            cat's sightings to the survivor; its undo (a row naming the cat
---            itself) moves them back to the merged-away cat.
+--            itself, superseding the merge) moves them from that merge's
+--            survivor back to the merged-away cat.
 CREATE FUNCTION "sighting_move_is_current"(p_sighting integer, p_from integer, p_to integer)
 RETURNS boolean LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
@@ -174,7 +175,9 @@ BEGIN
            AND p_to = ci.canonical_cat_id)
          OR (ci.canonical_cat_id = ci.cat_id
            AND m.reason = 'merge_undone'
-           AND p_to = ci.cat_id)
+           AND p_to = ci.cat_id
+           AND p_from = (SELECT sup.canonical_cat_id FROM "cat_identity" sup
+                          WHERE sup.id = ci.supersedes_id))
        )
   ) THEN
     RETURN true;
@@ -430,6 +433,12 @@ BEGIN
        AND m.canonical_cat_id <> m.cat_id
   ) THEN
     RAISE EXCEPTION 'cat_identity: a row supersedes only a merge of its own cat (cat %, supersedes %)', NEW.cat_id, NEW.supersedes_id;
+  END IF;
+  -- A row naming its own cat is only ever an undo, so it supersedes a merge
+  -- (review of #377, L1): alone it undoes nothing, and as a merge setting it
+  -- would pull any sighting onto that cat.
+  IF NEW.canonical_cat_id = NEW.cat_id AND NEW.supersedes_id IS NULL THEN
+    RAISE EXCEPTION 'cat_identity: a row naming its own cat is an undo, and must supersede a merge (cat %)', NEW.cat_id;
   END IF;
   RETURN NEW;
 END

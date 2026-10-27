@@ -447,6 +447,39 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     ).toBe(0);
   });
 
+  it("refuses a row naming its own cat that supersedes nothing (review L1)", async () => {
+    const a = await cat();
+    const victim = await cat();
+    const s = await resolved(victim);
+    // Used as a merge setting, it would pull any sighting onto `a`.
+    await expect(
+      inTx(c, async () => {
+        const ci = await mergeRow(c, a, a);
+        await setMerge(c, ci);
+        await moveRow(c, s, victim, a, { mergeId: ci, reason: "merge_undone" });
+        await recat(c, s, a);
+      }),
+    ).rejects.toThrow(/must supersede a merge/);
+    expect((await sightingRow(s)).cat_id).toBe(victim);
+  });
+
+  it("refuses an undo moving a sighting that isn't on the undone merge's survivor (review L1)", async () => {
+    const survivor = await cat();
+    const mimi = await cat();
+    const victim = await cat();
+    const s = await resolved(victim);
+    const m = await merge(mimi, survivor);
+    await expect(
+      inTx(c, async () => {
+        const u = await mergeRow(c, mimi, mimi, m);
+        await setMerge(c, u);
+        await moveRow(c, s, victim, mimi, { mergeId: u, reason: "merge_undone" });
+        await recat(c, s, mimi);
+      }),
+    ).rejects.toThrow(APPEND_ONLY);
+    expect((await sightingRow(s)).cat_id).toBe(victim);
+  });
+
   it("refuses a fresh merge row whose move row was written earlier (its id reserved ahead)", async () => {
     const survivor = await cat();
     const away = await cat();
