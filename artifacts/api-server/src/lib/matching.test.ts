@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("matchCatPhoto with several photos", () => {
   it("sends the spot's photos first, in order, then the candidates, and says which is which", async () => {
     replies({ anyCat: true, mixedCats: false, matches: [] });
-    await matchCatPhoto(THREE, CANDIDATES);
+    await matchCatPhoto(THREE, CANDIDATES, "sighting_match");
     const content = sentContent();
     const images = content.filter((c) => c.type === "image_url").map((c) => c.image_url.url);
     expect(images).toEqual([
@@ -56,7 +56,7 @@ describe("matchCatPhoto with several photos", () => {
 
   it("reads the new answer shape: any cat, and more than one cat", async () => {
     replies({ anyCat: true, mixedCats: true, matches: [{ catId: 7, confidence: 0.8, reasoning: "x" }] });
-    const r = await matchCatPhoto(THREE, CANDIDATES);
+    const r = await matchCatPhoto(THREE, CANDIDATES, "sighting_match");
     expect(r).toEqual({
       isCatPhoto: true,
       mixedCats: true,
@@ -66,13 +66,13 @@ describe("matchCatPhoto with several photos", () => {
 
   it("no cat in any photo", async () => {
     replies({ anyCat: false, mixedCats: false, matches: [] });
-    const r = await matchCatPhoto(THREE, CANDIDATES);
+    const r = await matchCatPhoto(THREE, CANDIDATES, "sighting_match");
     expect(r.isCatPhoto).toBe(false);
   });
 
   it("still reads the old answer shape", async () => {
     replies({ isCatPhoto: false, matches: [] });
-    const r = await matchCatPhoto(THREE, CANDIDATES);
+    const r = await matchCatPhoto(THREE, CANDIDATES, "sighting_match");
     expect(r).toEqual({ isCatPhoto: false, mixedCats: false, matches: [] });
   });
 });
@@ -80,33 +80,33 @@ describe("matchCatPhoto with several photos", () => {
 describe("matchCatPhoto tolerates booleans sent as strings", () => {
   it('"anyCat": "true" is a cat, not "no cat"', async () => {
     replies({ anyCat: "true", mixedCats: "false", matches: [] });
-    const r = await matchCatPhoto(THREE, CANDIDATES);
+    const r = await matchCatPhoto(THREE, CANDIDATES, "sighting_match");
     expect(r.isCatPhoto).toBe(true);
     expect(r.mixedCats).toBe(false);
   });
 
   it('"anyCat": "false" is no cat', async () => {
     replies({ anyCat: "false", matches: [] });
-    expect((await matchCatPhoto(THREE, CANDIDATES)).isCatPhoto).toBe(false);
+    expect((await matchCatPhoto(THREE, CANDIDATES, "sighting_match")).isCatPhoto).toBe(false);
   });
 
   it('old-shape "isCatPhoto": "true" is a cat', async () => {
     replies({ isCatPhoto: "true", matches: [] });
-    expect((await matchCatPhoto(THREE, CANDIDATES)).isCatPhoto).toBe(true);
+    expect((await matchCatPhoto(THREE, CANDIDATES, "sighting_match")).isCatPhoto).toBe(true);
   });
 
   it('"mixedCats": "true" counts with several photos, never with one', async () => {
     replies({ anyCat: true, mixedCats: "true", matches: [] });
-    expect((await matchCatPhoto(THREE, CANDIDATES)).mixedCats).toBe(true);
+    expect((await matchCatPhoto(THREE, CANDIDATES, "sighting_match")).mixedCats).toBe(true);
     replies({ anyCat: true, mixedCats: "true", matches: [] });
-    expect((await matchCatPhoto("ONLY", CANDIDATES)).mixedCats).toBe(false);
+    expect((await matchCatPhoto("ONLY", CANDIDATES, "sighting_match")).mixedCats).toBe(false);
   });
 });
 
 describe("matchCatPhoto with one photo", () => {
   it("a plain string is one first photo, and 'more than one cat' can't apply", async () => {
     replies({ anyCat: true, mixedCats: true, matches: [] });
-    const r = await matchCatPhoto("ONLY", CANDIDATES);
+    const r = await matchCatPhoto("ONLY", CANDIDATES, "sighting_match");
     const images = sentContent()
       .filter((c) => c.type === "image_url")
       .map((c) => c.image_url.url);
@@ -124,7 +124,7 @@ describe("matchCatPhoto with one photo", () => {
 
   it("a one-photo list behaves like the string", async () => {
     replies({ isCatPhoto: true, matches: [] });
-    const r = await matchCatPhoto([THREE[0]!], []);
+    const r = await matchCatPhoto([THREE[0]!], [], "sighting_match");
     expect(r).toEqual({ isCatPhoto: true, mixedCats: false, matches: [] });
   });
 });
@@ -135,27 +135,27 @@ describe("matchCatPhoto time limit and retry (SYC-503)", () => {
 
   it("caps each try at 30 seconds and turns the library's own retries off", async () => {
     create.mockResolvedValueOnce(ok);
-    await matchCatPhoto("ONE", []);
+    await matchCatPhoto("ONE", [], "sighting_match");
     expect(create.mock.calls[0]![1]).toEqual({ timeout: 30_000, maxRetries: 0 });
   });
 
   it("retries once when the service couldn't be reached", async () => {
     create.mockRejectedValueOnce(Object.assign(new Error("Connection error."), { status: undefined }));
     create.mockResolvedValueOnce(ok);
-    await expect(matchCatPhoto("ONE", [])).resolves.toMatchObject({ isCatPhoto: true });
+    await expect(matchCatPhoto("ONE", [], "sighting_match")).resolves.toMatchObject({ isCatPhoto: true });
     expect(create).toHaveBeenCalledTimes(2);
   });
 
   it("retries once on a server error, and gives up if that fails too", async () => {
     create.mockRejectedValueOnce(Object.assign(new Error("502"), { status: 502 }));
     create.mockRejectedValueOnce(Object.assign(new Error("503"), { status: 503 }));
-    await expect(matchCatPhoto("ONE", [])).rejects.toThrow("503");
+    await expect(matchCatPhoto("ONE", [], "sighting_match")).rejects.toThrow("503");
     expect(create).toHaveBeenCalledTimes(2);
   });
 
   it("never retries a 4xx", async () => {
     create.mockRejectedValueOnce(Object.assign(new Error("400"), { status: 400 }));
-    await expect(matchCatPhoto("ONE", [])).rejects.toThrow("400");
+    await expect(matchCatPhoto("ONE", [], "sighting_match")).rejects.toThrow("400");
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -166,7 +166,7 @@ describe("matchCatPhoto time limit and retry (SYC-503)", () => {
         vi.advanceTimersByTime(30_000);
         throw new Error("Request timed out.");
       });
-      await expect(matchCatPhoto("ONE", [])).rejects.toThrow("timed out");
+      await expect(matchCatPhoto("ONE", [], "sighting_match")).rejects.toThrow("timed out");
       expect(create).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();

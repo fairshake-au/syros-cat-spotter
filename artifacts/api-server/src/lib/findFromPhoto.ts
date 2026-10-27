@@ -251,7 +251,7 @@ async function search(
     const byId = new Map(candidates.map((c) => [c.catId, c]));
     const finalists: { candidate: Candidate; score: number; reasoning: string }[] = [];
     for (const [i, group] of groups.entries()) {
-      const out = await matchCatPhoto(sent, group.map(toInput));
+      const out = await matchCatPhoto(sent, group.map(toInput), "find_from_photo");
       // Only the first group decides "not a cat": it stops before any more
       // calls, and one later group's odd answer can't throw away a real
       // cat photo after the calls are paid for (review finding 5).
@@ -268,7 +268,7 @@ async function search(
       results = finalists.map((f) => result(f.candidate, f.score, f.reasoning));
     } else {
       // Only what the service needs: never the photo's public id.
-      const out = await matchCatPhoto(sent, finalists.map((f) => toInput(f.candidate)));
+      const out = await matchCatPhoto(sent, finalists.map((f) => toInput(f.candidate)), "find_from_photo");
       const scored = new Map(out.matches.map((m) => [m.catId, m]));
       results = finalists.map((f) => {
         const m = scored.get(f.candidate.catId);
