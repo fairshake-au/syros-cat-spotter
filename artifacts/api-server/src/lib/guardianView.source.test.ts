@@ -432,7 +432,7 @@ describe("the routes read sites and colonies only through those modules", () => 
   );
 
   it("finds the route files", () => {
-    expect(routeFiles).toEqual(expect.arrayContaining(["teamSites.ts", "teamColonies.ts", "teamMap.ts"]));
+    expect(routeFiles).toEqual(expect.arrayContaining(["teamSites.ts", "teamColonies.ts", "teamMapData.ts"]));
   });
 
   for (const file of routeFiles) {
@@ -500,7 +500,6 @@ describe("nothing forges a Visible (review F5)", () => {
   const ROUTE_FILES = [
     "routes/teamSites.ts",
     "routes/teamColonies.ts",
-    "routes/teamMap.ts",
     "routes/teamCats.ts",
     "routes/teamPeople.ts",
     "middlewares/requireSeeing.ts",

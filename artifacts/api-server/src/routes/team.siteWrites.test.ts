@@ -13,14 +13,14 @@ import {
 import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { recordMappingEvent } from "../lib/mappingEvents";
-import { BANDS, viewAround, tapToPosition, type Position } from "../lib/mapTiles/geometry";
-import { mintTileToken, readTileToken } from "../lib/mapTiles/tileToken";
+import type { Position } from "../lib/island";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 import { isOpaqueAddress } from "../test/opaqueAddress";
 import { expectMapNote } from "../test/mapNote";
 import { isOpenMapLink } from "../test/openMapLink";
 import { placeLabel } from "../lib/areas/placeLabel";
+import { currentAreas } from "../lib/areas/namedAreas";
 
 // SYC-209 PR 3.3: adding, moving, retiring and bringing back feeding sites,
 // and changing their colony. Spec tests 7 (never created public), 9 (early
@@ -163,12 +163,20 @@ const totalSiteEvents = async () =>
 /** The stamp a page shows, as a browser would send it back. */
 const stampIn = (html: string) => decoded(/name="updatedAt" value="([^"]*)"/.exec(html)![1]!);
 const hiddenIn = (html: string, name: string) => decoded(new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!);
+/** Every hidden field in a piece of HTML, as a browser would send it. */
+const hiddenFields = (html: string) =>
+  Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)].map((m) => [m[1]!, decoded(m[2]!)]));
 
 const ATTR = /\s(href|action|src)="([^"]*)"/g;
 
 /** K13: no href, action or src holds a coordinate or a z/x/y. */
 function expectNoPositionInAddresses(html: string) {
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
+  // SYC-705: a map's markers link from its data-map JSON; those are addresses too.
+  for (const m of html.matchAll(/data-map="([^"]*)"/g)) {
+    const data = JSON.parse(decoded(m[1]!)) as { markers?: Array<{ href?: string }> };
+    for (const mk of data.markers ?? []) if (mk.href !== undefined) values.push(mk.href);
+  }
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
@@ -177,16 +185,6 @@ function expectNoPositionInAddresses(html: string) {
     expect(v, v).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, v).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
   }
-}
-
-/** A tap on the middle-ish of a 179 px mosaic drawn around `around` at zoom z. */
-function tapBody(around: Position, z = 16, size = 179, x = 190, y = 190) {
-  const view = viewAround(around, z);
-  const spot = tapToPosition(view, size, x, y)!;
-  return {
-    body: { view: mintTileToken({ ...view, size: size as 179 }), size: String(size), x: String(x), y: String(y) },
-    spot,
-  };
 }
 
 const ERMOUPOLI: Position = { lat: 37.4447, lng: 24.9417 };
@@ -218,16 +216,32 @@ afterAll(async () => {
 
 // ── Adding ─────────────────────────────────────────────────────────────────
 
+/** The map's data on a page (renderMap's data-map), decoded. */
+const mapDataIn = (html: string) => JSON.parse(decoded(/data-map="([^"]*)"/.exec(html)![1]!));
+/** The form that holds the place map (by its id), whole. */
+const formById = (html: string, id: string) => new RegExp(`<form [^>]*id="${id}"[\\s\\S]*?</form>`).exec(html)?.[0];
+/** The no-map path: the .mapfallback block. */
+const fallbackIn = (html: string) => /<div class="mapfallback">[\s\S]*?<\/details><\/div>/.exec(html)?.[0];
+
 describe("adding a site: the map and the pick", () => {
-  it("/sites/new is the picker, not a site called 'new'", async () => {
+  it("/sites/new is the place page, not a site called 'new': a map to drag under the pin, posting to /sites/pick", async () => {
     const res = await get("/api/team/sites/new");
     expect(res.status).toBe(200);
     expect(res.text).toContain("<h1>Add a feeding site</h1>");
-    expect(res.text).toContain('action="/api/team/sites/pick"');
-    expect(res.text).toContain('alt="Map of Syros. Tap a spot to pick it."');
+    const form = formById(res.text, "pickform")!;
+    expect(form).toContain('action="/api/team/sites/pick"');
+    expect(mapDataIn(res.text)).toMatchObject({ mode: "place", formId: "pickform" });
+    // The pin writes these; "Use this spot" waits, hidden, for the map to start.
+    expect(form).toContain('<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value="">');
+    expect(form).toMatch(/<button type="submit" class="save" data-mapon hidden>Use this spot<\/button>/);
+    // How to use the map is map-only: in its form, hidden until the map starts (no-map viewers read the no-map line).
+    expect(form).toContain("<p data-mapon hidden>Move the map until the pin is on the feeding spot.");
+    expect(res.text.replace(form, "")).not.toContain("Move the map until");
     expect(res.text).toContain("Don&#39;t copy numbers from other map apps. Ask a colleague who has been there.");
     expect(res.text).not.toContain("No such feeding site");
-    expect(res.text).not.toMatch(/<script/i);
+    // Only our own map scripts, under the wider header.
+    expect(res.text).toMatch(/<script src="\/api\/team\/assets\/map-core\.[0-9a-f]{12}\.js"/);
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     expectNoPositionInAddresses(res.text);
   });
 
@@ -235,59 +249,92 @@ describe("adding a site: the map and the pick", () => {
     expectMapNote((await get("/api/team/sites/new")).text);
   });
 
-  it("the typed position is folded under 'Type a position instead' (517-B)", async () => {
+  it("place page without script offers area list and typed coordinates (the no-map path)", async () => {
     const res = await get("/api/team/sites/new");
-    expect(res.text).toMatch(/<details class="typedfold"><summary>Type a position instead<\/summary><form method="post" action="\/api\/team\/sites\/pick" class="typedpos">/);
-    expect(res.text).not.toContain("Or type the position");
+    const fallback = fallbackIn(res.text)!;
+    expect(fallback).toBeDefined();
+    // An area from the list: every current area, by key, posting to the same pick.
+    expect(fallback).toContain('<form method="post" action="/api/team/sites/pick" class="areapick">');
+    const keys = [...fallback.matchAll(/<option value="([^"]*)">/g)].map((m) => m[1]).sort();
+    expect(keys).toEqual(currentAreas().map((a) => a.key).sort());
+    expect(fallback).toContain("Use this area’s centre");
+    // Typed numbers, open here (there is no map to fold them under).
+    expect(fallback).toMatch(/<details class="typedfold" open><summary>Type a position instead<\/summary><form method="post" action="\/api\/team\/sites\/pick" class="typedpos">/);
   });
 
-  it("a tap answers with the confirmation page directly: the spot in hidden fields only, and the tap's details", async () => {
-    const { body, spot } = tapBody(ERMOUPOLI);
-    const res = await post("/api/team/sites/pick", body);
+  it("an area pick answers with Check the spot at that area's centre, marked approximate", async () => {
+    const kini = currentAreas().find((a) => a.key === "kini")!;
+    const res = await post("/api/team/sites/pick", { area: "kini" });
     expect(res.status).toBe(200);
     expect(res.text).toContain("Check the spot");
-    expect(res.text).toContain(`You tapped a spot in <strong>${placeLabel(spot)} &middot; <a `);
-    expect(res.text).toContain('<form method="post" action="/api/team/sites">');
-    expect(Number(hiddenIn(res.text, "lat"))).toBeCloseTo(spot.lat, 9);
-    expect(Number(hiddenIn(res.text, "lng"))).toBeCloseTo(spot.lng, 9);
-    expect(res.text).toContain('<span class="pin site-private"');
-    expect(res.text).toContain("Details for checking the tap");
-    expect(res.text).toContain("Point 190, 190 on a 358 px map picture.");
+    const form = formById(res.text, "detailsform")!;
+    expect(Number(hiddenIn(form, "lat"))).toBe(kini.lat);
+    expect(Number(hiddenIn(form, "lng"))).toBe(kini.lng);
+    expect(hiddenIn(form, "approximate")).toBe("1");
+    expect(res.text).toContain("only roughly right");
+    expectNoPositionInAddresses(res.text);
+  });
+
+  it("unknown area key is refused: 400, the no-map path, strict header, nothing saved", async () => {
+    const before = { sites: await totalSites(), events: await totalSiteEvents() };
+    const res = await post("/api/team/sites/pick", { area: "atlantis" });
+    expect(res.status).toBe(400);
+    expect(res.text).toContain("That area isn&#39;t on our list");
+    // No map here, so no "Move the map" instruction either.
+    expect(res.text).not.toContain("Move the map until");
+    expect(res.text).not.toMatch(/<script/i);
+    expect(res.headers["content-security-policy"]).not.toContain("script-src");
+    expect(fallbackIn(res.text)).toBeDefined();
+    expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
+  });
+
+  it("the map's pin answers with the confirmation page directly: the spot in hidden fields of the one form, and in words", async () => {
+    const res = await post("/api/team/sites/pick", { lat: "37.444712", lng: "24.941734" });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("Check the spot");
+    const form = formById(res.text, "detailsform")!;
+    expect(form).toContain('<form method="post" action="/api/team/sites" id="detailsform">');
+    expect(hiddenIn(form, "lat")).toBe("37.444712");
+    expect(hiddenIn(form, "lng")).toBe("24.941734");
+    expect(form).not.toContain('name="approximate"');
+    // The small place map is inside that form; the spot in words for the team, with Open map.
+    expect(mapDataIn(form)).toMatchObject({ mode: "place", formId: "detailsform" });
+    expect(res.text).toContain(`The spot: <strong>${placeLabel({ lat: 37.444712, lng: 24.941734 })} &middot; <a `);
+    // The words (and Open map) sit where the script can hide them once the pin is dragged; the lines it shows are there, hidden.
+    expect(res.text).toMatch(/<div data-spotwords="detailsform"><p class="tapped">The spot: [\s\S]*?Open map[\s\S]*?<\/div>/);
+    expect(res.text).toContain(`<p class="hint" data-spotmoved="detailsform" hidden>The pin shows the spot you&#39;ll save.</p>`);
+    expect(form).toContain(`<p class="warn" data-offisland="detailsform" hidden>Move the pin onto Syros.</p>`);
+    expect(mapDataIn(form).island).toEqual({ minLat: 37.36, maxLat: 37.53, minLng: 24.85, maxLng: 25.01 });
     expect(res.text).toContain("A new site is always private");
-    // Not a saved site: the pick writes nothing.
+    // No tap any more: no nudge, no check details.
+    expect(res.text).not.toContain('name="nudge"');
+    expect(res.text).not.toContain("Details for checking the tap");
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     expect(res.text).not.toContain('name="is_public"');
     expectNoPositionInAddresses(res.text);
   });
 
-  it("a tap does not save anything", async () => {
+  it("a pick does not save anything", async () => {
     const before = { sites: await totalSites(), events: await totalSiteEvents() };
-    await post("/api/team/sites/pick", tapBody(ERMOUPOLI).body);
+    await post("/api/team/sites/pick", { area: "kini" });
     await post("/api/team/sites/pick", { lat: "37.44470", lng: "24.94170" });
     expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
   });
 
-  it("(0, 0) is refused: a picture that never loaded, or the keyboard", async () => {
-    const { body } = tapBody(ERMOUPOLI);
-    const res = await post("/api/team/sites/pick", { ...body, x: "0", y: "0" });
+  it("pin outside Syros is refused (the map can be dragged a little out to sea)", async () => {
+    const res = await post("/api/team/sites/pick", { lat: "37.30", lng: "24.70" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("Please tap the map itself");
+    expect(res.text).toContain("outside Syros");
     expect(res.text).not.toContain("Check the spot");
+    expect(res.text).not.toMatch(/<script/i);
     expectNoPositionInAddresses(res.text);
   });
 
-  it("a tap outside Syros, or an unreadable one, is refused", async () => {
-    // A view whose top-left tile starts west of the island box: tap its corner.
-    const { islandTileRange } = await import("../lib/mapTiles/geometry");
-    const r = islandTileRange(12);
-    const token = mintTileToken({ z: 12, x: r.minX, y: r.minY, size: 256 });
-    const outside = await post("/api/team/sites/pick", { view: token, size: "256", x: "1", y: "1" });
-    expect(outside.status).toBe(400);
-    expect(outside.text).toContain("outside Syros");
-    const altered = await post("/api/team/sites/pick", { view: token.slice(0, 20) + (token[20] === "A" ? "B" : "A") + token.slice(21), size: "256", x: "5", y: "5" });
-    expect(altered.status).toBe(400);
-    expect(altered.text).toContain("That tap didn&#39;t work. Please tap the map again");
-    const empty = await post("/api/team/sites/pick", {});
-    expect(empty.status).toBe(400);
+  it("an old tap (view, x, y) is no position at all", async () => {
+    const res = await post("/api/team/sites/pick", { view: "abc", size: "179", x: "190", y: "190" });
+    expect(res.status).toBe(400);
+    expect(res.text).not.toContain("Check the spot");
+    expect((await post("/api/team/sites/pick", {})).status).toBe(400);
   });
 
   it("typed coordinates are checked the way the colony centre is: plain decimals, inside the island box", async () => {
@@ -318,19 +365,23 @@ describe("adding a site: the map and the pick", () => {
     expect(json.body).toEqual({ error: "Invalid request", fields: expect.arrayContaining(["lat"]) });
   });
 
-  it("zoom, pan and the area buttons on the add page are POST forms and keep the picker", async () => {
-    const page = (await get("/api/team/sites/new")).text;
-    const moved = await post("/api/team/sites/new/map", {
-      vz: hiddenIn(page, "vz"),
-      vx: hiddenIn(page, "vx"),
-      vy: hiddenIn(page, "vy"),
-      go: "in",
-    });
-    expect(moved.status).toBe(200);
-    expect(moved.text).toContain('action="/api/team/sites/pick"');
-    expect(Number(hiddenIn(moved.text, "vz"))).toBe(Number(hiddenIn(page, "vz")) + 1);
-    expectNoPositionInAddresses(moved.text);
-    expect((await post("/api/team/sites/new/map", { vz: "x" })).status).toBe(400);
+  it("zoom and pan are the map's own now: the old POST /sites/new/map is gone", async () => {
+    expect((await post("/api/team/sites/new/map", { vz: "12", vx: "1", vy: "1", go: "in" })).status).toBe(404);
+  });
+
+  it("confirm page keeps typed details when the spot changes (one form): dragging rewrites its lat/lng, and the save reads them", async () => {
+    const page = (await post("/api/team/sites/pick", { area: "kini" })).text;
+    const form = formById(page, "detailsform")!;
+    // Every field the person fills in and the map's lat/lng are in the same form.
+    const names = [...form.matchAll(/name="([^"]+)"/g)].map((m) => m[1]).sort();
+    expect(names).toEqual(["approximate", "colonyId", "directions", "lat", "lng", "name", "notes"]);
+    expect(form).not.toContain('type="image"');
+    // "map pin clears it": the pin moved, so dashboard-pin.js dropped approximate and wrote its spot.
+    const name = unique("pinned");
+    const res = await post("/api/team/sites", { name, colonyId: "", directions: "by the gate", notes: "", lat: "37.443811", lng: "24.889402" });
+    expect(res.status).toBe(303);
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect(await siteRow(id)).toMatchObject({ name, directions: "by the gate", lat: 37.443811, lng: 24.889402, positionApproximate: false });
   });
 });
 
@@ -447,7 +498,7 @@ describe("test 7: a site is never created public", () => {
 
   it("the add form has no visibility field, and any is_public / public* key sent is ignored", async () => {
     const pick = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" });
-    const form = /<form method="post" action="\/api\/team\/sites">[\s\S]*?<\/form>/.exec(pick.text)![0];
+    const form = formById(pick.text, "detailsform")!;
     expect(form).not.toMatch(/public/i);
     expect([...form.matchAll(/name="([^"]+)"/g)].map((m) => m[1]).sort()).toEqual(
       ["colonyId", "directions", "lat", "lng", "name", "notes"],
@@ -570,69 +621,134 @@ describe("edit details", () => {
   });
 });
 
+// ── Approximate positions (SYC-705 Task 2b.7) ─────────────────────────────
+
+describe("a position placed by area is marked approximate", () => {
+  const APPROX = "Position approximate: placed by choosing an area. Move it on the map when you can.";
+
+  it("area pick sets position_approximate: the save form's approximate=1 is stored, and the site page says so", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("byarea"), approximate: "1" });
+    expect(res.status).toBe(303);
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect((await siteRow(id)).positionApproximate).toBe(true);
+    expect((await get(`/api/team/sites/${id}`)).text).toContain(APPROX);
+  });
+
+  it("typed coordinates clear it: a save with no approximate field is exact, and its page has no note", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("typed") });
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect((await siteRow(id)).positionApproximate).toBe(false);
+    expect((await get(`/api/team/sites/${id}`)).text).not.toContain("Position approximate");
+  });
+
+  it("typed coordinates clear it after an area pick: the typed pick's Check the spot has no approximate, and its save is exact", async () => {
+    const byArea = (await post("/api/team/sites/pick", { area: "kini" })).text;
+    expect(hiddenIn(formById(byArea, "detailsform")!, "approximate")).toBe("1");
+    // "Start again", then the typed numbers: the save form sent is the one the typed pick drew.
+    const typed = (await post("/api/team/sites/pick", { lat: "37.4436", lng: "24.8889" })).text;
+    const form = formById(typed, "detailsform")!;
+    expect(form).not.toContain('name="approximate"');
+    const name = unique("typedafterarea");
+    const res = await post("/api/team/sites", { ...hiddenFields(form), name, colonyId: "", directions: "", notes: "" });
+    expect(res.status).toBe(303);
+    const id = Number(/\/sites\/(\d+)\?done=created$/.exec(res.headers["location"] as string)![1]);
+    expect(await siteRow(id)).toMatchObject({ lat: 37.4436, lng: 24.8889, positionApproximate: false });
+    // And the area pick's own form, sent as drawn, is approximate: the same spot, the other answer.
+    const areaName = unique("areaasdrawn");
+    const res2 = await post("/api/team/sites", { ...hiddenFields(formById(byArea, "detailsform")!), name: areaName, colonyId: "", directions: "", notes: "" });
+    const id2 = Number(/\/sites\/(\d+)\?done=created$/.exec(res2.headers["location"] as string)![1]);
+    expect(await siteRow(id2)).toMatchObject({ lat: 37.4436, lng: 24.8889, positionApproximate: true });
+  });
+
+  it("anything but approximate=1 is refused, never read as approximate", async () => {
+    const res = await post("/api/team/sites", { lat: "37.4436", lng: "24.8889", name: unique("odd"), approximate: "yes" });
+    expect(res.status).toBe(400);
+  });
+
+  it("a move by area sets it; a move by pin or typed position clears it, even to the same spot", async () => {
+    const s = await makeSite();
+    const byArea = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "by area", approximate: "1" });
+    expect(byArea.status).toBe(303);
+    expect((await siteRow(s.id)).positionApproximate).toBe(true);
+    const pinned = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "pinned it" });
+    expect(pinned.status).toBe(303);
+    expect(pinned.headers["location"]).toBe(`/api/team/sites/${s.id}?done=moved`);
+    expect((await siteRow(s.id)).positionApproximate).toBe(false);
+    // Only the mark changed, and the history still says so: a move from = to, with the reason (ruling, 26 Oct 2026).
+    const last = (await eventsOf(s.id)).at(-1)!;
+    expect(last).toMatchObject({ kind: "moved", personId: susan, before: { lat: 37.4436, lng: 24.8889 }, after: { lat: 37.4436, lng: 24.8889 }, note: "pinned it" });
+    expect(await kindsOf(s.id)).toEqual(["moved", "moved"]);
+    // The same again, with nothing to change: unchanged, no event.
+    const same = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4436", lng: "24.8889", reason: "again" });
+    expect(same.headers["location"]).toBe(`/api/team/sites/${s.id}?done=unchanged`);
+    expect(await kindsOf(s.id)).toEqual(["moved", "moved"]);
+    const again = await post(`/api/team/sites/${s.id}/move`, { updatedAt: await stampOf(s.id), lat: "37.4501", lng: "24.9501", reason: "typed" });
+    expect(again.status).toBe(303);
+    expect((await siteRow(s.id)).positionApproximate).toBe(false);
+  });
+});
+
 // ── Moving ─────────────────────────────────────────────────────────────────
 
 describe("move", () => {
-  it("the picker starts at the site, carries the page's stamp, and posts to the site's own addresses", async () => {
+  it("the place page starts at the site, carries the page's stamp, and posts to the site's own pick", async () => {
     const s = await makeSite();
     const res = await get(`/api/team/sites/${s.id}/move`);
     expect(res.status).toBe(200);
-    expect(res.text).toContain(`action="/api/team/sites/${s.id}/move/pick"`);
-    expect(res.text).toContain(`action="/api/team/sites/${s.id}/move/map"`);
+    expect(formById(res.text, "pickform")).toContain(`action="/api/team/sites/${s.id}/move/pick"`);
+    expect(res.text).not.toContain("/move/map");
     expect(stampIn(res.text)).toBe(await stampOf(s.id));
-    expect(res.text).toContain('<span class="pin site-retired"');
+    const data = mapDataIn(res.text);
+    expect(data).toMatchObject({ mode: "place", formId: "pickform", centre: [s.lat, s.lng], zoom: 17 });
+    // The site's spot now is drawn on the map, as it was.
+    expect(data.markers).toEqual([{ lat: s.lat, lng: s.lng, label: "Where it is now", look: "retired" }]);
+    // The no-map path carries the stamp too, and offers the areas.
+    const fallback = fallbackIn(res.text)!;
+    expect(stampIn(fallback)).toBe(await stampOf(s.id));
+    expect(fallback).toContain('name="area"');
     expect(res.text).toContain("Don&#39;t copy numbers from other map apps");
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     expectNoPositionInAddresses(res.text);
     expect((await get(`/api/team/sites/${NO_SUCH}/move`)).status).toBe(404);
     expect((await get("/api/team/sites/abc/move")).status).toBe(404);
   });
 
-  it("a tap answers with old and new spots and a required reason; nothing is saved yet", async () => {
+  it("a pick answers with old and new spots and a required reason, in one form with the map; nothing is saved yet", async () => {
     const s = await makeSite();
     const stamp = await stampOf(s.id);
-    const { body, spot } = tapBody({ lat: s.lat, lng: s.lng }, 17);
-    const res = await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: stamp });
+    const spot = { lat: 37.4501, lng: 24.9501 };
+    const res = await post(`/api/team/sites/${s.id}/move/pick`, { lat: String(spot.lat), lng: String(spot.lng), updatedAt: stamp });
     expect(res.status).toBe(200);
     expect(res.text).toContain("Where it is now");
-    expect(res.text).toContain(`You tapped a spot in <strong>${placeLabel(spot)} &middot; <a `);
-    expect(res.text).toContain("The new spot");
+    expect(res.text).toContain(`The new spot: <strong>${placeLabel(spot)} &middot; <a `);
     // Words, not numbers (SYC-517); the 5-place position is in the Open map link only.
     expect(res.text.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]*>/g, " ")).not.toMatch(/\d{2}\.\d{5}/);
     expect(res.text).toContain(encodeURIComponent(`${spot.lat.toFixed(5)},${spot.lng.toFixed(5)}`));
-    expect(res.text).toMatch(/name="reason" type="text" required/);
-    expect(res.text).toContain(`action="/api/team/sites/${s.id}/move"`);
-    expect(stampIn(res.text)).toBe(stamp);
-    expect(res.text).toContain("Details for checking the tap");
+    const form = formById(res.text, "detailsform")!;
+    expect(form).toContain(`action="/api/team/sites/${s.id}/move"`);
+    expect(form).toMatch(/name="reason" type="text" required/);
+    expect(stampIn(form)).toBe(stamp);
+    expect(hiddenIn(form, "lat")).toBe("37.4501");
+    expect(mapDataIn(form)).toMatchObject({ mode: "place", formId: "detailsform" });
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     expectNoPositionInAddresses(res.text);
     expect(await eventsOf(s.id)).toHaveLength(0);
     expect(await stampOf(s.id)).toBe(stamp);
-    // (0, 0) and typed coordinates work here too.
-    const zero = await post(`/api/team/sites/${s.id}/move/pick`, { ...body, x: "0", y: "0", updatedAt: stamp });
-    expect(zero.status).toBe(400);
-    const typed = await post(`/api/team/sites/${s.id}/move/pick`, { lat: "37.4501", lng: "24.9501", updatedAt: stamp });
-    expect(typed.status).toBe(200);
-    expect(hiddenIn(typed.text, "lat")).toBe("37.4501");
+    // By area: the area's centre, marked approximate in the save form.
+    const byArea = await post(`/api/team/sites/${s.id}/move/pick`, { area: "kini", updatedAt: stamp });
+    expect(byArea.status).toBe(200);
+    expect(hiddenIn(formById(byArea.text, "detailsform")!, "approximate")).toBe("1");
     const far = await post(`/api/team/sites/${s.id}/move/pick`, { lat: "41", lng: "24.9501", updatedAt: stamp });
     expect(far.status).toBe(400);
     expect(far.text).toContain("outside Syros");
-    expect((await post(`/api/team/sites/${s.id}/move/pick`, { ...body })).status).toBe(400);
-    expect((await post(`/api/team/sites/${NO_SUCH}/move/pick`, { ...body, updatedAt: stamp })).status).toBe(404);
+    expect(far.text).not.toMatch(/<script/i);
+    expect((await post(`/api/team/sites/${s.id}/move/pick`, { lat: "37.4501", lng: "24.9501" })).status).toBe(400);
+    expect((await post(`/api/team/sites/${NO_SUCH}/move/pick`, { lat: "37.4501", lng: "24.9501", updatedAt: stamp })).status).toBe(404);
   });
 
-  it("zoom and pan on the move page keep the stamp", async () => {
+  it("zoom and pan are the map's own now: the old POST /sites/:id/move/map is gone", async () => {
     const s = await makeSite();
-    const page = (await get(`/api/team/sites/${s.id}/move`)).text;
-    const moved = await post(`/api/team/sites/${s.id}/move/map`, {
-      vz: hiddenIn(page, "vz"),
-      vx: hiddenIn(page, "vx"),
-      vy: hiddenIn(page, "vy"),
-      go: "out",
-      updatedAt: stampIn(page),
-    });
-    expect(moved.status).toBe(200);
-    expect(stampIn(moved.text)).toBe(await stampOf(s.id));
-    expectNoPositionInAddresses(moved.text);
-    expect((await post(`/api/team/sites/${s.id}/move/map`, { vz: "16", vx: "1", vy: "1" })).status).toBe(400);
+    expect((await post(`/api/team/sites/${s.id}/move/map`, { vz: "16", vx: "1", vy: "1", updatedAt: await stampOf(s.id) })).status).toBe(404);
   });
 
   it("saves the move: before and after, the reason as the note, one event", async () => {
@@ -756,7 +872,7 @@ describe("test 9 (early half): moving or re-homing a public site makes it privat
 
   it("the move confirmation warns that a public site goes private", async () => {
     const s = await makeSite({ isPublic: true });
-    const { body } = tapBody({ lat: s.lat, lng: s.lng }, 17);
+    const body = { lat: String(s.lat + 0.0003), lng: String(s.lng) };
     const res = await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: await stampOf(s.id) });
     expect(res.text).toContain("This site is public. Moving it makes it private again");
     const privateOne = await makeSite();
@@ -992,7 +1108,8 @@ describe("the pages", () => {
     }
     expect([...html.matchAll(/name="updatedAt"/g)].length).toBe(3);
     expectNoPositionInAddresses(html);
-    expect(html).not.toMatch(/<script/i);
+    // SYC-705: a map page loads our own map files only (team.scriptTags.test.ts names them).
+    for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) expect(tag).toMatch(/^<script src="\/api\/team\/assets\/[\w.-]+" defer>$/);
   });
 
   it("the banner for ?done= shows only fixed sentences", async () => {
@@ -1010,33 +1127,31 @@ describe("the pages", () => {
     const s = await makeSite({ colonyId, isPublic: true });
     const gone = await makeSite({ retired: true });
     const stamp = await stampOf(s.id);
-    const { body } = tapBody({ lat: s.lat, lng: s.lng }, 17);
-    const addTap = tapBody(ERMOUPOLI).body;
     const pages = [
       (await get("/api/team/sites")).text,
       (await get("/api/team/sites/new")).text,
-      (await post("/api/team/sites/new/map", { vz: "14", vx: "9000", vy: "6000", go: "in" })).text,
-      (await post("/api/team/sites/pick", addTap)).text,
+      (await post("/api/team/sites/pick", { area: "kini" })).text,
+      (await post("/api/team/sites/pick", { area: "atlantis" })).text,
       (await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" })).text,
       (await post("/api/team/sites/pick", { lat: "0", lng: "0" })).text,
-      (await post("/api/team/sites/pick", { ...addTap, x: "0", y: "0" })).text,
       (await get(`/api/team/sites/${s.id}`)).text,
       (await get(`/api/team/sites/${gone.id}`)).text,
       (await get(`/api/team/sites/${s.id}?done=moved`)).text,
       (await get(`/api/team/sites/${s.id}/move`)).text,
-      (await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: stamp })).text,
+      (await post(`/api/team/sites/${s.id}/move/pick`, { area: "kini", updatedAt: stamp })).text,
       (await post(`/api/team/sites/${s.id}/move/pick`, { lat: "37.4501", lng: "24.9501", updatedAt: stamp })).text,
-      (await post(`/api/team/sites/${s.id}/move/pick`, { ...body, x: "0", y: "0", updatedAt: stamp })).text,
-      (await post(`/api/team/sites/${s.id}/move/map`, { vz: "17", vx: "73000", vy: "50000", go: "north", updatedAt: stamp })).text,
+      (await post(`/api/team/sites/${s.id}/move/pick`, { lat: "41", lng: "24.9501", updatedAt: stamp })).text,
       (await post("/api/team/sites", { name: " ", lat: "37.4447", lng: "24.9417" })).text,
       (await post(`/api/team/sites/${s.id}/move`, { updatedAt: stamp, lat: "37.45", lng: "24.95", reason: "" })).text,
     ];
     for (const html of pages) {
       expectNoPositionInAddresses(html);
-      expect(html).not.toMatch(/<script/i);
+      // SYC-705: a map page loads our own map files only (team.scriptTags.test.ts names them).
+      for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) expect(tag).toMatch(/^<script src="\/api\/team\/assets\/[\w.-]+" defer>$/);
     }
-    // The positions are in hidden fields, which is the one place they travel.
-    expect(pages[3]).toMatch(/name="lat" value="37\.\d+"/);
+    // The positions are in hidden fields (and the map's own data), the one place they travel.
+    expect(pages[2]).toMatch(/name="lat" value="37\.\d+"/);
+    expect(pages[4]).toMatch(/name="lat" value="37\.\d+"/);
   });
 });
 
@@ -1129,12 +1244,10 @@ describe("test 11: every write writes exactly one history row per changed thing,
 describe("test 12: refusals", () => {
   const ROUTES: Array<[string, (id: number) => string, Record<string, string>]> = [
     ["GET", () => "/api/team/sites/new", {}],
-    ["POST", () => "/api/team/sites/new/map", { vz: "12", vx: "1", vy: "1" }],
     ["POST", () => "/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" }],
     ["POST", () => "/api/team/sites", { name: "x", lat: "37.4447", lng: "24.9417" }],
     ["POST", (id) => `/api/team/sites/${id}`, { name: "x" }],
     ["GET", (id) => `/api/team/sites/${id}/move`, {}],
-    ["POST", (id) => `/api/team/sites/${id}/move/map`, { vz: "12", vx: "1", vy: "1" }],
     ["POST", (id) => `/api/team/sites/${id}/move/pick`, { lat: "37.4447", lng: "24.9417" }],
     ["POST", (id) => `/api/team/sites/${id}/move`, { lat: "37.4501", lng: "24.9502", reason: "r" }],
     ["POST", (id) => `/api/team/sites/${id}/retire`, { reason: "r" }],
@@ -1219,7 +1332,6 @@ describe("test 12: refusals", () => {
         "add_feeding_site",
         [
           ["GET", "/api/team/sites/new", {}],
-          ["POST", "/api/team/sites/new/map", { vz: "12", vx: "1", vy: "1" }],
           ["POST", "/api/team/sites/pick", { lat: "37.4447", lng: "24.9417" }],
           ["POST", "/api/team/sites", { name: "x", lat: "37.4447", lng: "24.9417" }],
         ],
@@ -1229,7 +1341,6 @@ describe("test 12: refusals", () => {
         [
           ["POST", `/api/team/sites/${s.id}`, { name: "x" }],
           ["GET", `/api/team/sites/${s.id}/move`, {}],
-          ["POST", `/api/team/sites/${s.id}/move/map`, { vz: "12", vx: "1", vy: "1" }],
           ["POST", `/api/team/sites/${s.id}/move/pick`, { lat: "37.4447", lng: "24.9417" }],
           ["POST", `/api/team/sites/${s.id}/move`, { lat: "37.4501", lng: "24.9502", reason: "r" }],
           ["POST", `/api/team/sites/${s.id}/retire`, { reason: "r" }],
@@ -1431,87 +1542,47 @@ describe("/sites/new and the site pages", () => {
   });
 });
 
-// ── The nudge: the confirmation page's small map takes taps ────────────────
+// ── The confirmation page's small map (SYC-705 Task 2b.7; SYC-355) ─────────
 
-/** The tap form inside one width band: where it posts, and its hidden fields. */
-function bandForm(html: string, size: number) {
-  const band = new RegExp(`<div class="mapband b${size}"[^>]*>(.*?)</div>`).exec(html)![0];
-  const action = decoded(/<form method="post" action="([^"]*)"/.exec(band)![1]!);
-  const fields: Record<string, string> = {};
-  for (const m of band.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)) fields[m[1]!] = decoded(m[2]!);
-  return { action, fields, band };
-}
-
-describe("the nudge (spec §3): the small map on the confirmation page is a tap map, centred on the spot", () => {
+describe("the confirmation page's small map: drag it to move the pin, inside the one form", () => {
   const SPOTS: Position[] = [ERMOUPOLI, { lat: 37.4731, lng: 24.9892 }, { lat: 37.4012, lng: 24.8801 }, { lat: 37.4999, lng: 24.9399 }];
 
-  it("add: the pin is within the central half at every width band, and the map posts to /sites/pick", async () => {
+  it("add: the map opens on the spot, close up, and writes into the details form", async () => {
     for (const p of SPOTS) {
       const html = (await post("/api/team/sites/pick", { lat: String(p.lat), lng: String(p.lng) })).text;
-      for (const b of BANDS) {
-        const { action, band } = bandForm(html, b.size);
-        expect(action).toBe("/api/team/sites/pick");
-        const m = /class="pin site-private" style="left:(\d+)px;top:(\d+)px"/.exec(band);
-        expect(m, `${p.lat},${p.lng} at ${b.size}`).not.toBeNull();
-        const span = 2 * b.size;
-        for (const off of [Number(m![1]), Number(m![2])]) {
-          expect(Math.abs(off - span / 2), `${p.lat},${p.lng} at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
-        }
-      }
+      const form = formById(html, "detailsform")!;
+      expect(mapDataIn(form)).toMatchObject({ mode: "place", formId: "detailsform", centre: [p.lat, p.lng], zoom: 17 });
+      expect(form).toMatch(/<p class="hint" data-mapon hidden>Not quite right\? Drag the small map/);
       expect(html).toContain("Start again on the full map");
       expectNoPositionInAddresses(html);
     }
+    // By area it opens wider: the area, not a street.
+    expect(mapDataIn((await post("/api/team/sites/pick", { area: "kini" })).text).zoom).toBe(15);
   });
 
-  it("add: a second tap redraws the confirmation at the new spot and keeps what the previous step held", async () => {
-    const first = (await post("/api/team/sites/pick", tapBody(ERMOUPOLI).body)).text;
-    const form = bandForm(first, 179);
-    expect(form.fields["nudge"]).toBe("1");
+  it("the colony an add page was opened for is still chosen on Check the spot, whichever way the spot came", async () => {
     const colonyId = await makeColony();
-    const second = await post(form.action, {
-      ...form.fields,
-      name: `Kept ${MARKUP}`,
-      colonyId: String(colonyId),
-      directions: "kept directions",
-      notes: "kept notes",
-      x: "120",
-      y: "100",
-    });
-    expect(second.status).toBe(200);
-    expect(hiddenIn(second.text, "lat")).not.toBe(hiddenIn(first, "lat"));
-    expect(decoded(second.text)).toContain(`value="Kept ${MARKUP}"`);
-    expect(second.text).not.toContain("<img src=x");
-    expect(second.text).toContain(`<option value="${colonyId}" selected>`);
-    expect(second.text).toContain('value="kept directions"');
-    expect(second.text).toContain(">kept notes</textarea>");
-    // A nudge keeps the zoom instead of zooming in again.
-    expect(readTileToken(bandForm(second.text, 179).fields["view"]!)!.z).toBe(readTileToken(form.fields["view"]!)!.z);
-    expect(bandForm(second.text, 179).fields["nudge"]).toBe("1");
-    expectNoPositionInAddresses(second.text);
-    // Nothing was saved, and junk in the carried fields is dropped, not an error.
-    const junk = await post(form.action, { ...form.fields, name: "x".repeat(500), colonyId: "abc", notes: `a${NUL}`, x: "120", y: "100" });
+    for (const body of [{ area: "kini" }, { lat: "37.4447", lng: "24.9417" }] as Array<Record<string, string>>) {
+      const res = await post("/api/team/sites/pick", { ...body, colonyId: String(colonyId) });
+      expect(res.text).toContain(`<option value="${colonyId}" selected>`);
+    }
+    // Junk carried in is dropped, not an error.
+    const junk = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417", colonyId: "abc", name: "x".repeat(500), notes: `a${NUL}` });
     expect(junk.status).toBe(200);
     expect(junk.text).toContain('id="new-name"');
   });
 
-  it("move: the small map posts to the site's move/pick with the stamp and reason, and a re-tap keeps them", async () => {
+  it("move: the map's form is the move form, with the stamp, the reason and the site's spot now on the map", async () => {
     const s = await makeSite();
     const stamp = await stampOf(s.id);
-    const { body } = tapBody({ lat: s.lat, lng: s.lng }, 17);
-    const first = (await post(`/api/team/sites/${s.id}/move/pick`, { ...body, updatedAt: stamp })).text;
-    for (const b of BANDS) {
-      const f = bandForm(first, b.size);
-      expect(f.action).toBe(`/api/team/sites/${s.id}/move/pick`);
-      expect(f.fields["updatedAt"]).toBe(stamp);
-    }
-    const f = bandForm(first, 171);
-    const second = await post(f.action, { ...f.fields, reason: "kept reason", x: "50", y: "60" });
-    expect(second.status).toBe(200);
-    expect(second.text).toContain('value="kept reason"');
-    expect(stampIn(second.text)).toBe(stamp);
-    expect(hiddenIn(second.text, "lat")).not.toBe(hiddenIn(first, "lat"));
-    expect(second.text).toContain("Start again on the full map");
-    expectNoPositionInAddresses(second.text);
+    const html = (await post(`/api/team/sites/${s.id}/move/pick`, { lat: "37.4501", lng: "24.9501", updatedAt: stamp })).text;
+    const form = formById(html, "detailsform")!;
+    expect(form).toContain(`action="/api/team/sites/${s.id}/move"`);
+    expect(stampIn(form)).toBe(stamp);
+    expect(form).toContain('name="reason"');
+    expect(mapDataIn(form).markers).toEqual([{ lat: s.lat, lng: s.lng, label: "Where it is now", look: "retired" }]);
+    expect(html).toContain("Start again on the full map");
+    expectNoPositionInAddresses(html);
     expect(await eventsOf(s.id)).toHaveLength(0);
   });
 });

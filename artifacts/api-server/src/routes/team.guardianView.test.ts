@@ -6,7 +6,7 @@ import { like } from "drizzle-orm";
 import { northOf } from "../test/feedingSites";
 import { tr } from "../lib/teamPages/strings";
 import { placeLabel } from "../lib/areas/placeLabel";
-import { areaByKey, areaFor } from "../lib/areas/namedAreas";
+import { areaByKey, areaFor, loadAreas } from "../lib/areas/namedAreas";
 import { changeArea } from "../lib/areas/areaWrites";
 import app from "../app";
 import router from "./index";
@@ -16,8 +16,6 @@ import { addSite, changeSiteColony, colonyOptions, editSite, retireSite } from "
 import { siteView, sitesForPerson } from "../lib/teamSites";
 import { visibleColonyIds, isIslandWide } from "../lib/guardianView";
 import { endPlacements, guardianOn, seedCat, type SeededCat, type Signed } from "../test/roleKit";
-import { viewAround } from "../lib/mapTiles/geometry";
-import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import { renderColonyLine, renderNameTaken } from "../lib/teamPages/colonyPages";
 import { colonyLineFor } from "../lib/colonyCats";
 import { removeTestPerson } from "../test/removeTestPerson";
@@ -253,15 +251,13 @@ function post(path: string, body: Record<string, string>, cookie: string, mode: 
   return mode === "json" ? t.set("Accept", "application/json").send(body) : t.type("form").send(body);
 }
 
-const ISLAND = viewAround(ISLAND_CENTRE, START_ZOOM);
-const moveBody = { vz: String(ISLAND.z), vx: String(ISLAND.x), vy: String(ISLAND.y), go: "in" };
 
 /** Every page variant a cat guardian can open (spec §7.3's table), each as a request. */
 const guardianPages = (): { label: string; send: (cookie: string, mode: Mode) => request.Test }[] => [
   { label: "Feeding sites", send: (c, m) => get("/api/team/sites", c, m) },
   { label: "Feeding sites, Show retired", send: (c, m) => get("/api/team/sites?retired=1", c, m) },
-  { label: "Feeding sites, zoomed", send: (c, m) => post("/api/team/sites/map", moveBody, c, m) },
-  { label: "Feeding sites, an area", send: (c, m) => post("/api/team/sites/map", { ...moveBody, go: "", area: "kini" }, c, m) },
+  { label: "the Cats map view", send: (c, m) => get("/api/team/cats?view=map", c, m) },
+  { label: "the old map address", send: (c, m) => get("/api/team/map", c, m) },
   { label: "her site", send: (c, m) => get(`/api/team/sites/${s1}`, c, m) },
   { label: "the site that joined her colony", send: (c, m) => get(`/api/team/sites/${sJ}`, c, m) },
   { label: "her retired site", send: (c, m) => get(`/api/team/sites/${s1r}`, c, m) },
@@ -280,7 +276,6 @@ const guardianPages = (): { label: string; send: (cookie: string, mode: Mode) =>
   { label: "Show on our map, her cat", send: (c, m) => post("/api/team/sites/map-at-sighting", { sightingId: String(sightA) }, c, m) },
   { label: "Make a feeding site here, colony 2's cat", send: (c, m) => post("/api/team/sites/from-sighting", { sightingId: String(sightB) }, c, m) },
   { label: "Show on our map, colony 2's cat", send: (c, m) => post("/api/team/sites/map-at-sighting", { sightingId: String(sightB) }, c, m) },
-  { label: "a map picture", send: (c, m) => get("/api/team/map-tiles/not-a-token", c, m) },
 ];
 
 const ATTR = /\s(href|action|src)="([^"]*)"/g;
@@ -290,7 +285,7 @@ function expectNoPositionInAddresses(where: string, html: string, location?: str
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!);
   if (location) values.push(location);
   for (const v of values) {
-    if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
+    if (isOpaqueAddress(v)) continue; // a photo uuid (SYC-425)
     expect(v, `${where}: ${v}`).not.toMatch(/\d+\.\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/\d+[/-]\d+[/-]\d+/);
     expect(v, `${where}: ${v}`).not.toMatch(/[?&](lat|lng|lon|z|x|y|vz|vx|vy)=/i);
@@ -806,6 +801,10 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   });
 
   it("an area name typed with markup is escaped on her cat page, with no link", async () => {
+    // Read the areas from the database first (SYC-756). This file's cache starts as the seed; the
+    // first change reloads it from the shared database, which can hold an area an earlier file left
+    // near this point. Without this load the key came from the seed and the page named the other area.
+    await loadAreas();
     const key = areaFor(37.445, 24.942).key;
     const before = areaByKey(key)!.name;
     await changeArea({ id: staffId }, { kind: "rename", key, name: "<b>Kini</b>" });

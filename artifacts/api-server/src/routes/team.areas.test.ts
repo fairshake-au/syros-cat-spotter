@@ -8,8 +8,6 @@ import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { areaByKey } from "../lib/areas/namedAreas";
 import { guardianOn, newColony, RUN, signedPerson, type Signed } from "../test/roleKit";
 import { isOpenMapLink } from "../test/openMapLink";
-import { viewAround, tapToPosition } from "../lib/mapTiles/geometry";
-import { mintTileToken } from "../lib/mapTiles/tileToken";
 import { renderAreasPage, type AreaRow } from "../lib/teamPages/areasPage";
 import type { AreaChange } from "../lib/areas/areaHistory";
 import { busiestFirst } from "./teamAreas";
@@ -145,7 +143,7 @@ describe("the Areas page", () => {
   it("a centre off Syros is refused beside the longitude", async () => {
     const res = await send(team.cookie, { op: "add", name: nm("Myk"), key: k("myk"), lat: "37.45", lng: "25.33" });
     expect(res.status).toBe(400);
-    expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That&#39;s off Syros\. Tap a spot on the island\./);
+    expect(res.text).toMatch(/role="alert" id="add-new-lng-err">That&#39;s off Syros\. Choose a spot on the island\./);
     expect(res.text).not.toContain("Check the longitude");
   });
 
@@ -199,12 +197,20 @@ describe("the Areas page", () => {
   });
 });
 
-// SYC-517 (decision 517-B), PR E task E2: an area's centre is moved by tapping a map.
+/** The map's data on a page (renderMap's data-map), decoded. */
+const mapDataIn = (html: string) =>
+  JSON.parse(/data-map="([^"]*)"/.exec(html)![1]!.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"));
+
+// SYC-517 (decision 517-B), PR E task E2: an area's centre is moved on a map.
+// SYC-705 Task 2b.7: drag the map under a fixed pin; no map: typed numbers
+// (never an area from the list: it is an area's own centre).
 describe("moving an area's centre by map (517-B)", () => {
-  const tap = (around = { lat: 37.4447, lng: 24.9417 }) => {
-    const view = viewAround(around, 16);
-    const spot = tapToPosition(view, 179, 190, 190)!;
-    return { spot, body: { view: mintTileToken({ ...view, size: 179 as const }), size: "179", x: "190", y: "190" } };
+  /** What the map's form sends: the pin's spot. */
+  const tap = () => {
+    // In the sea, near SEA but not on it: the area is left in the shared database for later files, and
+    // a spot on land beside Kini made other files' places read as this area (SYC-756).
+    const spot = { lat: 37.51212, lng: 24.97834 };
+    return { spot, body: { lat: String(spot.lat), lng: String(spot.lng) } };
   };
   const hidden = (html: string, name: string) => new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!;
   const getPage = (path: string, cookie: string) => request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
@@ -223,14 +229,15 @@ describe("moving an area's centre by map (517-B)", () => {
     expect(res.text).toContain("Choose the centre on the map");
   });
 
-  it("the map opens on the area, a tap asks first, and the button moves the centre", async () => {
+  it("the map opens on the area, the pin's spot asks first, and the button moves the centre", async () => {
     const key = k("bymap");
     expect((await send(team.cookie, { op: "add", name: nm("Bymap"), key, ...SEA })).status).toBe(303);
     const map = await getPage(`/api/team/areas/${key}/centre`, team.cookie);
     expect(map.status).toBe(200);
-    expect(map.text).toContain('class="mappage"');
+    expect(mapDataIn(map.text)).toMatchObject({ mode: "place", formId: "pickform", zoom: 14 });
     expect(map.text).toContain(`action="/api/team/areas/${key}/centre/pick"`);
     expect(map.text).toContain("<summary>Type a position instead</summary>");
+    expect(map.headers["content-security-policy"]).toContain("script-src 'self'");
     // The fold's summary is a 44px tap target like the dashboard's other folds.
     expect(map.text).toMatch(/\.typedfold summary\{[^}]*min-height:44px/);
 
@@ -240,6 +247,9 @@ describe("moving an area's centre by map (517-B)", () => {
     expect(pick.text).toContain(`Move the centre of ${nm("Bymap")} here?`);
     expect(pick.text).toContain("Open map");
     expect(pick.text).toContain(`href="/api/team/areas/${key}/centre">Start again on this area&#39;s map</a>`);
+    // The small place map sits in the save form.
+    expect(mapDataIn(pick.text)).toMatchObject({ mode: "place", formId: "detailsform" });
+    expect(pick.headers["content-security-policy"]).toContain("script-src 'self'");
     expect(areaByKey(key)).toMatchObject({ lat: NUM.lat, lng: NUM.lng });
 
     const save = await sendTo("/api/team/areas", team.cookie, {
@@ -256,7 +266,7 @@ describe("moving an area's centre by map (517-B)", () => {
     const { body } = tap();
     const pick = await sendTo("/api/team/areas/kini/centre/pick", team.cookie, body);
     expect(pick.status).toBe(200);
-    expect(pick.text).toContain('class="mappage"');
+    expect(pick.text).toContain('data-map="');
     expect(pick.text).toContain("Open map");
     expect(pick.text).not.toContain('<p class="hint">The centre now:');
   });
@@ -265,7 +275,7 @@ describe("moving an area's centre by map (517-B)", () => {
     for (const pos of [{ lat: "abc", lng: "24.9" }, { lat: "38.5", lng: "24.9" }, { lat: "37.44", lng: "26.0" }]) {
       const res = await sendTo("/api/team/areas", team.cookie, { op: "move", key: "kini", ...pos });
       expect(res.status, JSON.stringify(pos)).toBe(400);
-      expect(res.text, JSON.stringify(pos)).toContain("That&#39;s off Syros. Tap a spot on the island.");
+      expect(res.text, JSON.stringify(pos)).toContain("That&#39;s off Syros. Choose a spot on the island.");
       expect(res.text).not.toContain("Type the latitude");
       expect(res.text).not.toContain("Check the l");
     }
@@ -274,12 +284,31 @@ describe("moving an area's centre by map (517-B)", () => {
   it("a pick off the island is refused with the plain line", async () => {
     const res = await sendTo("/api/team/areas/kini/centre/pick", team.cookie, { lat: "38.5", lng: "26.0" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(res.text).toContain("That&#39;s off Syros. Choose a spot on the island.");
   });
 
-  it("an unknown area is a 404, and a cat guardian gets 403 on all three routes", async () => {
+  it("area list is not offered on the area add and move pickers, and an area key sent anyway is no position", async () => {
+    const move = await getPage("/api/team/areas/kini/centre", team.cookie);
+    expect(move.status).toBe(200);
+    expect(move.text).not.toContain('name="area"');
+    expect(move.text).not.toContain('class="areapick"');
+    // The no-map path is the typed numbers alone, open.
+    expect(move.text).toContain('<details class="typedfold" open>');
+    const add = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Nolist"), key: k("nolist") });
+    expect(add.status).toBe(200);
+    expect(add.text).not.toContain('name="area"');
+    expect(add.text).toContain('<details class="typedfold" open>');
+    for (const [path, extra] of [["/api/team/areas/kini/centre/pick", {}], ["/api/team/areas/new/pick", { name: nm("Nolist"), key: k("nolist") }]] as const) {
+      const res = await sendTo(path, team.cookie, { ...extra, area: "ermoupoli" });
+      expect(res.status, path).toBe(400);
+      expect(res.text, path).not.toMatch(/<script/i);
+    }
+  });
+
+  it("an unknown area is a 404, the old zoom and pan route is gone, and a cat guardian gets 403", async () => {
     expect((await getPage("/api/team/areas/no-such-area/centre", team.cookie)).status).toBe(404);
-    for (const path of ["/api/team/areas/kini/centre/map", "/api/team/areas/kini/centre/pick"]) {
+    expect((await sendTo("/api/team/areas/kini/centre/map", team.cookie, { vz: "12", vx: "1", vy: "1" })).status).toBe(404);
+    for (const path of ["/api/team/areas/kini/centre/pick"]) {
       expect((await sendTo(path, guardian.cookie, tap().body)).status, path).toBe(403);
     }
     expect((await getPage("/api/team/areas/kini/centre", guardian.cookie)).status).toBe(403);
@@ -288,20 +317,21 @@ describe("moving an area's centre by map (517-B)", () => {
 
 // SYC-557: "Add an area" takes the centre from a map, like moving one does.
 describe("adding an area by map (SYC-557)", () => {
+  /** What the map's form sends: the pin's spot. */
   const tap = () => {
-    const view = viewAround({ lat: 37.515, lng: 24.985 }, 16);
-    const spot = tapToPosition(view, 179, 190, 190)!;
-    return { spot, body: { view: mintTileToken({ ...view, size: 179 as const }), size: "179", x: "190", y: "190" } };
+    const spot = { lat: 37.515012, lng: 24.985034 };
+    return { spot, body: { lat: String(spot.lat), lng: String(spot.lng) } };
   };
   const hidden = (html: string, name: string) => new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!;
   const sendTo = (path: string, cookie: string, body: Record<string, string>) =>
     request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).set("Accept", "text/html").type("form").send(body);
 
-  it("name and key lead to a map, a tap to a confirmation, and the button adds the area", async () => {
+  it("name and key lead to a map, the pin's spot to a confirmation, and the button adds the area", async () => {
     const key = k("addmap");
     const step1 = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Addmap"), key });
     expect(step1.status).toBe(200);
-    expect(step1.text).toContain('class="mappage"');
+    expect(mapDataIn(step1.text)).toMatchObject({ mode: "place", formId: "pickform" });
+    expect(step1.headers["content-security-policy"]).toContain("script-src 'self'");
     expect(step1.text).toContain(`Where is ${nm("Addmap")}?`);
     expect(step1.text).toContain('action="/api/team/areas/new/pick"');
     expect(step1.text).toContain("<summary>Type a position instead</summary>");
@@ -338,7 +368,7 @@ describe("adding an area by map (SYC-557)", () => {
     const shortName = await sendTo("/api/team/areas/new", team.cookie, { name: "a", key: k("short") });
     expect(shortName.status).toBe(400);
     expect(shortName.text).toContain("Give the area a name of 2 to 40 letters.");
-    expect(shortName.text).not.toContain('class="mappage"');
+    expect(shortName.text).not.toContain("data-map=");
     const used = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Used"), key: "kini" });
     expect(used.status).toBe(400);
     expect(used.text).toContain("That short key is already used. Choose another.");
@@ -350,12 +380,13 @@ describe("adding an area by map (SYC-557)", () => {
   it("a tap off the island is refused with the plain line, and the map keeps the name", async () => {
     const res = await sendTo("/api/team/areas/new/pick", team.cookie, { name: nm("Far"), key: k("far"), lat: "38.5", lng: "26.0" });
     expect(res.status).toBe(400);
-    expect(res.text).toContain("That&#39;s off Syros. Tap a spot on the island.");
+    expect(res.text).toContain("That&#39;s off Syros. Choose a spot on the island.");
     expect(hidden(res.text, "key")).toBe(k("far"));
   });
 
-  it("a cat guardian gets 403 on all three steps", async () => {
-    for (const path of ["/api/team/areas/new", "/api/team/areas/new/map", "/api/team/areas/new/pick"]) {
+  it("a cat guardian gets 403 on both steps; the old zoom and pan route is gone", async () => {
+    expect((await sendTo("/api/team/areas/new/map", team.cookie, { name: nm("G"), key: k("g3"), vz: "12" })).status).toBe(404);
+    for (const path of ["/api/team/areas/new", "/api/team/areas/new/pick"]) {
       expect((await sendTo(path, guardian.cookie, { name: nm("G"), key: k("g2"), ...SEA })).status, path).toBe(403);
     }
   });

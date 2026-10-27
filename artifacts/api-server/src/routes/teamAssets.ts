@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { assetFile } from "../lib/teamAssets";
+import { setTeamHeaders } from "../lib/teamAuth/refuse";
 
 // GET /api/team/assets/:file: the dashboard's own scripts (SYC-396 plan
 // Decision 4; Task 1.3.4). Public bytes, the same for everyone, so no
@@ -14,6 +15,13 @@ import { assetFile } from "../lib/teamAssets";
 
 const router: IRouter = Router();
 
+/**
+ * The one asset that carries the wider security header (SYC-705 Task 2b.4).
+ * A worker's own policy comes from its own response, so MapLibre's worker
+ * needs 'self' for connect-src to fetch map data. Only this name, 200 only.
+ */
+const WORKER_ASSET = /^maplibre-gl-worker\.[0-9a-f]{12}\.mjs$/;
+
 export const ASSET_CACHE = "public, max-age=31536000, immutable";
 
 router.get("/team/assets/:file", (req: Request, res: Response) => {
@@ -24,6 +32,9 @@ router.get("/team/assets/:file", (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(404).type("text/plain").send("Not found");
     return;
+  }
+  if (typeof name === "string" && WORKER_ASSET.test(name)) {
+    setTeamHeaders(res, { scripts: true }); // sets no-store; the next line replaces it
   }
   res.setHeader("Cache-Control", ASSET_CACHE);
   res.setHeader("Content-Type", file.type);

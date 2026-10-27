@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitView, mergeSameSpot, type MapMarker } from "./map";
-import { BANDS, GRID, clampView, latToTileY, lngToTileX, pointOnView, type Position } from "../mapTiles/geometry";
+import { mergeSameSpot, type MapMarker } from "./map";
 
 // SYC-602 Task 1.4 (SYC-459 items 1 and 5): the small map of a cat's sightings.
 
@@ -43,31 +42,6 @@ describe("one marker per spot on the small map", () => {
   });
 });
 
-describe("the small map is centred on its points (SYC-459 item 5)", () => {
-  const size = BANDS[0].size;
-  const fits = (v: ReturnType<typeof fitView>, pts: Position[]) =>
-    pts.every((p) => {
-      const at = pointOnView(v, size, p);
-      return at !== null && Math.min(at.left, at.top, GRID * size - at.left, GRID * size - at.top) >= 12;
-    });
-  const away = (v: ReturnType<typeof fitView>, c: Position) =>
-    Math.hypot(v.x + GRID / 2 - lngToTileX(c.lng, v.z), v.y + GRID / 2 - latToTileY(c.lat, v.z));
-
-  it("centres the points among the views that fit them all", () => {
-    // Clusters of several widths, at several places over the island.
-    for (let i = 0; i < 60; i++) {
-      const a = { lat: 37.4 + (i % 10) * 0.012, lng: 24.9 + Math.floor(i / 10) * 0.01 };
-      const w = 0.0004 * (1 + (i % 7));
-      const pts = [a, { lat: a.lat + w * 0.7, lng: a.lng + w }];
-      const c = { lat: a.lat + w * 0.35, lng: a.lng + w / 2 };
-      const v = fitView(pts);
-      expect(fits(v, pts)).toBe(true);
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dy = -2; dy <= 2; dy++) {
-          const other = clampView({ z: v.z, x: v.x + dx, y: v.y + dy });
-          if (fits(other, pts)) expect(away(v, c)).toBeLessThanOrEqual(away(other, c) + 1e-9);
-        }
-      }
-    }
-  });
-});
+// SYC-459 item 5 (the small map centred on its points) was the server's
+// fitView; since SYC-705 the map fits its points in the browser
+// (dashboard-pin.js fitBounds: mapCore.test.ts).
