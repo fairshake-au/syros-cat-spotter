@@ -230,6 +230,32 @@ export async function lockSpotterFirst(tx: DbOrTx, sightingId: number): Promise<
   return deviceOf(tx, sightingId);
 }
 
+/**
+ * {@link lockSpotterFirst} for several sightings at once (a split, or a
+ * multi-select): every spotter's badges lock and credentials row, in device
+ * order, so two moves sharing spotters queue rather than deadlock. Returns
+ * each sighting's device as it stands under the locks (a device a deletion
+ * cleared first is null; a device can only ever be cleared, never changed).
+ */
+export async function lockSpottersFirst(tx: DbOrTx, sightingIds: readonly number[]): Promise<Map<number, string | null>> {
+  const ids = [...new Set(sightingIds)];
+  if (ids.length === 0) return new Map();
+  const before = await tx
+    .select({ id: sightingsTable.id, deviceId: sightingsTable.deviceId })
+    .from(sightingsTable)
+    .where(inArray(sightingsTable.id, ids));
+  const devices = [...new Set(before.map((s) => s.deviceId).filter((d): d is string => d !== null))].sort();
+  for (const device of devices) {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + device}))`);
+    await tx.execute(sql`select device_id from device_credentials where device_id = ${device} for share`);
+  }
+  const after = await tx
+    .select({ id: sightingsTable.id, deviceId: sightingsTable.deviceId })
+    .from(sightingsTable)
+    .where(inArray(sightingsTable.id, ids));
+  return new Map(after.map((s) => [s.id, s.deviceId]));
+}
+
 /** Does this transaction hold the device's badges lock? (pg_locks splits the 64-bit key into two halves.) */
 async function holdsBadgesLock(tx: DbOrTx, device: string): Promise<boolean> {
   const r = await tx.execute<{ held: boolean }>(sql`
