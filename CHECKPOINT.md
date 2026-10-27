@@ -12,4 +12,4 @@ Done:
 Next:
 
 
-6. Full suite + typecheck. 7. Draft PR.
+6. Full suite green (6200 passed), typecheck 0/0/0 (proved can fail). Next: 7. Draft PR.
