@@ -162,7 +162,7 @@ describe("a team note is on the team's cat page, and nowhere else (Review Focus 
       for (const json of [false, true]) {
         const res = await get(path, team.cookie, json);
         const label = `${path} ${json ? "json" : "html"} (${res.status})`;
-        expect(res.status, label).toBe(path === "/api/team/guardian-changes" && !json ? 303 : 200);
+        expect(res.status, label).toBe((path === "/api/team/guardian-changes" && !json) || path === "/api/team/map" ? 303 : 200);
         expect(res.text, label).not.toContain(MARKER);
       }
     }

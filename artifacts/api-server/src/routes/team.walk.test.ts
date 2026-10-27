@@ -294,13 +294,8 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/words": { why: "Words we use (SYC-739): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
-  // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
-  // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
-  // picture is the island only, never a site).
-  "GET /api/team/map": { why: "the team's map page: view_exact_location with no target" },
-  "POST /api/team/map": { why: "zoom, pan, areas on the team's map page: view_exact_location with no target" },
-  "POST /api/team/map/tap": { why: "a tap on the team's map page: view_exact_location with no target" },
-  "GET /api/team/map-tiles/:tile": { why: "a map picture: sees some colony (PR 4.1); the walk's token is unreadable, so 404", except: SEEING },
+  // SYC-209 PR 3.1, the team map; now only the old address, redirected (SYC-705 2b.8).
+  "GET /api/team/map": { why: "the old map address, a 303 to the Cats map view: view_exact_location with no target" },
   // SYC-705 Phase 2 (2b.3), the dashboard's own map files: anyone who sees a colony; the island's
   // map only. The walk's version is too high for any of them, so each answers a no-store 404.
   "GET /api/team/map-data/current": { why: "the map's version: sees some colony (SYC-705 2b.3)", except: SEEING },
@@ -308,12 +303,6 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/map-data/v:version/fonts/:stack/:range.pbf": { why: "a font range: sees some colony; the walk's stack is no stack, so 404 with nothing fetched", except: SEEING },
   "GET /api/team/map-data/v:version/sprites/:file": { why: "the map's symbols: sees some colony; the walk's file is no file, so 404 with nothing fetched", except: SEEING },
   "GET /api/team/map-data/v:version/style-:lang.json": { why: "the map's style: sees some colony; the walk's lang is no lang, so 404", except: SEEING },
-  // SYC-396 PR 1.5, the island map's squares: team-only (the Map is the team's in phase 1).
-  "POST /api/team/map-squares": { why: "tokens for the island map's squares: view_exact_location with no target, so island-only" },
-  "GET /api/team/map-square/:token": {
-    why: "one island map square by its token: view_exact_location with no target; the walk's token is unreadable, so 404",
-    mayCache: "private, max-age=86400",
-  },
   // SYC-209 PR 3.2 and PR 4.1, the Feeding sites pages.
   "GET /api/team/sites": { why: "the Feeding sites page, filtered: sees some colony", except: SEEING },
   "GET /api/team/sites/:id": { why: "one site, filtered in the query: sees some colony; another colony's site is 404", except: SEEING },
@@ -424,8 +413,6 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
   "POST /api/team/my/cats/:id/life-status": { status: "in_care", reason: "walk test" },
   "POST /api/team/issues/:publicId/keep-hidden": { from: "new" },
   "POST /api/team/issues/:publicId/restore": { from: "new" },
-  // A range off Syros: a well-formed ask that gets no tokens.
-  "POST /api/team/map-squares": { z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
 };
 
 /**

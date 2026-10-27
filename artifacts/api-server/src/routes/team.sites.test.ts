@@ -535,7 +535,6 @@ describe("who looked (spec §8)", () => {
     await get("/api/team/sites?retired=1");
     await get("/api/team/sites").set("Accept", "application/json");
     await get("/api/team/map");
-    await post("/api/team/map", { vz: "12", vx: "0", vy: "0", go: "in" });
     await get(`/api/team/colonies/${colonyId}`);
     expect(await allReads()).toBe(before);
   });

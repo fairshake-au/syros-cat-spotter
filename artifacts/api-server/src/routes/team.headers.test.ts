@@ -197,21 +197,9 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "GET /api/team/sites",
   ],
   [
-    "the map page",
+    "the old map address (a redirect)",
     () => request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html"),
     "GET /api/team/map",
-  ],
-  // SYC-396 PR 1.5: the island map's square tokens and squares (JSON and
-  // pictures, so the strict header, never the Cats page's wider one).
-  [
-    "the island map's square tokens",
-    () =>
-      request(app)
-        .post("/api/team/map-squares")
-        .set("Origin", TEAM)
-        .set("Cookie", cookie)
-        .send({ z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 }),
-    "POST /api/team/map-squares",
   ],
   // SYC-705 2b.3: the dashboard's own map files are JSON or bytes, so the strict header.
   [
@@ -269,11 +257,6 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "an unmatched dashboard path, as data (SYC-516 C1)",
     () => request(app).get("/api/team/nope"),
     "GET /api/team/nope",
-  ],
-  [
-    "an island map square with a bad token",
-    () => request(app).get("/api/team/map-square/nope").set("Cookie", cookie),
-    "GET /api/team/map-square/:token",
   ],
   ["My page", () => request(app).get("/api/team/my").set("Cookie", cookie), "GET /api/team/my"],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
@@ -438,7 +421,7 @@ describe("the wider header is the named pages' alone, and exactly this", () => {
     const map = await request(app).get("/api/team/cats?view=map").set("Cookie", cookie).set("Accept", "text/html");
     expect(map.status).toBe(200);
     expect(map.headers["content-security-policy"]).toBe(WIDE_CSP);
-    for (const post of ["/api/team/cats/positions", "/api/team/map-squares"]) {
+    for (const post of ["/api/team/cats/positions"]) {
       const res = await request(app).post(post).set("Origin", TEAM).set("Cookie", cookie).send({});
       expect(res.headers["content-security-policy"], post).toBe(STRICT_CSP);
     }

@@ -57,6 +57,20 @@ const wantsJson = (req: Request) => req.accepts(["html", "json"]) === "json";
 const TIE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /**
+ * GET /api/team/map: the old picture map's address. It is now the Cats page's
+ * map view (SYC-705 2b.8); a link or bookmark to it lands there. Same door as
+ * before, so a signed-out or non-team request is refused as it was.
+ */
+router.get(
+  "/team/map",
+  requireTeam("view_exact_location"),
+  (_req: Request, res: Response) => {
+    setTeamHeaders(res);
+    res.redirect(303, "/api/team/cats?view=map");
+  },
+);
+
+/**
  * GET /api/team/cats: every cat as a filterable photo grid (SYC-396 PR 1.3).
  * `?q=` still finds by name or SYR number, and `?tie=` still chooses a cat for
  * a welfare report. A caller asking for JSON gets the old search answer.

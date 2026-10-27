@@ -64,7 +64,6 @@ describe("positions print only through position.ts (D9)", () => {
       "lib/teamPages/siteFormPages.ts",
       "lib/teamPages/queuePage.ts",
       "lib/teamPages/guardianPages.ts",
-      "routes/teamMap.ts",
       "routes/team.ts",
     ])
       expect(files).toContain(f);
