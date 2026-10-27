@@ -2,7 +2,7 @@
 
 **Status:** Draft for Samuel's approval, 26 October 2026.
 - The first draft covered moving photos only. It was adversarially reviewed (Sonnet critic: 1 blocker, 12 major, 9 minor findings) and every finding was folded in.
-- On 26 October Samuel decided that the "only photo on a cat" case should be designed together with merging, and then that **all of SYC-59** belongs here. This draft adds spotting duplicates and merging, and it is reviewed again before approval.
+- On 26 October Samuel decided that the "only photo on a cat" case should be designed together with merging, and then that **all of SYC-59** belongs here. This draft adds spotting duplicates and merging. A second adversarial review (Sonnet critic: 2 blockers, 8 major, 11 minor) is folded in.
 - Review notes: [`reviews/which-cat-is-which-review.md`](./reviews/which-cat-is-which-review.md).
 
 **Linear:**
@@ -13,7 +13,7 @@
 
 **Amends:**
 - [`cat-record-data-spine.md`](./cat-record-data-spine.md): adds §10.10, changes one sentence in §10.9, and replaces §10.3's "duplicate merge itself is still deferred".
-- [`choose-a-different-cat.md`](./choose-a-different-cat.md) §8.2 and §8.5.
+- [`choose-a-different-cat.md`](./choose-a-different-cat.md) §8.2: the copied answers keep the spotter as author. Its §8.5 rule that a merge doesn't combine colour readings is kept (§4.2).
 - [`add-details-later.md`](./add-details-later.md) §8.
 - [`claiming-a-cat.md`](./claiming-a-cat.md) §16 and [`syc-709-naming-limits.md`](./syc-709-naming-limits.md): who has "met" a cat.
 - [`matching-game.md`](./matching-game.md) §7.2: its "same cat" and "Re-file" buttons become real actions.
@@ -63,19 +63,18 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 
 All six feed **Possible duplicates** (§3.3). None of them changes a cat.
 
-1. **"Are these the same cat?"** (decision D8). A spotter confirms a suggested match for Agatha, and the photo check also suggested Mimi, scoring nearly as high. After the usual questions, the reward screen asks one more, optional: Agatha's and Mimi's main photos side by side, *"These two look alike. Are they the same cat?"*, with **Same cat** · **Different cats** · **Not sure**. The spotter is the one person looking at the actual animal right now.
+1. **"Are these the same cat?"** (decision D8). A spotter confirms a suggested match for Agatha, and the photo check also suggested Mimi, scoring nearly as high. After the usual questions, the reward screen asks one more, optional: Agatha's and Mimi's main photos side by side, *"These two look alike. Are they the same cat?"*, with **Same cat** · **Different cats** · **Not sure**. The spotter has just seen the cat, and the question shows their own photo above the two.
    - It's asked at most once per spot.
    - It's never asked about a pair the team has already decided.
    - It's never asked about a cat recorded as having died.
-2. **A quiet check when a new cat is added.** When a spotter adds a new cat, the app compares its photo with the cats around it. It never blocks the spotter, who may well be right. The new cat goes on the list if any of these is true:
-   - the photo check had suggested a cat and the spotter still chose "New cat";
-   - the photo check failed, which is today's "New cats to check" list (SYC-531);
-   - the photo's fingerprint (`find-from-a-photo-whole-island.md`) looks very like a cat within 1.5 km.
-3. **A nightly look-alike sweep** (decision D11). Each night the app compares the main photos of cats within 1.5 km of each other using their photo fingerprints. Pairs that look very alike join the list, at most 10 new pairs a night, closest look-alikes first.
+2. **A quiet check when a new cat is added.** It never blocks the spotter, who may well be right. The new cat goes on the list if either of these is true:
+   - the photo check had suggested an existing cat and the spotter still chose "New cat";
+   - the photo check failed, so nothing was compared. Those cats are also on "New cats to check" (SYC-531).
+3. **A nightly look-alike sweep** (decision D11). Each night the app compares the main photos of cats within 1.5 km of each other, using the photo fingerprints behind "Find from a photo". Pairs that look very alike join the list, at most 10 new pairs a night, closest look-alikes first. It's an on/off switch on the App switches page. It stays **off until it has been tested** against pairs the team has already decided, because fingerprints compare whole photos, and two cats at the same feeding spot share a background.
 4. **"This might be the same cat as…"** on any cat's page in the app (decision D9). It opens the nearby cats list with search, the same screen as "Find the cat yourself" (`choose-a-different-cat.md` §3.2). The spotter picks the other cat, checks the two side by side, and taps **"Report it"**. They're told *"Thanks. Syros Cats will take a look."*
    - It only offers cats near this one, as hand picks do.
-   - Each phone can send at most 5 reports a day.
-   - The report is never shown publicly.
+   - Each phone can send at most 5 reports a day, and each internet address at most 20.
+   - The report is never shown publicly, and the reply is the same whether or not the team has already looked at that pair.
 5. **The matching game.** A *"Players think Mikis and Ermis are one cat"* row (`matching-game.md` §7.2) is on the list.
 6. **The team's own eye.** Any team cat page has **"Same cat as…"**, which goes straight to the merge screen (§4).
 
@@ -86,10 +85,12 @@ This uses the same ladder as everything else in the record:
 | Level | What puts a pair there | Where it sorts |
 |---|---|---|
 | **Possible** | One report or one check | Lower down the list |
-| **Likely** | Independent agreement. Either two people say "same cat" (different phones, different days), or one person says so and the fingerprints or the photo check agree, or the matching game's "same cat" row | Top of the list |
+| **Likely** | Independent agreement: two people say "same cat" on different days; or one person says so and the nightly sweep found the pair too; or the matching game's "same cat" row | Top of the list |
 | **Same cat** | A team member confirms it and merges | Off the list, merged |
 
 A "different cats" answer from a spotter is recorded and shown to the team, but it never takes a pair off the list on its own.
+
+**Who counts as a person here.** A new phone costs nothing to set up, so a report only counts towards *Likely*, and only earns points, from a phone with at least three matched spots on three different days. Reports from other phones still appear on the list, marked *"new phone"*.
 
 ### 3.3 The Possible duplicates list
 
@@ -98,14 +99,14 @@ The list sits on the dashboard in the "fixing what is wrong" area, below the wel
 - **Each row** shows the two cats side by side: main photo plus two recent photos each, name, SYR number, colours and pattern, colony, and how far apart their map squares are. It also says why the pair is here, in plain words: *"2 spotters said same cat · fingerprints very alike · Mimi was added while the photo check was down"*. Reports from spotters show who sent them (nickname or "a spotter"), so the team can see if one phone is sending a lot.
 - **Three buttons:**
   - **Same cat, merge…** opens the merge screen (§4).
-  - **Different cats** takes the pair off the list. It only comes back if new evidence arrives after that decision: two new people saying "same cat", or a new photo that looks very alike. The pair is never asked about again in "Are these the same cat?".
+  - **Different cats** takes the pair off the list. It only comes back with new evidence after that decision: two new people saying "same cat", or the sweep finding the pair again after one of the cats has a new main photo. The pair is never asked about again in "Are these the same cat?".
   - **Not sure yet** keeps the row and lets the team note what would settle it ("needs a clear face photo of Mimi"). That note shows on both cats' team pages.
 - Order: Likely first, then newest. Rows nobody decides fade from view after 60 days but are kept, like "Matched by hand".
-- **"New cats to check"** (SYC-531) stays as the Home tile. Each of its cats gets the nearby cats' photos beside it, a **"Same as…"** button that opens the merge screen, and a **"Checked, it's new"** button so the list can empty.
+- **"New cats to check"** (SYC-531) is the Home tile for cats added while the photo check was down. Each of its cats shows the nearby cats' photos beside it, a **"Same as…"** button that opens the merge screen, and a **"Checked, it's new"** button so the list can empty.
 
 ### 3.4 Points for finding a duplicate
 
-**When the team merges a pair, everyone who reported it beforehand earns 10 points** (decision D10). That covers people who reported it through "Are these the same cat?" (answering Same) or through "This might be the same cat as…". Each phone earns once per merge, however many times it reported the pair.
+**When the team merges a pair, each phone that reported it before the merge earns 10 points** (decision D10). That covers people who reported it through "Are these the same cat?" (answering Same) or through "This might be the same cat as…". Each phone earns once per pair of cats, ever, however many times it reported the pair and even if the merge is undone and made again. Only phones that count as a person (§3.2) earn.
 
 - The points are counted the moment the merge is saved.
 - The spotter sees an in-app line: *"You spotted that Mimi and Agatha are the same cat. Syros Cats agreed. +10 points."*
@@ -121,13 +122,18 @@ The list sits on the dashboard in the "fixing what is wrong" area, below the wel
 The screen opens from Possible duplicates, "New cats to check", "Same cat as…" on a team cat page, or moving a cat's last sighting (§5.3).
 
 - **The two cats side by side**, with every photo of each, their names, SYR numbers, colonies, sterilised and life status, owners and followers.
-- **"Which record stays?"** (decision D7). The record that stays keeps its name, SYR number, main photo and map spot. The other record's name becomes **"also known as"**. The earlier record is chosen by default, unless its name is still waiting for a spotter (an SYR number), in which case the named one is. The team member can switch it.
+- **"Which record stays?"** (decision D7). The record that stays keeps its name, SYR number, main photo, map spot, colour and markings. The other record's name becomes **"also known as"**. The earlier record is chosen by default, unless its name is still waiting for a spotter (an SYR number), in which case the named one is. The team member can switch it, with two limits:
+  - **A cat with an owner always stays.** An owner never moves from one record to another.
+  - **A record whose name is still pending can't stay when the other has a name.** The team names it first.
 - **"What happens"** is a plain list, shown before anything is saved:
   > **Mimi** becomes part of **Agatha**. Agatha will have 14 sightings (9 + 5).
   > Also known as: Mimi.
   > Sterilised: Likely, from Mimi's clipped ear (was Unknown).
   > Colony: Vaporia. Mimi was in Ano Syros; change it after merging if that's wrong.
+  > Colour: Agatha's (ginger). Mimi was recorded as ginger and white; change it after merging if that's wrong.
+  > Owner: Agatha keeps hers. Mimi has none.
   > 3 people follow Mimi; they'll follow Agatha.
+  > Cat guardian Eleni (Ano Syros) will no longer see this cat; Maria's colony (Vaporia) keeps it.
   > 2 spotters who reported this get 10 points each.
   > The island count goes down by one.
 - **"Why?"** A required short reason, for example *"Same face markings and torn left ear"*.
@@ -140,18 +146,20 @@ The screen opens from Possible duplicates, "New cats to check", "Same cat as…"
 | Their map squares are more than 2 km apart | *"These two are usually seen 3.1 km apart."* |
 | They're in different colonies | *"Mimi is in Ano Syros and Agatha in Vaporia. After merging she'll show as Vaporia."* |
 | One is recorded as having died, and the other has been seen since | *"Mimi is recorded as having died in May. Agatha was seen in September, so the merged record will say alive."* |
-| Both have an owner, and they're different people | **Blocks the merge:** *"Both cats have an owner. Remove one owner first."* Two people both claiming one cat is something for the team to sort out with them. |
+| Only the other record has a colony | *"Only Mimi is in a colony (Ano Syros). After merging, Agatha will be in Ano Syros."* |
+| Both have an owner | **Blocks the merge:** *"Both cats have an owner. Remove one owner first."* Two people both claiming one cat is something for the team to sort out with them. |
 
 ### 4.2 What a merge does
 
 In plain words: **the two records become one, and nothing either record said is lost.**
 
 - **Every sighting of Mimi is filed under Agatha**, each recorded as a move with the reason "merged". So Agatha's photos, "last seen", sighting count and History show them. Every spotter's collection and Spotted stamps show Agatha.
-- **Everything else recorded about Mimi counts for Agatha too**: vet visits, sterilisation, life status, colour, notes, welfare reports. This works through one record, "Mimi is Agatha", which every part of the app reads (§9.3). Nothing is copied or rewritten.
+- **Everything else recorded about Mimi counts for Agatha too**: vet visits and their photos, sterilisation, life status, colony, notes, welfare reports. This works through one record, "Mimi is Agatha", which every part of the app reads (§9.3). Nothing is copied or rewritten.
+- **Colour and markings are the staying record's own** (`choose-a-different-cat.md` §8.5). They describe the main photo, which is Agatha's. If Mimi's said something different, the merge screen showed it, and the team corrects Agatha afterwards if needed.
 - **Sterilised and life status are worked out again over both records together**, by the usual rules. A vet's statement on either record outranks a spotter's clipped ear on either. A sighting of either cat after a "died" statement on the other shows the cat alive.
 - **Names:** Agatha keeps her name. "Mimi" becomes *also known as*. It still finds Agatha in search, and in the "There's already a cat called Mimi" prompt (`choose-a-different-cat.md` §3.1). Nobody can give a new cat the name Mimi while she's part of Agatha.
 - **Followers:** everyone following Mimi now follows Agatha, unless they had unfollowed Agatha before. They see one in-app line: *"Mimi and Agatha turned out to be the same cat. You now follow Agatha."* (decision D4).
-- **Owner:** if only Mimi had an owner, Agatha now has that owner. The waiting periods after an owner lets go of a cat or is removed (`claiming-a-cat.md`) are checked against both records.
+- **Owner:** the staying record keeps its owner, if any. The other never has one (§4.1). The waiting periods after an owner lets go of a cat or is removed (`claiming-a-cat.md`) are checked against both records.
 - **Points and credit:** unchanged for everyone. Both spotters who discovered a record keep the credit for it.
 - **Mimi's page:** opening Mimi in the app (an old link, a notification, a phone that hasn't refreshed yet) shows Agatha's page, with *"Mimi is now part of Agatha's record"* at the top. Mimi drops out of the cat list, the map, the photo check's candidates and the nearby list.
 - **The island count** goes down by one. That's the point.
@@ -169,13 +177,13 @@ In plain words: **the two records become one, and nothing either record said is 
 - Every sighting the merge moved goes back to Mimi.
 - Mimi's statements stop counting for Agatha.
 - Followers the merge added to Agatha are removed, unless they had followed Agatha before the merge.
-- An owner the merge carried over goes back to Mimi.
-- **Sightings filed under Agatha since the merge** stay on Agatha. The undo screen lists them with their photos and a tick box each, *"These were added after the merge. Tick any that are Mimi."* Ticked ones are moved to Mimi.
+- **Answers a spotter added after the merge** to one of Mimi's sightings go back to Mimi with the sighting.
+- **Sightings filed under Agatha since the merge**, and Mimi's sightings the team moved again after the merge, stay where they are. The undo screen lists them with their photos and a tick box each, *"Tick any that are Mimi."* Ticked ones are moved to Mimi.
 - Duplicate-finder points are kept (§3.4). The pair goes back on Possible duplicates marked *"merge undone"*, so it isn't asked about blindly again.
 
 ### 4.5 Chains
 
-If Mimi is merged into Agatha, and Agatha is later merged into Dora, Mimi's records count for Dora too. Undoing the second merge leaves Mimi part of Agatha. Undoing a merge never undoes the merges behind it.
+If Mimi is merged into Agatha, and Agatha is later merged into Dora, Mimi's records count for Dora too. Merges are undone newest first: while Agatha is part of Dora, "Undo merge" on Mimi says *"Undo Agatha's merge into Dora first."* Undoing Agatha's merge leaves Mimi part of Agatha.
 
 ---
 
@@ -302,11 +310,11 @@ Each goes to Samuel one at a time, in plain English, before approval. The recomm
 | D4 | Telling people (the spotter whose photo moved, followers of a merged cat) | A quiet in-app line, no push |
 | D5 | Who can move and merge? | The team (staff and management) only |
 | D6 | The photo that started a cat moves: name, credit and map spot? | Name and credit stay; the map spot moves to the earliest remaining sighting |
-| D7 | Which record stays in a merge, and whose name? | The earlier record and its name, unless its name is still pending; the team can switch |
+| D7 | Which record stays in a merge, and whose name? | The earlier record and its name, unless its name is still pending; the team can switch, but a cat with an owner always stays |
 | D8 | Ask spotters "Are these the same cat?" after a spot? | Yes, at most once per spot, only when two suggested cats look alike |
-| D9 | "This might be the same cat as…" on cat pages for everyone? | Yes, nearby cats only, 5 a day per phone, reports seen by the team only |
-| D10 | Points for reporting a duplicate the team confirms? | 10 points to each phone that reported it first; kept if the merge is undone |
-| D11 | A nightly look-alike sweep? | Yes, at most 10 new pairs a night |
+| D9 | "This might be the same cat as…" on cat pages for everyone? | Yes, nearby cats only, 5 a day per phone, reports seen by the team only; only established phones count towards *Likely* |
+| D10 | Points for reporting a duplicate the team confirms? | 10 points to each established phone that reported it before the merge, once per pair ever; kept if the merge is undone |
+| D11 | A nightly look-alike sweep? | Build it, behind a switch that stays off until tested on decided pairs; at most 10 new pairs a night |
 
 ---
 
@@ -344,6 +352,7 @@ export const sightingMovesTable = pgTable("sighting_moves", {
   movedByAccountId: text("moved_by_account_id"),    // null only once redacted
   roleAtTime: text("role_at_time").notNull(),       // staff | management
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  txid: bigint("txid", { mode: "number" }).notNull().default(sql`txid_current()`), // 9.4
   redactedAt: timestamp("redacted_at", { withTimezone: true }),
 }, (t) => [
   index("sighting_moves_sighting_idx").on(t.sightingId, t.id),
@@ -364,13 +373,15 @@ export const sightingMovesTable = pgTable("sighting_moves", {
   byAccountId: text("by_account_id"),            // replaces the untyped created_by for new rows; null only once redacted
   roleAtTime: text("role_at_time"),
   survivorChosen: text("survivor_chosen"),       // default | switched
-  ownerCarried: boolean("owner_carried").notNull().default(false), // §4.2; undo puts it back
+  txid: bigint("txid", { mode: "number" }).notNull().default(sql`txid_current()`), // 9.4
   redactedAt: timestamp("redacted_at", { withTimezone: true }),
 ```
 
 - A **merge** is `(cat_id = Mimi, canonical_cat_id = Agatha)`.
 - An **undo** is `(cat_id = Mimi, canonical_cat_id = Mimi, supersedes_id = <the merge>)`. That's the shape existing code and tests already expect (`asOf.test.ts`, `claiming.test.ts`).
 - `cat_identity_append_only` is replaced by a trigger that allows only redaction (clear `by_account_id`, stamp `redacted_at`).
+- **Undo newest first (§4.5):** an undo is refused while the merge's survivor is itself merged away by a standing merge (`UNDO_LATER_MERGE_FIRST`).
+- **No resolved sighting is ever filed under a merged-away cat.** The sightings trigger refuses setting `cat_id` to a cat with a standing merge-away row. A constraint trigger on `cat_identity`, deferred to commit, refuses a merge while any resolved sighting still names the merged-away cat. Resolve re-reads the canonical cat after taking its cat lock, and files under the survivor.
 
 ### 9.3 One reader of merges (SYC-410)
 
@@ -381,7 +392,12 @@ export const sightingMovesTable = pgTable("sighting_moves", {
 - Where several rows stand for one cat, the newest wins.
 - `asOf` is honoured.
 
-**Every reader of `cat_identity` uses it**: `loadCatRecords`, `claiming.ts` (the merged-away refusal and `hasMetCat`), `capabilityTargets.ts`, `teamCatList.ts`, `coatReading/due.ts` and `teamMy.ts`. A source test bans any other query on `cat_identity`. This fixes today's bugs:
+**Every reader of `cat_identity` uses it**: `loadCatRecords`, `claiming.ts` (the merged-away refusal and `hasMetCat`), `capabilityTargets.ts` and `teamCatList.ts`, plus `coatReading/due.ts`. A source test bans any other query on `cat_identity`.
+
+**Two more source tests close the gap the review found**, where readers never touch `cat_identity` at all:
+- **Live cats.** One helper, `liveCats` (a cat with no standing merge-away row), is the only way to list or count cats. A source test bans `from(catsTable)` outside an allowlist of single-cat loads by id. That covers `totalCatCount` (the "12 of 142" total), `listCatsWithStats`, `trappingPlan.ts`, `colonyCats.ts`, `reports/progress.ts`, the nightly news walker and the matcher candidate pool.
+- **Statements by cat.** Any read of `observations` by cat id goes through `catsFeeding(cat)`, so it covers every cat merged in. A source test bans `eq(observationsTable.catId, …)` and `inArray(observationsTable.catId, …)` outside an allowlist. The plan lists every current reader. Known ones are `vetVisits.ts` `visitsFor` and its photos, `reports/vetCosts.ts`, `teamColonies.ts`, `colonyMembership.ts`, `movedAway.ts`, `guardianChanges.ts`, `dashboard/colonyFigures.ts`, `routes/cats.ts` (care timeline), `teamCorrections.ts` and `welfareTie.ts`. The same goes for cat-keyed tables: `vet_visit_photos`, `vet_batch_cats` and `teamOnlyPhotos.ts`.
+- **Kept to the staying record by design:** `coat` and `markings` (§4.2). `catsFeeding` takes an `exclude: ["coat", "markings"]` option, and `resolveCoat`/`resolveMarkings` read only the survivor's own rows. This fixes today's bugs:
 - `loadCatRecords` still folds in an undone merge.
 - `due.ts` mistreats an undone merge.
 - Every reader except `canonicalCats` goes one level only.
@@ -392,7 +408,9 @@ export const sightingMovesTable = pgTable("sighting_moves", {
 |---|---|
 | `GET /cats` (`listCatsWithStats`), public map data | Leave out merged-away cats |
 | `GET /cats/:id` | For a merged-away id, return the survivor's page with `mergedFrom: { id, name }`. The phone shows "Mimi is now part of Agatha's record" |
-| Matcher candidate pool (`routes/sightings.ts`), `findFromPhoto.ts`, the nearby list | Leave out merged-away cats |
+| Matcher candidate pool (`routes/sightings.ts`), `findFromPhoto.ts`, the nearby list | Leave out merged-away cats (`liveCats`) |
+| `matcherHealth.ts` miss scoring, the matching game's judgements and deck retirement (`matching-game.md` §4.2) | Compare canonical cats |
+| Nightly news walker (`lib/news/nightly.ts`) | Skip merged-away cats. Re-baseline the survivor at merge time, so the combined timeline can't produce a false "seen again" |
 | `POST /sightings/:id/resolve` with a `catId`, follow, `POST /cats/:id/name`, let-go, `PATCH /cats/:id`, and team correction routes | Act on the survivor (`canonicalCatOf`). Name and claim actions on a merged-away id are refused with `MERGED`, plus the survivor's id |
 | `writeObservation` same-cat checks (the two `TODO(SYC-59)`s) | Compare canonical cats |
 | `agreeWithClip` | Resolve the canonical cat and lock it |
@@ -400,12 +418,12 @@ export const sightingMovesTable = pgTable("sighting_moves", {
 | `welfare_reports` readers on a cat page, `cat_updates`/notifications list | Show under the survivor (by `catsFeeding`) |
 | `searchTeamCats`, the move and merge search | Match current names and every name of a merged-in cat ("also known as"). A merged-away cat shows as "Mimi (now part of Agatha)" |
 | Name-taken prompt (`catNames.ts` NAME_TAKEN holder) | Names the survivor |
-| `newCatsAfterFailedCheck` (New cats to check) | Leave out merged-away cats and cats marked "Checked, it's new" |
+| `newCatsAfterFailedCheck` (New cats to check) | Leave out merged-away cats and cats in `new_cat_checks` |
 | Phone cache | No change needed. The next `GET /cats` drops Mimi, and an old link opens Agatha through `GET /cats/:id` |
 
 ### 9.4 Database guards
 
-All guards prove "in this move" or "in this merge" through a **transaction-local setting**, never by finding an older row. The writer calls `set_config('app.sighting_move_id', …, true)` or `('app.cat_merge_id', …, true)` after inserting its row. Each trigger below checks that a row with that id **was inserted by this transaction** (`xmin = txid_current()`) and matches.
+All guards prove "in this move" or "in this merge" through a **transaction-local setting**, never by finding an older row. The writer calls `set_config('app.sighting_move_id', …, true)` or `('app.cat_merge_id', …, true)` after inserting its row. Each trigger below checks that the row with that id has `txid = txid_current()` (the column defaults to it at insert; `xmin` is not used, because it is a different type and differs inside a savepoint) and matches.
 
 - **`sighting_moves_append_only`:** refuses DELETE and TRUNCATE, and refuses every UPDATE except redaction.
 - **`sightings_append_only`** gains its own branch:
@@ -420,9 +438,10 @@ All guards prove "in this move" or "in this merge" through a **transaction-local
 
 - New column `observations.sighting_move_id`, nullable, no foreign key.
 - **The spotter's rows (copied):** the copy takes every column of the original except `cat_id` (the new cat), `supersedes_id` (the original), `supersede_reason = 'moved'` and `sighting_move_id`. `ear_tip` is a ranked kind, so `writeObservation` refuses cross-cat supersession. The move's own writer, `writeMovedObservation`, is the only code allowed to set `sighting_move_id`, and a source test bans every other writer.
-- **Everyone else's rows on the sighting (withdrawn):** a `{ retracted: true }` row on the old cat, of the same kind, superseding the original. It carries the mover as author, `supersede_reason = 'moved'`, `sighting_move_id`, **the sighting's id and the original row's `observed_at`**, so it is never evidence of life. Only `writeMovedObservation` may write it, and only for a row carrying the moved sighting's id.
+- **Everyone else's rows on the sighting (withdrawn):** a `{ retracted: true }` row on **the original row's own cat id** (after a merge that may be the merged-away cat, never a cross-cat write), of the same kind, superseding the original. It carries the mover as author, `supersede_reason = 'moved'`, `sighting_move_id`, **the sighting's id and the original row's `observed_at`**, so it is never evidence of life. Only `writeMovedObservation` may write it, and only for a row carrying the moved sighting's id.
 - **How the old cat stops counting a copied row:** `loadCatRecords` adds, for each cat it loads, rows on cats outside that cat's group that replace one of its rows and carry a `sighting_move_id`. These are marked `elsewhere: true`. Existing supersession checks (`isActive`, `supersedeChains`) then work unchanged, History can show "now on Agatha", and no fold counts an `elsewhere` row. The `welfare_report`-only cross-cat query becomes the same mechanism.
 - **A merge's moves copy nothing.** The merged-away cat's statements already count for the survivor through §9.3. On undo they stop counting the same way, so copying would count them twice.
+- **Undo copies one thing:** a statement written on the survivor after the merge that carries the id of a sighting the undo moves back (a late answer). It's copied to the merged-away cat with ordinary move semantics, and listed on the undo screen.
 
 **Readers that load statements without `loadCatRecords`**, each changed and tested:
 
@@ -455,7 +474,7 @@ export const duplicateDecisionsTable = pgTable("duplicate_decisions", {
   id: serial("id").primaryKey(),
   catLow: integer("cat_low").notNull(),
   catHigh: integer("cat_high").notNull(),
-  decision: text("decision").notNull(),          // merged | different | not_sure | checked_new | merge_undone
+  decision: text("decision").notNull(),          // merged | different | not_sure | merge_undone
   mergeId: integer("merge_id"),                  // with merged, merge_undone
   note: text("note"),
   byAccountId: text("by_account_id"),
@@ -464,16 +483,21 @@ export const duplicateDecisionsTable = pgTable("duplicate_decisions", {
 });
 ```
 
-- **Both are add-only.** A pair's state is its newest decision. Reports newer than a "different" decision reopen it only by the rule in §3.3.
+- **"Checked, it's new"** is about one cat, so it has its own add-only table, `new_cat_checks (cat_id, by_account_id, created_at, redacted_at)`.
+- **Both are add-only.** A pair's state is its newest decision. A "different" pair reopens only with two `same` reports from counting phones dated after the decision, or a `sweep` report made after one of the two cats' main photo changed after the decision. The sweep skips a decided pair otherwise.
+- **A counting phone** has at least three resolved sightings on three different Syros days. The ladder and the points use only counting phones' reports.
 - **Reports from a deleted spotter** are severed like sightings (§8 of the data spine): the device is cleared and `redacted_at` stamped. Each cleared report still counts as evidence, and all of one person's cleared reports count as one voice.
 - **Ladder (§3.2), worked out on read:**
-  - *Likely* = two `same` reports from different devices on different Syros days; or one `same` plus a `score` of at least 0.8, or plus the photo check having suggested both cats at or above 0.4 for one sighting; or a `game` report.
+  - *Likely* = two `same` reports from different counting phones on different Syros days; or one `same` plus a `sweep` report; or a `game` report.
+  - The photo check's near-tie (below) only decides whether to **ask**. Two look-alikes scoring close is exactly what two different cats produce, so it's never evidence on its own.
   - *Possible* = anything else open.
 - **"Are these the same cat?"** is offered in the resolve response (`duplicateQuestion: { catId, otherCatId }`) when both cats are in the sighting's stored suggestions at or above 0.4, within 0.15 of each other, neither is deceased, and the pair has no decision. One answer per sighting, sent with the other answers (`POST /sightings/:id/answers`, `duplicate: "same" | "different" | "not_sure"`).
-- **"This might be the same cat as…":** `POST /cats/:id/duplicate-report { otherCatId }`. The other cat must be in the reporting phone's nearby set for this cat (§3.1 point 4). There's a limit of 5 a day per device, shared with nothing else. It's refused for a pair already merged.
-- **New cat check:** after a new cat's fingerprint is saved, a `new_cat_check` report is written for each cat within 1.5 km scoring at least 0.8, or for the stored suggestions the spotter passed over.
-- **Nightly sweep:** pairs of cats whose map squares are within 1.5 km, compared by main-photo fingerprint. It writes `sweep` reports for the 10 highest scores of at least 0.85 that have no decision and no `sweep` report in the last 90 days.
+- **"This might be the same cat as…":** `POST /cats/:id/duplicate-report { otherCatId }`. The other cat must be in the reporting phone's nearby set for this cat (§3.1 point 4). The limits are 5 a day per device and 20 per address (`lib/limits.ts`). The response is the same `202` whatever the pair's state, so the route never reveals a team decision.
+- **New cat check:** at resolve with `new_cat`, a `new_cat_check` report is written for each stored suggestion at or above 0.4 that the spotter passed over (`sighting_matches.suggested`). A cat added with `matcher_failed` is on "New cats to check" instead. No fingerprint is needed at this point.
+- **Nightly sweep:** behind the app switch `duplicate_sweep`, off by default. It compares pairs of live cats whose map squares are within 1.5 km, by main-photo fingerprint, skipping cats with no fingerprint. It writes `sweep` reports for the 10 highest-scoring pairs above `SWEEP_THRESHOLD` that have no decision (or qualify under the reopen rule) and no `sweep` report in the last 90 days.
+- **The threshold is calibrated, not guessed.** Fingerprints are whole-photo comparisons, checked so far only for "the right cat is in the top 20", and backgrounds sway them. Before the switch is turned on, `SWEEP_THRESHOLD` is set from pairs the team has decided (merged or "different"). The acceptance test: on those pairs, at least 3 in 4 of the sweep's top 10 would have been "same cat".
 - **Capabilities:** `review_duplicates` (island, TEAM) for the list, and `merge_cats` (island, TEAM) for merging and undoing. Both are added to `roles-and-invites.md` §6.2.
+- **Names shown as "also known as"** are only ever the merged-away cat's current name, which has already passed the name checks. A name the team replaced is never shown.
 
 ### 9.7 The routes
 
@@ -521,31 +545,31 @@ A merge locks every sighting of the merged-away cat. The answers route re-reads 
 8. After commit, best effort: fill the match record's team step.
 
 **Merge steps:**
-1. Resolve both canonically. Refuse `SAME_CAT`, `ALREADY_MERGED`, `TWO_OWNERS` and `STALE` (sighting counts changed).
+1. Resolve both canonically. Refuse `SAME_CAT`, `ALREADY_MERGED`, `TWO_OWNERS`, `OWNER_MUST_STAY` (the merged-away cat has an owner) and `NAME_PENDING_MUST_GO` (§4.1). After taking the cat locks, re-read the merged-away cat's resolved sightings and refuse `STALE` if the counts changed.
 2. Insert the `cat_identity` row and set the setting.
 3. For every resolved sighting filed under the merged-away cat, insert a move row (`reason = 'merged'`, `merge_id`) and change its `cat_id`. No statements are copied.
-4. Copy follows: insert `cat_subscriptions (device, survivor)` for each follower of the merged-away cat, `ON CONFLICT DO NOTHING`, skipping devices in `cat_unfollows` for the survivor. Record each inserted pair in `merge_follow_adds (merge_id, device_id)`. Unfollows of the merged-away cat are copied the same way.
-5. Owner: if only the merged-away cat has one, set the survivor's owner fields from it and set `owner_carried`. Then clear them on the merged-away cat, so one owner is never on two records.
-6. Write a `duplicate_decisions` row `merged`. Award 10 points to each device with a `same` report from `spotter_question` or `cat_page` on this pair dated before the merge, once per device per merge, as `points_ledger` rows with `source = 'duplicate'` and `duplicate_merge_id` set (§9.8).
+4. Copy follows: insert `cat_subscriptions (device, survivor)` for each follower of the merged-away cat, `ON CONFLICT DO NOTHING`, skipping devices in `cat_unfollows` for the survivor and `deleted:` devices. Copy unfollows the same way. Record each row actually inserted in `merge_follow_changes (merge_id, device_id, kind: "follow" | "unfollow", row_created_at)`. That table is in the deletion sweep (§9.11).
+5. Owners are never copied (§4.1).
+6. Write a `duplicate_decisions` row `merged`. Award 10 points to each counting phone with a `same` report from `spotter_question` or `cat_page` on this pair dated before the merge, once per device per pair ever, as `points_ledger` rows with `source = 'duplicate'` (§9.8).
 7. Reset both cats' news baselines without sending anything.
 8. Write the in-app lines (D4, D10).
 
 **Undo steps:** the reverse.
+- Refuse `UNDO_LATER_MERGE_FIRST` (§9.2).
 - Insert the undo `cat_identity` row.
-- Move back every sighting whose newest move row is this merge's `merged` move (`reason = 'merge_undone'`), and move `alsoMoveSightingIds` with ordinary move semantics.
-- Delete the `cat_subscriptions` rows listed in `merge_follow_adds` that still exist. The merge added them, so removing them restores the state before the merge.
-- Put the owner back if `owner_carried`.
+- Move back every sighting whose newest move row is this merge's `merged` move (`reason = 'merge_undone'`). Copy late answers (§9.5). Move `alsoMoveSightingIds` (post-merge sightings and ones moved again since) with ordinary move semantics.
+- Remove the follow and unfollow rows in `merge_follow_changes` that still exist **with the same `created_at`**. A row someone removed and made again after the merge is theirs, and stays.
 - Write a `duplicate_decisions` row `merge_undone`.
 
 ### 9.8 Points
 
-`points_ledger.sighting_id` becomes nullable. A new `duplicate_merge_id` column is added, with a CHECK that exactly one of the two is set, and a unique index on `(device_id, duplicate_merge_id)`. The once-a-day index stays scoped to sighting rows (`where sighting_id is not null and points > 0`). `profiles.points` goes up in the same transaction, under the badges lock. Undo never removes these rows.
+`points_ledger.sighting_id` becomes nullable. New columns `duplicate_cat_low` and `duplicate_cat_high` are added, with a CHECK that either `sighting_id` or both of them are set, and a unique index on `(device_id, duplicate_cat_low, duplicate_cat_high)`. So undoing and re-making a merge never pays twice. The once-a-day index stays scoped to sighting rows (`where sighting_id is not null and points > 0`). `profiles.points` goes up in the same transaction, under the badges lock. Undo never removes these rows.
 
 ### 9.9 "Has met this cat"
 
 `hasMetCat(exec, catId, deviceId, purpose: "name" | "claim")`:
 - **Compares canonical cats on both sides.** A sighting the spotter matched to Mimi still counts for Agatha after the merge, because it was filed by a merge move and Mimi is Agatha.
-- **The "no match record" case** leaves out sightings that have a non-merge move row.
+- **The "no match record" case** leaves out sightings that have a move row other than `merged` or `merge_undone`. Those two only follow a merge, so they count like the sighting's original filing.
 - **One exception, for `purpose: "name"`:** while the cat's name is pending, a sighting counts when its newest move row has `made_new_cat`, `let_spotters_name` and `to_cat_id` equal to its current cat.
 
 ### 9.10 Reading the past
@@ -556,7 +580,7 @@ A merge locks every sighting of the merged-away cat. The answers route re-reads 
 
 ### 9.11 Deleting a person
 
-- **A spotter:** the existing sweep by device id finds copied statements, split-out sightings and `duplicate_reports`. The §9.7 locks mean a move or merge can't write a copy after the sweep.
+- **A spotter:** the existing sweep by device id finds copied statements, split-out sightings, `duplicate_reports` and `merge_follow_changes`. The §9.7 locks mean a move or merge can't write a copy after the sweep.
 - **A team member:** clears `sighting_moves.moved_by_account_id`, `cat_identity.by_account_id` and `duplicate_decisions.by_account_id`, and stamps `redacted_at`. The same change adds clearing `observations.account_id` for a deleted team member, which isn't written yet for any statement.
 
 ### 9.12 News
@@ -587,11 +611,13 @@ The repeat-upload check in `POST /sightings` orders by `id` and leaves out split
 **Merges**
 
 14. After a merge, the survivor's sterilised, life status, last seen and sighting count equal those of one cat holding both records. Mimi is gone from `GET /cats`, the matcher pool and the nearby list. `GET /cats/Mimi` returns Agatha with `mergedFrom`.
-15. **Merge then undo, for every reader in §9.3:** each one agrees with the state before the merge. This is the SYC-410 test.
-16. Chains: Mimi→Agatha→Dora counts for Dora. Undoing Agatha→Dora leaves Mimi in Agatha. A loop is refused.
-17. Followers move without duplicates, and unfollows win. Undo removes only the follows the merge added.
-18. One owner carries over and back. Two owners are refused. The claim waits are checked across both records.
-19. Duplicate-finder points: 10 once per phone, only for reports dated before the merge, and kept after an undo.
+15. **Merge then undo, for every reader in §9.3, including `visitsFor`, vet-visit photos, `totalCatCount` and the colony readers:** each one agrees with the state before the merge. This is the SYC-410 test. The two source tests in §9.3 fail on a new reader that bypasses `liveCats` or `catsFeeding`.
+16. Chains: Mimi→Agatha→Dora counts for Dora. Undoing Mimi→Agatha first is refused. Undoing Agatha→Dora leaves Mimi in Agatha. A loop is refused.
+16a. A resolve racing a merge never leaves a resolved sighting on the merged-away cat. The deferred check refuses the merge, or the resolve files under the survivor.
+16b. A late answer added after the merge goes back with its sighting on undo.
+17. Followers move without duplicates, unfollows win, and `deleted:` devices are skipped. Undo removes only rows the merge added that are unchanged since.
+18. The record with an owner must stay, and two owners are refused. The claim waits are checked across both records. Colour and markings after a merge are the survivor's own.
+19. Duplicate-finder points: 10 once per phone per pair, ever, only from counting phones and reports dated before the merge, kept after an undo, and not paid again on a re-merge.
 20. A spotter who matched Mimi has "met" Agatha after the merge, for naming and claiming.
 21. "Also known as": search and the name-taken prompt find Agatha by "Mimi". A new cat can't be named Mimi.
 22. Undo moves back only the merge's own moves. Ticked post-merge sightings move to Mimi.
@@ -600,7 +626,7 @@ The repeat-upload check in `POST /sightings` orders by `id` and leaves out split
 
 23. "Are these the same cat?" is offered only under §9.6's rule, at most once per sighting, and never for a decided pair.
 24. The "This might be the same cat as…" limit and the nearby rule. Reports are never in a public payload.
-25. The ladder: two spotters on the same day from one phone stay *Possible*. A "different" decision is reopened only by new evidence.
-26. The sweep writes at most 10 pairs, skips decided pairs, and never writes about a merged-away cat.
+25. The ladder: one "Are these the same cat?" answer stays *Possible*. New phones never make *Likely*. A "different" decision is reopened only by the rule in §9.6.
+26. The sweep does nothing while its switch is off, writes at most 10 pairs, skips decided pairs and cats with no fingerprint, and never writes about a merged-away cat. The calibration acceptance test runs before it is switched on.
 27. "As of" a date before a move or merge shows the record as it stood then.
 28. A deleted team member's moves, merges and decisions are kept, with who made them cleared.

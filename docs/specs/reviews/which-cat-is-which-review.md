@@ -48,3 +48,31 @@ The full report is in the session notes folder (`syc-150-review.md`). It found 1
 | 22 | "Today…" phrasing in the product sections and jargon in §4 | Minor | Rewritten; the ticket comparison moved here |
 
 Not checked by the reviewer: `photo_fingerprints` internals (they hold no cat id, so they follow the photo), the matching game's vote storage, and how `catHistory.ts` draws a row. The plan covers the last one.
+
+## Second adversarial review: duplicates and merging (Sonnet critic, 26 October 2026)
+
+This review ran after Samuel brought all of SYC-59 into the spec. The full report is in the session notes folder (`syc-59-review.md`). It found 2 blockers, 8 major and 11 minor issues. All are folded in:
+
+| # | Finding | Severity | Where it's fixed |
+|---|---|---|---|
+| 1 | Undoing a merge in the middle of a chain corrupted the record | Blocker | §4.5 and §9.2: undo the newest merge first; test 16 |
+| 2 | Many readers never touch `cat_identity` (vet visits, colonies, the island total, trapping plan, reports, news) | Blocker | §9.3: `liveCats` and `catsFeeding` helpers, two source tests; test 15 |
+| 3 | A late answer added after a merge stayed on the survivor after undo | Major | §4.4, §9.5; test 16b |
+| 4 | The ladder was circular: one "Are these the same cat?" answer was always *Likely* | Major | §3.2, §9.6: the near-tie decides only whether to ask; test 25 |
+| 5 | Fingerprint thresholds of 0.8 and 0.85 were a different, uncalibrated scale | Major | §3.1, §9.6: the new-cat check uses the photo check's scores; the sweep sits behind a switch with a calibration test; D11 |
+| 6 | A resolve racing a merge could leave a sighting on the merged-away cat | Major | §9.2 database guard and deferred check, §9.7 re-read; test 16a |
+| 7 | An owner copied in a merge couldn't be put back on undo | Major | §4.1: the record with an owner always stays, and owners are never copied |
+| 8 | Points and the ladder could be farmed with new phones or by re-merging | Major | §3.2 counting phones, §9.8 one payment per pair ever, an address limit; tests 19 and 25 |
+| 9 | `xmin = txid_current()` doesn't work (wrong type, savepoints) | Major | §9.1, §9.2 `txid` column, §9.4 |
+| 10 | A merge could silently take a cat out of a guardian's colony | Major | §4.1 warning and preview line; colony folds through `catsFeeding` |
+| 11 | Owner side effects missing from the preview | Minor | §4.1 preview |
+| 12 | The withdrawal row after a merge would be cross-cat | Minor | §9.5: written on the original row's own cat |
+| 13 | "Checked, it's new" didn't fit a pair table; the reopen rule had no mechanism | Minor | §9.6 `new_cat_checks` and the reopen rule |
+| 14 | Colour folding contradicted `choose-a-different-cat.md` §8.5 | Minor | §4.2, §9.3: colour and markings stay the survivor's own |
+| 15 | Stale section references | Minor | Spine §10.9 and §10.10, §9.3 reader list |
+| 16 | "Today's list" wording; "the one person looking right now" overclaimed | Minor | §3.1 |
+| 17 | The follow-copy table was undefined, outside the deletion sweep, and undo removed re-follows | Minor | §9.7 `merge_follow_changes`, §9.11; test 17 |
+| 18 | Matcher health, the matching game and "has met" needed canonical cats | Minor | §9.3 table, §9.9 |
+| 19 | "Also known as" names; a pending-name record staying | Minor | §4.1, §9.6 |
+| 20 | The nightly news still walked merged-away cats | Minor | §9.3 table |
+| 21 | The undo screen missed sightings moved again since the merge | Minor | §4.4, §9.7 |
