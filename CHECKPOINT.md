@@ -32,6 +32,9 @@ Branch: claude/syc-150-pr2.1-migration. Migration: lib/db/migrations/0053_moves_
 | P19 | once-a-day index back unscoped | db C4 test; api-server pointsLedger.test (both tests, unique violation) |
 | P20 | awardPoints pre-check unscoped | api-server pointsLedger.test (both) |
 | P21 | merged-away check ignores undo | accepts a merge ... and its undo |
+| P22 | cat_identity_supersedes_own_cat: drop m.cat_id = NEW.cat_id (coordinator addition) | refuses an undo row that supersedes another cat's merge |
+
+Also done: suite fixes (ISLAND_ROLES, dataSpine wording, unfollowSticks wait filter); supersedes guard + test (30 tests in whichCatIsWhich).
 
 ## Next
 7. Full suites (lib/db, api-server), migrate:check, typecheck. 8. Draft PR.
