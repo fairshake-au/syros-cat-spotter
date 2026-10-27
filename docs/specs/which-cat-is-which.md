@@ -36,8 +36,7 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 | Tool | What it does |
 |---|---|
 | **Move** | Files a sighting under the right cat. |
-| **Move just this photo** | Takes one photo out of a spot and makes it a sighting of the right cat. |
-| **Move to a new cat** | Starts a new cat from the photo. Moving several sightings at once splits one record into two cats. |
+| **Move to a new cat** | Starts a new cat from the sighting. Moving several sightings at once splits one record into two cats. |
 | **Merge** | Makes two records of one cat into one. |
 | **Undo** | Any of the above can be undone. Nothing is ever deleted. |
 
@@ -52,7 +51,7 @@ This spec gives Syros Cats one set of tools for both, on the dashboard:
 | Who | What they can do |
 |---|---|
 | **Spotters** (in the app) | Answer "Are these the same cat?" after a spot. Tap "This might be the same cat as…" on a cat's page. Play the matching game. |
-| **The Syros Cats team** (on the dashboard; staff and management) | Move, split, make a new cat, merge, undo. Work through Possible duplicates. |
+| **The Syros Cats team** (on the dashboard; staff and management) | Move, make a new cat (or split a record into two), merge, undo. Work through Possible duplicates. |
 | **Cat guardians and vets** | Nothing new in this version (decision D5). A guardian can still report a duplicate from the app like any spotter. |
 
 ---
@@ -193,7 +192,7 @@ If Mimi is merged into Agatha, and Agatha is later merged into Dora, Mimi's reco
 
 There are four ways in, all leading to the same move screen:
 
-1. **A cat's History** (`team-cat-page-redesign.md` §3.5). A sighting row's ⋯ menu has **"Move to a different cat…"** and **"Move to a new cat"**, and tick boxes let the team move several sightings at once. A spot with more than one photo also has **"Move just this photo…"** on each photo except its cover photo.
+1. **A cat's History** (`team-cat-page-redesign.md` §3.5). A sighting row's ⋯ menu has **"Move to a different cat…"** and **"Move to a new cat"**, and tick boxes let the team move several sightings at once.
 2. **"Matched by hand"** (SYC-152): its **Different cat…** and **It's a new cat** buttons.
 3. **Report an issue**: a "That's a different cat" report has **"Move to the right cat"**. Moving the photo closes the report as done.
 4. **The matching game's "Players think this sighting isn't Mikis" row** (`matching-game.md` §7.2): its **Re-file** button.
@@ -242,16 +241,11 @@ The team member types a name, or ticks **"Let spotters name it"** (decision D3).
 
 **Splitting a record into two:** tick several of a cat's sightings, then "Move to a new cat". The first ticked sighting (the oldest) starts the new cat, and the rest are moved to it, all in one step with one reason.
 
-### 5.6 Moving one photo out of a spot (decision D2)
+### 5.6 A spot's photos move together (decision D2, answered)
 
-A spot can hold a first photo, a face photo and a body photo (SYC-415). Its cover photo is the one it's filed by.
+A spot can hold a first photo, a face photo and a body photo (SYC-415), all meant to be the same cat. **A move always takes the whole spot**, with all its photos and answers. Single photos are never moved (Samuel, 26 October 2026). If a spot does contain a stray photo of another cat, the team hides that photo, as for any photo that shouldn't be shown.
 
-- **Moving the cover photo moves the whole spot.** If another of its photos really did show the old cat, the team moves that one back afterwards.
-- **Moving any other photo** takes it out of the spot and makes it a **new sighting of its own on the right cat**: same spotter, same place, same time, remembering which spot it came from.
-  - It counts for last seen, the spotter's collection and stamps, and as evidence the cat was alive.
-  - It earns no points.
-  - The spotter's answers stay with the original spot, because they were answering about the cover photo's cat.
-- **A photo is never copied.** It keeps its internal id, so its hidden-and-restored history stays intact. That history is what stops a report hiding a photo the team has deliberately shown again (`report-an-issue.md`, SYC-279).
+**A photo is never copied.** It keeps its internal id wherever its spot goes, so its hidden-and-restored history stays intact. That history is what stops a report hiding a photo the team has deliberately shown again (`report-an-issue.md`, SYC-279).
 
 ### 5.7 What happens to the record
 
@@ -282,7 +276,7 @@ A spot can hold a first photo, a face photo and a body photo (SYC-415). Its cove
 - **Points:** unchanged.
 - **Collection, Spotted stamps, cats-spotted badges:** follow the right cat. Badges already awarded are kept.
 - **Following:** the spotter starts following the right cat, as a match would have done, unless they unfollowed it before. They keep following the old cat.
-- **Claiming and naming:** a sighting the team moved to an existing cat, or a photo split out of a spot, doesn't count as "meeting" that cat (`claiming-a-cat.md` §16, SYC-709). One exception: after "It's a new cat" with "Let spotters name it", the spotter whose photo started the cat may **name** it, but not claim it as theirs (decision D3).
+- **Claiming and naming:** a sighting the team moved to an existing cat, doesn't count as "meeting" that cat (`claiming-a-cat.md` §16, SYC-709). One exception: after "It's a new cat" with "Let spotters name it", the spotter whose photo started the cat may **name** it, but not claim it as theirs (decision D3).
 - **Telling them:** no push. Their own spot shows *"Syros Cats filed this under Agatha"* next time they open it (decision D4).
 
 ---
@@ -305,7 +299,7 @@ Each goes to Samuel one at a time, in plain English, before approval. The recomm
 | # | Question | Recommendation |
 |---|---|---|
 | D1 | The photo would leave a cat with nothing: what then? | **Answered 26 Oct: design it with merging.** The move screen offers the merge (§5.3). |
-| D2 | One photo out of a spot: its own sighting, a photo on the cat, or hide only? | Its own sighting, no points |
+| D2 | One photo out of a spot? | **Answered 26 Oct: don't move single photos; hide a stray one.** A spot always moves whole (§5.6). |
 | D3 | "It's a new cat": who names it? | The team types a name, or lets the spotter who found it name it |
 | D4 | Telling people (the spotter whose photo moved, followers of a merged cat) | A quiet in-app line, no push |
 | D5 | Who can move and merge? | The team (staff and management) only |
@@ -337,9 +331,7 @@ Each goes to Samuel one at a time, in plain English, before approval. The recomm
 // lib/db/src/schema/sightingMoves.ts — add-only; its own guard trigger (9.4)
 export const sightingMovesTable = pgTable("sighting_moves", {
   id: serial("id").primaryKey(),
-  sightingId: integer("sighting_id").notNull(),     // the spot moved, or split from
-  photoId: integer("photo_id"),                     // set only when one photo is split out
-  newSightingId: integer("new_sighting_id"),        // the split-out sighting; set exactly when photoId is
+  sightingId: integer("sighting_id").notNull(),     // the spot moved, with all its photos
   fromCatId: integer("from_cat_id").notNull(),      // canonical ids at the time
   toCatId: integer("to_cat_id").notNull(),
   madeNewCat: boolean("made_new_cat").notNull().default(false),
@@ -356,10 +348,9 @@ export const sightingMovesTable = pgTable("sighting_moves", {
   redactedAt: timestamp("redacted_at", { withTimezone: true }),
 }, (t) => [
   index("sighting_moves_sighting_idx").on(t.sightingId, t.id),
-  index("sighting_moves_new_sighting_idx").on(t.newSightingId),
   index("sighting_moves_merge_idx").on(t.mergeId),
 ]);
-// CHECKs: fromCatId <> toCatId; (photoId is null) = (newSightingId is null);
+// CHECKs: fromCatId <> toCatId;
 // letSpottersName only with madeNewCat; reason merged|merge_undone exactly when mergeId is set;
 // movedByAccountId null only when redactedAt is set.
 ```
@@ -428,11 +419,9 @@ All guards prove "in this move" or "in this merge" through a **transaction-local
 - **`sighting_moves_append_only`:** refuses DELETE and TRUNCATE, and refuses every UPDATE except redaction.
 - **`sightings_append_only`** gains its own branch:
   - **Move:** on a `resolved` sighting whose old `cat_id` is not null, `cat_id` changes from the current move row's `from_cat_id` to its `to_cat_id`. Every other column must be unchanged.
-  - **Split:** an INSERT that arrives `resolved` with a cat, and arrives redacted if its source was, is allowed only when the current move row names its id as `new_sighting_id`. The id is taken first with `nextval`.
   - **A merge moves many sightings**, so the setting holds the merge's id. Each sighting's change needs a move row in this transaction with that `merge_id` and that sighting.
 - **`observations_append_only`:** an INSERT that arrives redacted, or that sets `sighting_move_id`, is allowed only with the current move.
-- **`sighting_photos`:** a split removes the photo's row from the old spot and adds it to the new one as `role = 'first'`, `position = 1`, with the same `photo_id`. The cover photo can never be split out.
-- **A split-out sighting copies** `device_id`, `lat`, `lng`, `created_at`, `area_key`, `on_island` and the redaction stamp, with `photo_id` set to the moved photo.
+- **`sighting_photos` is untouched by a move.** A spot's photos hang off the spot, so they follow it.
 
 ### 9.5 Statements when a sighting moves
 
@@ -506,7 +495,6 @@ export const duplicateDecisionsTable = pgTable("duplicate_decisions", {
 ```ts
 { sightingIds: number[], expectedCatId: number,     // one or more sightings, all on expectedCatId
   toCatId?: number, newCat?: { name?: string, letSpottersName: boolean },
-  photoId?: number,                                  // split this photo out; needs exactly one sightingId
   newMainPhotoId?: number | 0,
   reason, reasonText?, source, reportId? }
 ```
@@ -538,8 +526,8 @@ A merge locks every sighting of the merged-away cat. The answers route re-reads 
    - the position is the sighting's;
    - the main photo is the moved one, or `0` if removed.
 3. Insert the move rows (one per sighting, one `batch_id`) and set the setting.
-4. Change `cat_id`, or split (`nextval`, insert, move the `sighting_photos` row, and a match record `choice = 'unlabelled'`, `chosen_cat_id` = the old cat).
-5. Copy and withdraw statements (§9.5). This is for whole spots only, and never for a merge's moves.
+4. Change each sighting's `cat_id`.
+5. Copy and withdraw statements (§9.5). Never for a merge's moves.
 6. Old cat: set the main photo to `newMainPhotoId`. With `0`, retract the machine colour reading of the moved photo. If the first sighting moved, set `lat`/`lng` to the earliest remaining resolved sighting.
 7. Follow the right cat (skipping a cleared device and the team desk). With `source: "report"`, close the report as done.
 8. After commit, best effort: fill the match record's team step.
@@ -575,23 +563,19 @@ A merge locks every sighting of the merged-away cat. The answers route re-reads 
 ### 9.10 Reading the past
 
 `loadCatRecords(…, { asOf })`, `withHistory` and `resolveAt`:
-- **Each sighting's cat as of a moment** is the `to_cat_id` of its newest move row created by then. Without one, it's the original cat (the first move row's `from_cat_id`, else the current cat). A split-out sighting doesn't exist before its move.
+- **Each sighting's cat as of a moment** is the `to_cat_id` of its newest move row created by then. Without one, it's the original cat (the first move row's `from_cat_id`, else the current cat).
 - **Merges as of a moment** come from `canonicalCatOf(…, { asOf })`.
 
 ### 9.11 Deleting a person
 
-- **A spotter:** the existing sweep by device id finds copied statements, split-out sightings, `duplicate_reports` and `merge_follow_changes`. The §9.7 locks mean a move or merge can't write a copy after the sweep.
+- **A spotter:** the existing sweep by device id finds copied statements, `duplicate_reports` and `merge_follow_changes`. The §9.7 locks mean a move or merge can't write a copy after the sweep.
 - **A team member:** clears `sighting_moves.moved_by_account_id`, `cat_identity.by_account_id` and `duplicate_decisions.by_account_id`, and stamps `redacted_at`. The same change adds clearing `observations.account_id` for a deleted team member, which isn't written yet for any statement.
 
 ### 9.12 News
 
 The nightly check marks a change `silenced` (reason `moved` or `merged`) when the newest evidence behind it is a copied statement, a sighting moved since the cat's last baseline, or a merge since then. Moves and merges also reset the affected cats' baselines.
 
-### 9.13 Upload retries
-
-The repeat-upload check in `POST /sightings` orders by `id` and leaves out split-out sightings.
-
-### 9.14 Tests that must exist
+### 9.13 Tests that must exist
 
 **Moves**
 1. The database refuses a sighting's cat changing with no move or merge in this transaction (including when an older row with the same cats exists), any other column changing in a move, and any update to a move or merge row except redaction.
@@ -604,7 +588,7 @@ The repeat-upload check in `POST /sightings` orders by `id` and leaves out split
 8. The photo keeps its internal id. A photo restored before the move still can't be hidden again by a report.
 9. A main photo moving needs `newMainPhotoId`; `0` gives the placeholder and retracts that photo's colour reading.
 10. When the first sighting moves, the map spot moves and the name and discoverer stay. "Nothing left" gives `MERGE_INSTEAD`.
-11. A split gives a sighting at position 1. It counts for last seen, earns no points, leaves the answers behind and doesn't count as "met". Splitting the cover photo is refused. An upload retry finds the original.
+11. A spot with face and body photos moves whole: every photo follows, and the old cat shows none of them.
 12. Moving several sightings to a new cat starts the cat from the oldest one.
 13. Two moves at once give exactly one success. A move and a late answer at once: the answer lands on the cat the sighting is filed under when it commits.
 
