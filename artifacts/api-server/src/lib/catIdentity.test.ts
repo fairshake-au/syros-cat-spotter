@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { catIdentityTable, catsTable, db, pool } from "@workspace/db";
-import { like } from "drizzle-orm";
-import { MAX_MERGE_HOPS, canonicalCatOf, catsFeeding, catsMergedAway } from "./catIdentity";
+import { inArray, like, sql } from "drizzle-orm";
+import { MAX_MERGE_HOPS, canonicalCatOf, catsFeeding, catsMergedAway, liveCats, notMergedAway, observationCatIn } from "./catIdentity";
 
 // SYC-410 (which-cat-is-which.md §9.3; spec tests 15's core and 16): the one
 // reader of merges, given rows inserted directly into cat_identity.
@@ -225,5 +225,84 @@ describe("canonicalCatOf and catsFeeding", () => {
     expect([...c.entries()].sort()).toEqual([[a, b], [b, b]].sort());
     expect((await canonicalCatOf([])).size).toBe(0);
     expect((await catsFeeding([])).size).toBe(0);
+  });
+});
+
+describe("liveCats, notMergedAway and observationCatIn", () => {
+  /** The live ones among these, by liveCats. */
+  const live = async (ids: number[], asOf?: Date) =>
+    (await liveCats({ id: catsTable.id }, { asOf, where: inArray(catsTable.id, ids) })).map((r) => r.id).sort((a, b) => a - b);
+  /** The same, filtering with notMergedAway on its own. */
+  const liveByFilter = async (ids: number[], asOf?: Date) =>
+    (await db.select({ id: catsTable.id }).from(catsTable).where(sql`${inArray(catsTable.id, ids)} and ${notMergedAway(catsTable.id, { asOf })}`))
+      .map((r) => r.id)
+      .sort((a, b) => a - b);
+  /** The long way: every cat minus catsMergedAway. */
+  const expectedLive = async (ids: number[], asOf?: Date) => {
+    const away = await catsMergedAway(ids, { asOf });
+    return ids.filter((id) => !away.has(id)).sort((a, b) => a - b);
+  };
+  const same = async (ids: number[], asOf?: Date) => {
+    const want = await expectedLive(ids, asOf);
+    expect(await live(ids, asOf)).toEqual(want);
+    expect(await liveByFilter(ids, asOf)).toEqual(want);
+    return want;
+  };
+
+  it("a merge drops the merged-away cat; after the undo she is back", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    const m = await merge(mimi, agatha);
+    expect(await same([mimi, agatha])).toEqual([agatha]);
+    await undo(m, mimi);
+    expect(await same([mimi, agatha])).toEqual(sorted(mimi, agatha));
+  });
+
+  it("a chain drops every cat on the way; a loop and a chain too deep drop nobody", async () => {
+    const a = await cat();
+    const b = await cat();
+    const c = await cat();
+    await merge(a, b);
+    await merge(b, c);
+    expect(await same([a, b, c])).toEqual([c]);
+
+    const x = await cat();
+    const y = await cat();
+    await merge(x, y);
+    await merge(y, x);
+    expect(await same([x, y])).toEqual(sorted(x, y));
+
+    const chain: number[] = [];
+    for (let i = 0; i <= MAX_MERGE_HOPS + 1; i++) chain.push(await cat());
+    for (let i = 0; i <= MAX_MERGE_HOPS; i++) await merge(chain[i]!, chain[i + 1]!);
+    // chain[0] is too deep to follow, so it is not merged away; the rest are.
+    expect(await same(chain)).toEqual(sorted(chain[0]!, chain[MAX_MERGE_HOPS + 1]!));
+  });
+
+  it("asOf: the merges as they stood then", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    await undo(await merge(mimi, agatha, day(5)), mimi, day(8));
+    expect(await same([mimi, agatha], day(4))).toEqual(sorted(mimi, agatha));
+    expect(await same([mimi, agatha], day(6))).toEqual([agatha]);
+    expect(await same([mimi, agatha], day(9))).toEqual(sorted(mimi, agatha));
+  });
+
+  it("liveCats can still be counted", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    await merge(mimi, agatha);
+    const [row] = await liveCats({ n: sql<number>`count(*)::int` }, { where: inArray(catsTable.id, [mimi, agatha]) });
+    expect(row!.n).toBe(1);
+  });
+
+  it("observationCatIn: the cats feeding these, and nothing for none", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    await merge(mimi, agatha);
+    const f = (await catsFeeding([agatha])).get(agatha)!;
+    const ids = (await db.select({ id: catsTable.id }).from(catsTable).where(observationCatIn([f], catsTable.id))).map((r) => r.id);
+    expect(ids.sort((a, b) => a - b)).toEqual(sorted(mimi, agatha));
+    expect(await db.select({ id: catsTable.id }).from(catsTable).where(observationCatIn([], catsTable.id))).toEqual([]);
   });
 });
