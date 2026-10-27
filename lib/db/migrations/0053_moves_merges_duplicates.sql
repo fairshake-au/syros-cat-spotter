@@ -75,6 +75,10 @@ CREATE TABLE "new_cat_checks" (
 );
 --> statement-breakpoint
 ALTER TABLE "notifications" DROP CONSTRAINT "notifications_kind_ck";--> statement-breakpoint
+-- The nightly news check silences a change caused by a move or a merge with
+-- its own reason (which-cat-is-which.md §9.12).
+ALTER TABLE "cat_news_changes" DROP CONSTRAINT "cat_news_changes_reason_ck";--> statement-breakpoint
+ALTER TABLE "cat_news_changes" ADD CONSTRAINT "cat_news_changes_reason_ck" CHECK ("cat_news_changes"."silenced_reason" IS NULL OR "cat_news_changes"."silenced_reason" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk', 'moved', 'merged'));--> statement-breakpoint
 DROP INDEX "points_ledger_once_a_day_uq";--> statement-breakpoint
 ALTER TABLE "points_ledger" ALTER COLUMN "sighting_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "cat_identity" ADD COLUMN "reason_text" text;--> statement-breakpoint
@@ -632,6 +636,11 @@ CREATE TRIGGER "cat_identity_stamp_txid" BEFORE INSERT ON "cat_identity"
 -- END
 -- $$;
 -- DROP FUNCTION "sighting_move_is_current"(integer, integer, integer);
+-- -- A news change already silenced as moved or merged is relabelled old_news, the nearest older
+-- -- reason (a change that was never news), so the old check accepts it.
+-- UPDATE "cat_news_changes" SET "silenced_reason" = 'old_news' WHERE "silenced_reason" IN ('moved', 'merged');
+-- ALTER TABLE "cat_news_changes" DROP CONSTRAINT "cat_news_changes_reason_ck";
+-- ALTER TABLE "cat_news_changes" ADD CONSTRAINT "cat_news_changes_reason_ck" CHECK ("cat_news_changes"."silenced_reason" IS NULL OR "cat_news_changes"."silenced_reason" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk'));
 -- DELETE FROM "notifications" WHERE "kind" IN ('merged', 'duplicate_points');
 -- ALTER TABLE "notifications" DROP CONSTRAINT "notifications_kind_ck";
 -- ALTER TABLE "notifications" ADD CONSTRAINT "notifications_kind_ck" CHECK (("notifications"."kind" = 'cat' and "notifications"."cat_update_id" is not null)
