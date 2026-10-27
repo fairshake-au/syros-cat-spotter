@@ -19,4 +19,5 @@ Review fold-in (coordinator, after #375 opened):
 - R2 done: undo only by a row on the same cat (A2).
 - R3 done (it.fails route): resolveAt comment corrected; reviewer attack file kept, A11 it.fails naming PR 3.1.
 - R4 done: teamMy colony page uses catsMergedAway; loop cats listed (guardianCats test).
-Next: R5 string-aware stripper, R6 probes+suite, R7 PR body.
+- R5 done: guard stripper is string/template aware; evasion-shape test.
+Next: R6 probes+suite, R7 PR body.

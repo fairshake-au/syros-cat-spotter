@@ -43,9 +43,65 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-/** Source with block and line comments removed (a `//` after `:` is a URL, kept). */
+/**
+ * Source with block and line comments removed, read the way the language
+ * does: a `/*` or `//` inside a string or a template literal is text, not a
+ * comment (review of #375, finding 5: a regex stripper let `"src/*.ts"`
+ * swallow the code up to the next comment's end). Template `${…}` holes are
+ * code again. A regex literal holding a quote or `//` could still confuse
+ * it; none names the table, and the guard reads the rest as before.
+ */
 export function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  let out = "";
+  // "template": inside a template literal's text; "brace": a `{` opened in
+  // code inside a template hole (the hole's own `${` included).
+  const stack: ("template" | "brace")[] = [];
+  const n = text.length;
+  let i = 0;
+  while (i < n) {
+    const c = text[i]!;
+    const d = text[i + 1];
+    if (stack[stack.length - 1] === "template") {
+      if (c === "\\") {
+        out += c + (d ?? "");
+        i += 2;
+      } else if (c === "`") {
+        stack.pop();
+        out += c;
+        i += 1;
+      } else if (c === "$" && d === "{") {
+        stack.push("brace");
+        out += "${";
+        i += 2;
+      } else {
+        out += c;
+        i += 1;
+      }
+      continue;
+    }
+    if (c === "/" && d === "/") {
+      while (i < n && text[i] !== "\n") i += 1;
+    } else if (c === "/" && d === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+      out += " ";
+    } else if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (j < n && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === "`") {
+      stack.push("template");
+      out += c;
+      i += 1;
+    } else {
+      if (c === "{" && stack.length > 0) stack.push("brace");
+      else if (c === "}" && stack[stack.length - 1] === "brace") stack.pop();
+      out += c;
+      i += 1;
+    }
+  }
+  return out;
 }
 
 /** Every non-test source file that names the table in code, from the repo root. */
@@ -89,5 +145,23 @@ describe("SYC-410: only lib/catIdentity.ts reads cat_identity", () => {
     expect(withoutComments("/* catIdentityTable */ const y = 2;")).not.toMatch(TERMS[1]!);
     expect(withoutComments("sql`select 1 from cat_identity` // ok")).toMatch(TERMS[0]!);
     expect(withoutComments('const u = "https://example.org"; db.select().from(catIdentityTable)')).toMatch(TERMS[1]!);
+  });
+
+  it("review 5: a `/*` inside a string doesn't hide a query up to the next comment", () => {
+    const evasion = [
+      'const glob = "src/*.ts";',
+      "await db.execute(sql`select 1 from cat_identity`);",
+      "/** a later doc comment */",
+      "export const x = 1;",
+    ].join("\n");
+    expect(withoutComments(evasion)).toMatch(TERMS[0]!);
+    // The same with single quotes, a template, and a template hole.
+    expect(withoutComments("const a = 'x/*y'; db.select().from(catIdentityTable); /* z */")).toMatch(TERMS[1]!);
+    expect(withoutComments("const b = `a/*b`; sql`from cat_identity`; /* c */")).toMatch(TERMS[0]!);
+    expect(withoutComments("const t = `${'/*'}`; sql`from cat_identity`; /* c */")).toMatch(TERMS[0]!);
+    // And a `//` inside a string is not a line comment.
+    expect(withoutComments('const u = "a//b"; sql`from cat_identity`;')).toMatch(TERMS[0]!);
+    // Comments are still removed, including inside a template hole.
+    expect(withoutComments("const t = `${x /* cat_identity */}`; // catIdentityTable")).not.toMatch(/cat_identity|catIdentityTable/);
   });
 });
