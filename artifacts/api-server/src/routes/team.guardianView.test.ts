@@ -6,7 +6,7 @@ import { like } from "drizzle-orm";
 import { northOf } from "../test/feedingSites";
 import { tr } from "../lib/teamPages/strings";
 import { placeLabel } from "../lib/areas/placeLabel";
-import { areaByKey, areaFor } from "../lib/areas/namedAreas";
+import { areaByKey, areaFor, loadAreas } from "../lib/areas/namedAreas";
 import { changeArea } from "../lib/areas/areaWrites";
 import app from "../app";
 import router from "./index";
@@ -801,6 +801,10 @@ describe("SYC-395 (D9): Open map links by viewer", () => {
   });
 
   it("an area name typed with markup is escaped on her cat page, with no link", async () => {
+    // Read the areas from the database first (SYC-756). This file's cache starts as the seed; the
+    // first change reloads it from the shared database, which can hold an area an earlier file left
+    // near this point. Without this load the key came from the seed and the page named the other area.
+    await loadAreas();
     const key = areaFor(37.445, 24.942).key;
     const before = areaByKey(key)!.name;
     await changeArea({ id: staffId }, { kind: "rename", key, name: "<b>Kini</b>" });

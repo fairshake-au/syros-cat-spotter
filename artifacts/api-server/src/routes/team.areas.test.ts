@@ -207,7 +207,9 @@ const mapDataIn = (html: string) =>
 describe("moving an area's centre by map (517-B)", () => {
   /** What the map's form sends: the pin's spot. */
   const tap = () => {
-    const spot = { lat: 37.444712, lng: 24.941734 };
+    // In the sea, near SEA but not on it: the area is left in the shared database for later files, and
+    // a spot on land beside Kini made other files' places read as this area (SYC-756).
+    const spot = { lat: 37.51212, lng: 24.97834 };
     return { spot, body: { lat: String(spot.lat), lng: String(spot.lng) } };
   };
   const hidden = (html: string, name: string) => new RegExp(`name="${name}" value="([^"]*)"`).exec(html)![1]!;
