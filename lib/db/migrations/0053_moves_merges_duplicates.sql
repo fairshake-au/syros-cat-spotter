@@ -412,6 +412,23 @@ DROP TRIGGER "cat_identity_append_only" ON "cat_identity";--> statement-breakpoi
 DROP FUNCTION "cat_identity_append_only"();--> statement-breakpoint
 CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
   FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
+-- A row that supersedes another (an undo) supersedes a row for its own cat.
+-- Otherwise an undo row on Agatha naming Mimi's merge would undo Mimi's
+-- merge, since readers treat any superseded merge as undone.
+CREATE FUNCTION "cat_identity_supersedes_own_cat"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.supersedes_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM "cat_identity" m
+     WHERE m.id = NEW.supersedes_id
+       AND m.cat_id = NEW.cat_id
+  ) THEN
+    RAISE EXCEPTION 'cat_identity: a row supersedes only a row for its own cat (cat %, supersedes %)', NEW.cat_id, NEW.supersedes_id;
+  END IF;
+  RETURN NEW;
+END
+$$;--> statement-breakpoint
+CREATE TRIGGER "cat_identity_supersedes_own_cat" BEFORE INSERT ON "cat_identity"
+  FOR EACH ROW EXECUTE FUNCTION "cat_identity_supersedes_own_cat"();--> statement-breakpoint
 CREATE TRIGGER "duplicate_reports_add_only" BEFORE UPDATE OR DELETE ON "duplicate_reports"
   FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('device_id');--> statement-breakpoint
 CREATE TRIGGER "duplicate_reports_no_truncate" BEFORE TRUNCATE ON "duplicate_reports"
@@ -441,6 +458,8 @@ CREATE TRIGGER "new_cat_checks_no_truncate" BEFORE TRUNCATE ON "new_cat_checks"
 -- $$;
 -- CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
 --   FOR EACH ROW EXECUTE FUNCTION "cat_identity_append_only"();
+-- DROP TRIGGER "cat_identity_supersedes_own_cat" ON "cat_identity";
+-- DROP FUNCTION "cat_identity_supersedes_own_cat"();
 -- DROP TRIGGER "cat_identity_no_sighting_left" ON "cat_identity";
 -- DROP FUNCTION "cat_identity_no_sighting_left"();
 -- DROP TRIGGER "sightings_not_under_merged_away" ON "sightings";

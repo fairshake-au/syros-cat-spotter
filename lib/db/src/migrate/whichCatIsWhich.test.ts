@@ -407,6 +407,26 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     expect((await sightingRow(s)).cat_id).toBe(survivor);
   });
 
+  it("refuses an undo row that supersedes another cat's merge", async () => {
+    const survivor = await cat();
+    const mimi = await cat();
+    const agatha = await cat();
+    const mimisMerge = await merge(mimi, survivor);
+    // An "undo" on Agatha naming Mimi's merge would undo Mimi's merge.
+    await expect(inTx(c, () => mergeRow(c, agatha, agatha, mimisMerge))).rejects.toThrow(
+      /supersedes only a row for its own cat/,
+    );
+    // Nor may it name a row that doesn't exist.
+    await expect(inTx(c, () => mergeRow(c, mimi, mimi, 99_999_999))).rejects.toThrow(
+      /supersedes only a row for its own cat/,
+    );
+    expect(
+      (await c.query(`select 1 from cat_identity where supersedes_id = $1`, [mimisMerge])).rowCount,
+    ).toBe(0);
+    // Mimi's own undo is fine.
+    await undo(mimisMerge);
+  });
+
   it("refuses a fresh merge row whose move row was written earlier (its id reserved ahead)", async () => {
     const survivor = await cat();
     const away = await cat();
