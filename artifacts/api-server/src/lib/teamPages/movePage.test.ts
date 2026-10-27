@@ -21,7 +21,7 @@ const screen = (over: Partial<MoveScreen> = {}): MoveScreen => ({
   chooseNote: "",
   results: null,
   whatMoves: {
-    items: ["this photo", "“ear tip clipped, left ear”", "“food and water were out”", "the spotter's note"],
+    items: ["this photo", '"ear tip clipped (left)"', '"food and water were out"', "the spotter's note"],
     keeps: "Mimi keeps 6 sightings.",
     points: "The spotter keeps their 15 points.",
   },
@@ -115,7 +115,8 @@ describe("the move screen: the form", () => {
     expect(html).toContain("Why?");
     for (const w of ["Different markings", "Two cats in the photo", "Wrong cat picked", "Other…"]) expect(html).toContain(w);
     expect(html).toContain("What moves");
-    expect(html).toContain("Moves to <b>Agatha</b>: this photo, “ear tip clipped, left ear”, “food and water were out” and the spotter&#39;s note.");
+    // The spec's line (§5.2), Oxford comma and straight quotes.
+    expect(html).toContain("Moves to <b>Agatha</b>: this photo, &quot;ear tip clipped (left)&quot;, &quot;food and water were out&quot;, and the spotter&#39;s note.");
     expect(html).toContain("Mimi keeps 6 sightings.");
     expect(html).toContain("The spotter keeps their 15 points.");
     expect(html).toContain('<input type="hidden" name="to" value="9">');

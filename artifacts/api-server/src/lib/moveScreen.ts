@@ -126,7 +126,7 @@ export async function loadMoveScreen(person: CapabilityHolder, ask: MoveScreenAs
   // The spotter's standing answers, in the order the app asks them: ear tip, food and water, note.
   const ASKED = ["ear_tip", "food_and_water", "note"];
   const answers = from.history
-    .filter((h) => h.sightingId !== null && movingSet.has(h.sightingId) && h.author.kind === "spotter" && h.replacedBy.length === 0 && h.replaces === null)
+    .filter((h) => h.sightingId !== null && movingSet.has(h.sightingId) && h.author.kind === "spotter" && h.replacedBy.length === 0)
     .sort((a, b) => ASKED.indexOf(a.kind) - ASKED.indexOf(b.kind) || a.id - b.id);
   const photoCount = moving.reduce((n, s) => n + 1 + s.extraPhotos.length, 0);
   const items = [
@@ -135,7 +135,7 @@ export async function loadMoveScreen(person: CapabilityHolder, ask: MoveScreenAs
       : moving.length === 1
         ? `this spot's ${photoCount} photos`
         : `the ${photoCount} photos of these ${moving.length} sightings`,
-    ...answers.map((a) => (a.kind === "note" ? "the spotter's note" : `“${lowerFirst(a.said)}”`)),
+    ...answers.map((a) => (a.kind === "note" ? "the spotter's note" : `"${answerWords(a)}"`)),
   ];
   const keeps = from.sightings.length - moving.length;
 
@@ -169,6 +169,13 @@ export async function loadMoveScreen(person: CapabilityHolder, ask: MoveScreenAs
     warnings: to ? warningsFor({ from, to, moving, answers, hidden: from.photos.some((p) => p.hidden !== null && movingUrls.has(p.url)) }) : [],
   };
   return { kind: "ok", screen };
+}
+
+/** The spec's words for an answer: "ear tip clipped (left)", "food and water were out" (§5.2). */
+function answerWords(a: { kind: string; said: string }): string {
+  const clip = /^Ear tip clipped(?:, (left|right) ear)?$/.exec(a.said);
+  if (a.kind === "ear_tip" && clip) return clip[1] ? `ear tip clipped (${clip[1]})` : "ear tip clipped";
+  return lowerFirst(a.said);
 }
 
 const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
@@ -276,7 +283,8 @@ function warningsFor(o: {
   }
 
   // A clipped ear that will make the chosen cat Likely sterilised, unless the team said it isn't clipped.
-  const clipped = o.answers.some((a) => a.kind === "ear_tip" && a.said.startsWith("Ear tip clipped"));
+  // Keyed on what the standing answer says (its value), not on how it is worded.
+  const clipped = o.answers.some((a) => a.correction?.kind === "ear_tip_clipped");
   const s = o.to.records.sterilised;
   const teamSaidNot = o.to.history.some(
     (h) => h.kind === "ear_tip" && h.author.kind === "team" && h.said === EAR_TIP_NOT_CLIPPED && h.replacedBy.length === 0,

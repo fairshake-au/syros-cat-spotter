@@ -23,6 +23,7 @@ import { guardianOn, hidePhoto, newColony, signedPerson, type Signed } from "../
 import { seedReport, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { MOVE_WORDS } from "../lib/moveSightings";
 import { recordTeamStatement } from "../lib/teamCorrections";
+import { writeObservation } from "../lib/observations";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { NAME_HAS_LINK, NAME_TAKEN_WORDS, SYR_SHAPED_NAME } from "../lib/catNames";
 
@@ -84,9 +85,9 @@ describe("who may open the screen and move", () => {
   it("refuses anyone signed out, and a cat guardian: no screen, nothing moves", async () => {
     const c = await twoCats();
     expect((await get(screen(c.mimi, [c.s.id]), null)).status).toBe(401);
-    expect([401, 403]).toContain((await get(screen(c.mimi, [c.s.id]), guardian.cookie)).status);
+    expect((await get(screen(c.mimi, [c.s.id]), guardian.cookie)).status).toBe(403);
     expect((await post({ cat: String(c.mimi), s: String(c.s.id), to: String(c.agatha), reason: "wrong_pick" }, null)).status).toBe(401);
-    expect([401, 403]).toContain((await move(c).set("Cookie", guardian.cookie)).status);
+    expect((await move(c).set("Cookie", guardian.cookie)).status).toBe(403);
     expect((await sightingRow(c.s.id)).catId).toBe(c.mimi);
   });
 
@@ -161,7 +162,7 @@ describe("the screen: the form (§5.2)", () => {
     });
     const res = await get(screen(c.mimi, [c.s.id], `&to=${c.agatha}`));
     const [m, a] = [await catRow(c.mimi), await catRow(c.agatha)];
-    expect(res.text).toContain(`Moves to <b>${esc(a.name)}</b>: this photo, “ear tip clipped, left ear”, “food and water were out” and the spotter&#39;s note.`);
+    expect(res.text).toContain(`Moves to <b>${esc(a.name)}</b>: this photo, &quot;ear tip clipped (left)&quot;, &quot;food and water were out&quot;, and the spotter&#39;s note.`);
     expect(res.text).toContain(`${esc(m.name)} keeps 1 sighting.`);
     expect(res.text).toContain("The spotter keeps their 15 points.");
     for (const w of ["Different markings", "Two cats in the photo", "Wrong cat picked", "Other…"]) expect(res.text).toContain(w);
@@ -170,6 +171,44 @@ describe("the screen: the form (§5.2)", () => {
     expect(res.text.match(/class="warn"/g)).toHaveLength(1);
     expect(res.text).toContain("will go on the Likely list for a check.");
     for (const untrue of ["recorded as having died", "km from where", "is hidden and stays hidden"]) expect(res.text).not.toContain(untrue);
+  });
+
+  it("a second move (Move back) still lists the spotter's answers and still warns about the clipped ear", async () => {
+    const c = await twoCats();
+    await kit.sighting(c.agatha, kit.device(), daysAgo(15));
+    await kit.answer(c.s, "ear_tip", { clipped: true, side: "left" });
+    await kit.answer(c.s, "food_and_water", { present: true });
+    await kit.answer(c.s, "note", { text: "Limping" });
+    expect((await move(c)).status).toBe(303);
+    const back = await get(screen(c.agatha, [c.s.id], `&to=${c.mimi}`));
+    expect(back.text).toContain(`: this photo, &quot;ear tip clipped (left)&quot;, &quot;food and water were out&quot;, and the spotter&#39;s note.`);
+    expect(back.text).toContain("will go on the Likely list for a check.");
+  });
+
+  it("an answer the spotter changed counts as what they said now, on a first move and on a second", async () => {
+    const c = await twoCats();
+    await kit.sighting(c.agatha, kit.device(), daysAgo(15));
+    const first = await kit.answer(c.s, "ear_tip", { clipped: false });
+    await writeObservation(db, {
+      catId: c.mimi,
+      kind: "ear_tip",
+      value: { clipped: true, side: "right" },
+      deviceId: c.s.deviceId,
+      roleAtTime: "public",
+      authorityScope: "none",
+      provenance: "volunteered",
+      sightingId: c.s.id,
+      photoId: c.s.photoId,
+      observedAt: c.s.createdAt,
+      supersedesId: first.id,
+    });
+    const before = await get(screen(c.mimi, [c.s.id], `&to=${c.agatha}`));
+    expect(before.text).toContain("&quot;ear tip clipped (right)&quot;");
+    expect(before.text).toContain("will go on the Likely list");
+    expect((await move(c)).status).toBe(303);
+    const back = await get(screen(c.agatha, [c.s.id], `&to=${c.mimi}`));
+    expect(back.text).toContain("&quot;ear tip clipped (right)&quot;");
+    expect(back.text).not.toContain("not clipped");
   });
 
   it("warns when the chosen cat is recorded as having died and the photo is newer than that", async () => {

@@ -33,10 +33,11 @@ const catHref = (id: number) => `/api/team/cats/${id}`;
 const thumbs = (urls: readonly string[], alt: string, size = 72) =>
   urls.map((u) => `<img src="${esc(u)}" alt="${esc(alt)}" loading="lazy" width="${size}" height="${size}">`).join("");
 
-/** "a, b and c". */
+/** "a", "a and b", "a, b, and c" (the spec's list in §5.2 has the comma). */
 function andList(items: readonly string[]): string {
   if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 function hiddenFields(o: MovePageOptions): string {
