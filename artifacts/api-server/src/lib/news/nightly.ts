@@ -445,26 +445,28 @@ export async function loadCorrections(
     for (const m of moves) sightingMoves.set(m.sightingId, { at: m.at, merge: m.mergeId !== null });
   }
   const timeline = await mergeTimeline(catIds, {}, exec);
-  const out = new Map<number, Corrections>();
-  for (const catId of catIds) {
-    // The cats linked to this one by any merge row, and the newest such row.
-    const linked = new Set([catId]);
-    for (let grew = true; grew; ) {
-      grew = false;
-      for (const e of timeline) {
-        if (linked.has(e.catId) !== linked.has(e.canonicalCatId)) {
-          linked.add(e.catId);
-          linked.add(e.canonicalCatId);
-          grew = true;
-        }
-      }
-    }
-    let mergedAt: Date | null = null;
-    for (const e of timeline) {
-      if (linked.has(e.catId) && (!mergedAt || e.createdAt.getTime() > mergedAt.getTime())) mergedAt = e.createdAt;
-    }
-    out.set(catId, { sightingMoves, mergedAt });
+  // The cats linked to each other by any merge row (one pass, union-find),
+  // and the newest row in each linked group.
+  const parent = new Map<number, number>();
+  const root = (c: number): number => {
+    let r = c;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    parent.set(c, r);
+    return r;
+  };
+  for (const e of timeline) {
+    const a = root(e.catId);
+    const b = root(e.canonicalCatId);
+    if (a !== b) parent.set(a, b);
   }
+  const newestOfGroup = new Map<number, Date>();
+  for (const e of timeline) {
+    const g = root(e.catId);
+    const was = newestOfGroup.get(g);
+    if (!was || e.createdAt.getTime() > was.getTime()) newestOfGroup.set(g, e.createdAt);
+  }
+  const out = new Map<number, Corrections>();
+  for (const catId of catIds) out.set(catId, { sightingMoves, mergedAt: newestOfGroup.get(root(catId)) ?? null });
   return out;
 }
 

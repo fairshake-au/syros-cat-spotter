@@ -262,10 +262,10 @@ export async function mergeTimeline(
 /**
  * The merges standing at `at`, from a timeline: {@link standing}'s rule in
  * TypeScript (each cat's newest merge row entered by then decides, unless an
- * undo on the same cat entered by then supersedes it).
+ * undo on the same cat entered by then supersedes it). One pass over the
+ * events: undos are looked up by the row they supersede.
  */
-function standingAt(events: readonly MergeEvent[], at: Date): Map<number, MergeEvent> {
-  const t = at.getTime();
+function standingAt(events: readonly MergeEvent[], undosOf: ReadonlyMap<number, readonly MergeEvent[]>, t: number): Map<number, MergeEvent> {
   const newest = new Map<number, MergeEvent>();
   for (const e of events) {
     if (e.canonicalCatId === e.catId || e.createdAt.getTime() > t) continue;
@@ -279,9 +279,16 @@ function standingAt(events: readonly MergeEvent[], at: Date): Map<number, MergeE
     }
   }
   for (const [cat, m] of [...newest]) {
-    if (events.some((u) => u.supersedesId === m.id && u.catId === m.catId && u.createdAt.getTime() <= t)) newest.delete(cat);
+    if ((undosOf.get(m.id) ?? []).some((u) => u.catId === m.catId && u.createdAt.getTime() <= t)) newest.delete(cat);
   }
   return newest;
+}
+
+/** Each row that supersedes another, by the row it supersedes. */
+function undosBySuperseded(events: readonly MergeEvent[]): Map<number, MergeEvent[]> {
+  const out = new Map<number, MergeEvent[]>();
+  for (const e of events) if (e.supersedesId !== null) out.set(e.supersedesId, [...(out.get(e.supersedesId) ?? []), e]);
+  return out;
 }
 
 /** {@link canonicalCatOf}'s walk over standing merges: null for a loop or a chain too deep. */
@@ -298,27 +305,95 @@ function canonicalIn(standingMerges: ReadonlyMap<number, MergeEvent>, start: num
 }
 
 /**
+ * {@link catsFeeding}'s answer for every cat at once, as of `t`: for each cat
+ * something is merged into, the cats merged into it then (through chains),
+ * with when each started counting (the newest merge on its way there). A
+ * cat whose chain loops or runs too deep feeds nothing. Walks each standing
+ * merge's chain forward once, at most {@link MAX_MERGE_HOPS} hops, so the
+ * work is the number of merges, not cats times merges.
+ */
+function feedingAllAt(
+  events: readonly MergeEvent[],
+  undosOf: ReadonlyMap<number, readonly MergeEvent[]>,
+  t: number,
+): Map<number, Map<number, Date>> {
+  const standingMerges = standingAt(events, undosOf, t);
+  const out = new Map<number, Map<number, Date>>();
+  for (const first of standingMerges.values()) {
+    const cat = first.catId;
+    if (canonicalIn(standingMerges, cat) === null) continue;
+    let since = first.createdAt;
+    let m: MergeEvent | undefined = first;
+    for (let hop = 0; m && hop < MAX_MERGE_HOPS; hop++) {
+      if (m.createdAt.getTime() > since.getTime()) since = m.createdAt;
+      const into = m.canonicalCatId;
+      const fed = out.get(into) ?? new Map<number, Date>();
+      fed.set(cat, since);
+      out.set(into, fed);
+      m = standingMerges.get(into);
+    }
+  }
+  return out;
+}
+
+/**
  * What {@link catsFeeding} answers for `target` as of `at`, from a timeline
  * ({@link mergeTimeline}) instead of the database: each cat merged into it
  * then, through chains, with when it started counting. Pure. A test holds it
- * to `catsFeeding({ asOf })` (catIdentity.timeline.test.ts).
+ * to `catsFeeding({ asOf })` (catIdentity.timeline.test.ts). For many cats
+ * or many moments, use {@link feedingSteps}.
  */
 export function feedingAt(events: readonly MergeEvent[], target: number, at: Date): Map<number, Date> {
-  const standingMerges = standingAt(events, at);
-  const into = new Map<number, MergeEvent[]>();
-  for (const m of standingMerges.values()) into.set(m.canonicalCatId, [...(into.get(m.canonicalCatId) ?? []), m]);
-  const out = new Map<number, Date>();
-  const walk = (cat: number, depth: number, path: number[], since: Date | null) => {
-    if (depth >= MAX_MERGE_HOPS) return;
-    for (const m of into.get(cat) ?? []) {
-      if (path.includes(m.catId)) continue;
-      const s = since && since.getTime() > m.createdAt.getTime() ? since : m.createdAt;
-      if (canonicalIn(standingMerges, m.catId) !== null) out.set(m.catId, s);
-      walk(m.catId, depth + 1, [...path, m.catId], s);
+  return feedingAllAt(events, undosBySuperseded(events), at.getTime()).get(target) ?? new Map();
+}
+
+/** From `at` until the next step, these cats fed the cat (with when each started counting). */
+export interface FeedingStep {
+  at: number;
+  feeding: ReadonlyMap<number, Date>;
+}
+
+const NOTHING_FEEDS: ReadonlyMap<number, Date> = new Map();
+
+const sameFeeding = (a: ReadonlyMap<number, Date>, b: ReadonlyMap<number, Date>) =>
+  a.size === b.size && [...a].every(([cat, d]) => b.get(cat)?.getTime() === d.getTime());
+
+/**
+ * Each cat's feeding over time, built once from a timeline (spec §9.10): the
+ * moments it changed, oldest first. Before the first step nothing fed the
+ * cat. One {@link feedingAllAt} per moment a merge or undo was entered, for
+ * all the cats together, so a report over the island costs merges ×
+ * moments, never cats × moments × merges. Read with {@link feedingFrom}.
+ */
+export function feedingSteps(events: readonly MergeEvent[], catIds: Iterable<number>): Map<number, FeedingStep[]> {
+  const undosOf = undosBySuperseded(events);
+  const moments = [...new Set(events.map((e) => e.createdAt.getTime()))].sort((a, b) => a - b);
+  const out = new Map<number, FeedingStep[]>();
+  const ids = [...new Set(catIds)];
+  for (const id of ids) out.set(id, []);
+  for (const t of moments) {
+    const all = feedingAllAt(events, undosOf, t);
+    for (const id of ids) {
+      const steps = out.get(id)!;
+      const now = all.get(id) ?? NOTHING_FEEDS;
+      const was = steps.at(-1)?.feeding ?? NOTHING_FEEDS;
+      if (!sameFeeding(now, was)) steps.push({ at: t, feeding: now });
     }
-  };
-  walk(target, 0, [target], null);
+  }
   return out;
+}
+
+/** The cats feeding a cat at `at`, from its {@link feedingSteps}. */
+export function feedingFrom(steps: readonly FeedingStep[], at: Date): ReadonlyMap<number, Date> {
+  const t = at.getTime();
+  let lo = 0;
+  let hi = steps.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (steps[mid]!.at <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo === 0 ? NOTHING_FEEDS : steps[lo - 1]!.feeding;
 }
 
 /**

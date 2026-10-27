@@ -32,7 +32,7 @@ import {
   type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
-import { canonicalCatOf, catsFeeding, feedingAt, mergeTimeline, observationCatIn, type MergeEvent } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, feedingFrom, feedingSteps, mergeTimeline, observationCatIn, type FeedingStep } from "./catIdentity";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -1347,8 +1347,12 @@ export interface CatHistory {
   catId: number;
   /** The cat's own `created_at`. */
   createdAt: Date;
-  /** Every merge row that could ever have joined a cat to this one (lib/catIdentity.ts `mergeTimeline`). */
-  merges: readonly MergeEvent[];
+  /**
+   * The cats that fed this one over time (lib/catIdentity.ts
+   * `feedingSteps`), worked out once from every merge row that ever joined a
+   * cat to it, a merge undone since included.
+   */
+  feedingSteps: readonly FeedingStep[];
   /** `created_at` of every cat that ever fed this one (itself included). */
   feedingCreatedAt: ReadonlyMap<number, Date>;
   /** Every statement of a cat that ever fed this one. */
@@ -1488,9 +1492,6 @@ function withElsewhere(
   return { observations, replacedWelfare };
 }
 
-/** Every moment a merge or an undo was entered: between two of these, which cats feed which stays the same. */
-const mergeMoments = (events: readonly MergeEvent[]) => [...new Set(events.map((e) => e.createdAt.getTime()))].map((t) => new Date(t));
-
 /**
  * The batched loader every reader uses (§2.3: never one query per cat).
  * Issues a fixed number of queries whatever `catIds.length` is:
@@ -1546,11 +1547,13 @@ export async function loadCatRecords(
   // Looking back over time: every merge row that ever joined these cats, and
   // so every cat that ever fed one of them (spec §9.10).
   const timeline = opts.withHistory ? await mergeTimeline(uniqueIds, { asOf }, exec) : [];
-  const moments = mergeMoments(timeline);
+  // Each cat's feeding over time, built once for all of them (never per cat
+  // per moment: a report loads every team cat this way).
+  const steps = opts.withHistory ? feedingSteps(timeline, uniqueIds) : new Map<number, FeedingStep[]>();
   const everFed = new Map<number, Set<number>>();
   for (const id of uniqueIds) {
     const ids = new Set(feeding.get(id)?.ids ?? [id]);
-    for (const t of moments) for (const c of feedingAt(timeline, id, t).keys()) ids.add(c);
+    for (const step of steps.get(id) ?? []) for (const c of step.feeding.keys()) ids.add(c);
     everFed.set(id, ids);
   }
   const allCatIds = [...new Set([...everFed.values()].flatMap((s) => [...s]))];
@@ -1682,7 +1685,7 @@ export async function loadCatRecords(
       records.history = {
         catId: canonicalId,
         createdAt: ownCreatedAt,
-        merges: timeline,
+        feedingSteps: steps.get(canonicalId) ?? [],
         feedingCreatedAt,
         rows,
         replacers: replacers.filter((r) => r.supersedesId != null && rowIds.has(r.supersedesId)),
@@ -1715,7 +1718,7 @@ export function resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot
   if (!h) throw new Error("resolveAt needs records loaded with { withHistory: true }");
   const t = at.getTime();
   if (h.createdAt.getTime() > t) return null;
-  const since = feedingAt(h.merges, h.catId, at);
+  const since = feedingFrom(h.feedingSteps, at);
   const inGroup = (catId: number) => catId === h.catId || since.has(catId);
   const own = h.rows.filter(
     (o) =>
