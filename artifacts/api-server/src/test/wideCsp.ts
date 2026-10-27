@@ -37,6 +37,31 @@ export const WIDE_CSP_ROUTES: ReadonlySet<string> = new Set([
   "GET /api/team/colonies/:id",
   // A cat's page: the small map of its sightings, the Map tab (only when it has sightings).
   "GET /api/team/cats/:id",
+  // SYC-705 Task 2b.7: the pages where someone places a position, by dragging
+  // the map under a fixed pin (dashboard-pin.js place mode). Pages reached by
+  // sending a form get the map too (Samuel, 26 Oct 2026); their refusals and
+  // 400 re-renders keep STRICT_CSP and so show the no-map path.
+  // Add a feeding site: the place page.
+  "GET /api/team/sites/new",
+  // Move a feeding site: the place page.
+  "GET /api/team/sites/:id/move",
+  // "Check the spot" after a pick on the add page, with its small place map.
+  "POST /api/team/sites/pick",
+  // The move's "Check the spot", with its small place map.
+  "POST /api/team/sites/:id/move/pick",
+  // "Make a feeding site here" on a sighting: the same "Check the spot".
+  "POST /api/team/sites/from-sighting",
+  // "Show on our map" on a sighting: the Feeding sites map opened on it.
+  "POST /api/team/sites/map-at-sighting",
+  // A colony's centre: the place page, then its confirmation.
+  "GET /api/team/colonies/:id/centre",
+  "POST /api/team/colonies/:id/centre/pick",
+  // A new area's centre: the place page after the name and key, then its confirmation.
+  "POST /api/team/areas/new",
+  "POST /api/team/areas/new/pick",
+  // An area's centre: the place page, then its confirmation.
+  "GET /api/team/areas/:key/centre",
+  "POST /api/team/areas/:key/centre/pick",
 ]);
 
 /**
@@ -47,8 +72,10 @@ export const WIDE_CSP_FILES: ReadonlySet<string> = new Set([
   "src/routes/teamCats.ts",
   // SYC-705 Task 2b.5: the Feeding sites list and a site's page (their maps).
   "src/routes/teamSites.ts",
-  // SYC-705 Task 2b.5: a colony's page (its sites' small map).
+  // SYC-705 Task 2b.5: a colony's page (its sites' small map); 2b.7: its centre's place pages.
   "src/routes/teamColonies.ts",
+  // SYC-705 Task 2b.7: an area's centre, its place pages.
+  "src/routes/teamAreas.ts",
   // MapLibre's worker file (SYC-705 Task 2b.4): a worker's policy is its own
   // response's, so its 200 carries WIDE_CSP (connect-src 'self') to fetch map
   // data. Only maplibre-gl-worker.<hash>.mjs; every other asset has none.

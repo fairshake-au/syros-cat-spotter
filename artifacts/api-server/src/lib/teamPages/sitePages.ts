@@ -6,7 +6,6 @@ import { dayIn } from "./colonyPages";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
 import { mapPageAssets, renderMap, type MapMarker } from "./map";
-import { renderButtonMap } from "./buttonMap";
 import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { publicLabelOf } from "../areas/placeLabel";
@@ -157,12 +156,6 @@ export function renderSitesPage(opts: SiteViewer & {
   changes: SiteChange[];
   sites: SiteRow[];
   showRetired: boolean;
-  /**
-   * TEMPORARY until SYC-705 Task 2b.7: "Show on our map" (POST
-   * map-at-sighting) still draws the old picture map around this view.
-   * Every other Feeding sites page draws the MapLibre map, fitted to the sites.
-   */
-  buttonMapAt?: View;
   note?: string;
   /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
   sighting?: Position;
@@ -176,10 +169,11 @@ export function renderSitesPage(opts: SiteViewer & {
     ...opts.sites.map((s) => markerFor(s, opts.lang)),
     ...(opts.sighting ? [{ ...opts.sighting, label: t("sites.sightingMarker"), look: "sighting" as const }] : []),
   ];
-  const map = opts.buttonMapAt
-    ? renderButtonMap({ lang: opts.lang, view: opts.buttonMapAt, markers, mode: "view", controls: false })
-    : // Every site shown is in view (SYC-705): nothing to zoom or pan to by button.
-      renderMap({ mode: "view", lang: opts.lang, fit: opts.sites, markers });
+  // Every site shown is in view (SYC-705). "Show on our map" (a sighting)
+  // opens on the sighting instead, close enough to see the street (zoom 17).
+  const map = opts.sighting
+    ? renderMap({ mode: "view", lang: opts.lang, centre: opts.sighting, zoom: 17, markers })
+    : renderMap({ mode: "view", lang: opts.lang, fit: opts.sites, markers });
   const retiredForm =
     `<form method="get" action="${SITES_PATH}" class="search">` +
     `<label class="choice" for="show-retired"><input type="checkbox" id="show-retired" name="retired" value="1"${opts.showRetired ? " checked" : ""}>` +
@@ -195,7 +189,7 @@ export function renderSitesPage(opts: SiteViewer & {
     nav: navFor(opts),
     lang: opts.lang,
     personName: opts.personName,
-    ...(opts.buttonMapAt ? { mainClass: "mappage" as const } : mapPageAssets()),
+    ...mapPageAssets(),
     body:
       // Spec §2.1 order: the count, Recently changed, then the map, then the list.
       `<p class="intro">${w(opts.island === false ? "sites.introOwn" : "sites.intro")}</p>` +

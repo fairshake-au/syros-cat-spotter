@@ -1,6 +1,6 @@
 import { areaFor } from "../lib/areas/namedAreas";
 import { t } from "../lib/teamPages/words";
-import { viewAround, type View } from "../lib/mapTiles/geometry";
+import type { Position } from "../lib/mapTiles/geometry";
 import { readPick, type Picked } from "./teamSites";
 
 // The tap (or typed position) behind "set the centre on a map" for a colony
@@ -33,5 +33,5 @@ export function readCentrePick(
   return picked;
 }
 
-/** Where the map opens when nothing else says: Ermoupoli. */
-export const ERMOUPOLI_VIEW: View = viewAround({ lat: 37.4447, lng: 24.9417 }, 15);
+/** Where the map opens when nothing else says: Ermoupoli, zoom 15. */
+export const ERMOUPOLI_START: { centre: Position; zoom: number } = { centre: { lat: 37.4447, lng: 24.9417 }, zoom: 15 };

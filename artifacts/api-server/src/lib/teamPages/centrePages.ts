@@ -3,16 +3,18 @@ import { escapeHtml as esc } from "./escape";
 import { renderPage, type NavKey } from "./layout";
 import type { MapMarker } from "./map";
 import { openMapLink } from "./position";
-import { smallMap, type FormViewer } from "./siteFormPages";
+import { confirmMap, DETAILS_FORM_ID, type FormViewer } from "./siteFormPages";
+import { mapPageAssets } from "./map";
 import { wordsIn } from "./words";
 import type { Position } from "../mapTiles/geometry";
 
-// The confirmation page for "tap the map" centres (SYC-517, decision 517-B):
-// a colony's centre and an area's centre. The same small map as the site
-// pages' confirmation (a tap nudges the pin), then one button that posts the
-// centre to the page's existing form route. The place is in words (placeLabel);
+// The confirmation page for centres set on a map (SYC-517, decision 517-B):
+// a colony's centre and an area's centre. The same small place map as the
+// site pages' confirmation (SYC-705 Task 2b.7: drag the map to move the pin),
+// inside the one form whose button posts the centre to the page's existing
+// form route. The place is in words (placeLabel);
 // the exact position goes only into hidden fields, never an address, and "Open
-// map" is for an island-wide viewer alone (position.ts). Server-drawn, no scripts.
+// map" is for an island-wide viewer alone (position.ts).
 
 const hidden = (name: string, value: string) =>
   `<input type="hidden" name="${esc(name)}" value="${esc(value)}">`;
@@ -38,9 +40,6 @@ export function renderCentreConfirm(
     nowInWords?: boolean;
     nowLabel: string;
     newLabel: string;
-    /** Where a nudge tap posts back to, and what that post carries. */
-    tapAction: string;
-    carry?: Record<string, string>;
     /** The existing route that saves it, and the fields it wants besides lat and lng. */
     saveAction: string;
     saveFields?: Record<string, string>;
@@ -61,20 +60,17 @@ export function renderCentreConfirm(
     nav: o.island === false ? "guardian" : undefined,
     lang: o.lang,
     personName: o.personName,
-    mainClass: "mappage",
+    ...mapPageAssets(),
     beforeTitle: `<p class="back"><a href="${esc(o.back.href)}">${esc(o.back.label)}</a></p>`,
     body:
-      smallMap(o.spot, o.zoom, markers, o.tapAction, { ...(o.carry ?? {}) }, o.lang) +
-      `<p class="hint">${w("confirm.nudge")}</p>` +
       `<p class="tapped">${esc(o.question(placeLabel(o.spot)))}${link ? ` &middot; ${openMapLink(o.spot.lat, o.spot.lng)}` : ""}</p>` +
       (o.now && o.nowInWords !== false ? `<p class="hint">${esc(o.nowLabel)}: ${esc(placeLabel(o.now))}</p>` : "") +
       (o.help ? `<p class="what">${esc(o.help)}</p>` : "") +
-      `<form method="post" action="${esc(o.saveAction)}">` +
+      `<form method="post" action="${esc(o.saveAction)}" id="${DETAILS_FORM_ID}">` +
       Object.entries(o.saveFields ?? {})
         .map(([k, v]) => hidden(k, v))
         .join("") +
-      hidden("lat", String(o.spot.lat)) +
-      hidden("lng", String(o.spot.lng)) +
+      confirmMap({ spot: o.spot, zoom: o.zoom, markers, lang: o.lang }) +
       `<div class="actions"><button type="submit" class="save">${esc(o.saveLabel)}</button></div>` +
       `</form>`,
   });

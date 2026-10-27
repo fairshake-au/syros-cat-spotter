@@ -39,11 +39,10 @@ import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { areaFor } from "../lib/areas/namedAreas";
-import { applyMove } from "../lib/mapTiles/mapForms";
-import { inIsland, viewAround, type View } from "../lib/mapTiles/geometry";
+import { inIsland, type Position } from "../lib/mapTiles/geometry";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
-import { CENTRE_ZOOM, ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
+import { CENTRE_ZOOM, ERMOUPOLI_START, readCentrePick } from "./centrePick";
 import { coordinate, fieldsOf, lf, noNul, optionalText } from "../lib/teamForms";
 
 // The team's Colonies screens (SYC-209 PR 2.1; spec §2.6, §2.7, §11.2).
@@ -460,9 +459,9 @@ router.post(
 
 // ── The centre, by tapping a map (SYC-517, 517-B) ──────────────────────────
 //
-// Three steps with no scripts: the map (GET), its zoom and pan (POST .../map),
-// and a tap or typed position (POST .../pick), which answers with a
-// confirmation page. Only that page's button saves, through the colony's own
+// Two steps (SYC-705 Task 2b.7): the map, where the person drags the map under
+// a fixed pin, or picks an area or types the position (GET); then the pick
+// (POST .../pick), which answers with a confirmation page. Only that page's button saves, through the colony's own
 // POST above, with the position in hidden fields. Nothing here writes, and no
 // position is ever in an address. Checked against THIS colony, like the edit.
 
@@ -470,15 +469,17 @@ type StartOfColony = NonNullable<Awaited<ReturnType<typeof colonyCentreStart>>>;
 
 const centreBase = (id: number) => `/api/team/colonies/${id}`;
 
-/** The colony's centre if set, else its sites' midpoint, else Ermoupoli. */
-const startView = (c: StartOfColony): View => {
+/** The colony's centre if set, else its sites' midpoint, else Ermoupoli: where the map opens, and how close. */
+const startOf = (c: StartOfColony): { centre: Position; zoom: number } => {
   const at = c.centre ?? c.sitesMidpoint;
-  return at ? viewAround(at, c.centre ? CENTRE_ZOOM : 15) : ERMOUPOLI_VIEW;
+  return at ? { centre: at, zoom: c.centre ? CENTRE_ZOOM : 15 } : ERMOUPOLI_START;
 };
 
-function centrePickerPage(res: Response, status: number, c: StartOfColony, view: View, note?: string): void {
+function centrePickerPage(res: Response, status: number, c: StartOfColony, note?: string): void {
   const v = pageViewer(res);
   const base = centreBase(c.id);
+  // The map's own scripts: the wider header for the 200 page only (SYC-705 Task 2b.7).
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -491,10 +492,11 @@ function centrePickerPage(res: Response, status: number, c: StartOfColony, view:
         title: `${t("centre.title", v.lang)}: ${c.name}`,
         intro: t("centre.intro", v.lang),
         back: { href: base, label: t("problem.backToColony", v.lang) },
-        view,
+        ...startOf(c),
         markers: c.centre ? [{ ...c.centre, label: t("centre.now", v.lang), look: "retired" }] : [],
-        tapAction: `${base}/centre/pick`,
-        moveAction: `${base}/centre/map`,
+        pickAction: `${base}/centre/pick`,
+        areas: true,
+        map: status === 200,
         note,
         // A set centre can be cleared again: the colony's own save, with both
         // numbers empty and nothing else sent, so nothing else changes.
@@ -526,20 +528,7 @@ router.get(
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const c = await centreColony(req, res);
-    if (c) centrePickerPage(res, 200, c, startView(c));
-  },
-);
-
-/** POST /api/team/colonies/:id/centre/map: zoom, pan and the area buttons. */
-router.post(
-  "/team/colonies/:id/centre/map",
-  ...formRoute("edit_colony", { target: thisColony }),
-  async (req: Request, res: Response) => {
-    const c = await centreColony(req, res);
-    if (!c) return;
-    const view = applyMove(req.body);
-    if (!view) return void centrePickerPage(res, 400, c, startView(c), t("sites.moveNote", pageViewer(res).lang));
-    centrePickerPage(res, 200, c, view);
+    if (c) centrePickerPage(res, 200, c);
   },
 );
 
@@ -554,10 +543,12 @@ router.post(
     const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, v.lang, { requireArea: true, allowArea: true });
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      return void centrePickerPage(res, picked.status, c, startView(c), picked.note);
+      return void centrePickerPage(res, picked.status, c, picked.note);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     const base = centreBase(c.id);
+    // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(
       renderCentreConfirm({
         personName: v.personName,
@@ -568,11 +559,10 @@ router.post(
         question: (place) => t("centre.confirm", v.lang, { place }),
         saveLabel: t("centre.save", v.lang),
         spot: picked.spot,
-        zoom: CENTRE_ZOOM,
+        zoom: picked.approximate ? 15 : CENTRE_ZOOM,
         now: c.centre,
         nowLabel: t("centre.now", v.lang),
         newLabel: t("centre.new", v.lang),
-        tapAction: `${base}/centre/pick`,
         saveAction: base,
         back: { href: `${base}/centre`, label: t("centre.again", v.lang) },
         help: t("colony.centreNote", v.lang),

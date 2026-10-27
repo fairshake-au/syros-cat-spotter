@@ -87,7 +87,6 @@ describe("Centre confirm help", () => {
       zoom: 17,
       nowLabel: "now",
       newLabel: "new",
-      tapAction: "/x",
       saveAction: "/y",
       back: { href: "/z", label: "Back" },
       help: "A place takes the name of the area whose centre is nearest.",

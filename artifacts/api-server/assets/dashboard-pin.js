@@ -94,6 +94,12 @@
     var words = window.CatMap.readJson(el, "data-words") || {};
     window.CatMap.start(el, { lang: data.lang, centre: start, zoom: data.zoom, rotate: false }).then(
       function (map) {
+        // The page's own markers (a site's spot now, a colony's centre now), never links here.
+        (Array.isArray(data.markers) ? data.markers : []).forEach(function (m) {
+          if (!m || !isFinite(m.lat) || !isFinite(m.lng)) return;
+          var plain = { label: m.label, look: m.look };
+          new window.CatMap.lib().Marker({ element: pinFor(plain), anchor: "center" }).setLngLat([m.lng, m.lat]).addTo(map);
+        });
         var pin = span("placepin");
         pin.setAttribute("aria-hidden", "true");
         el.appendChild(pin);

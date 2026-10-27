@@ -268,8 +268,7 @@ const TABLE: Record<string, Row> = {
   },
   "POST /api/team/colonies/:id": { why: "edit_colony on that colony (PR 4.2), rename_colony island-only; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/centre": { why: "the centre map: edit_colony on that colony (SYC-517, 517-B); a colony that isn't hers, or isn't one, is the same 403" },
-  "POST /api/team/colonies/:id/centre/map": { why: "zoom, pan, areas on the centre map: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
-  "POST /api/team/colonies/:id/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
+  "POST /api/team/colonies/:id/centre/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/plan": { why: "the printable trapping plan (SYC-396 PR 2.3): print_trapping_plan, island-only, so every cat guardian gets the 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
@@ -281,11 +280,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
   "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
   "GET /api/team/areas/:key/centre": { why: "the area centre map: edit_named_areas: island-only, so every cat guardian gets the 403 (SYC-517, 517-B)" },
-  "POST /api/team/areas/:key/centre/map": { why: "zoom, pan on the area centre map: edit_named_areas: island-only" },
-  "POST /api/team/areas/:key/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
+  "POST /api/team/areas/:key/centre/pick": { why: "the map's pin or a typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
   "POST /api/team/areas/new": { why: "name and key check, then the new area's map: edit_named_areas: island-only (SYC-557)" },
-  "POST /api/team/areas/new/map": { why: "zoom, pan on the new area's map: edit_named_areas: island-only (SYC-557)" },
-  "POST /api/team/areas/new/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only (SYC-557)" },
+  "POST /api/team/areas/new/pick": { why: "the map's pin or a typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only (SYC-557)" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
   "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
@@ -324,16 +321,14 @@ const TABLE: Record<string, Row> = {
   // PR 4.2: the add pages open to anyone who may add a site to a colony they see; each
   // one-site write is checked against that site's own colony. Never canSomewhere.
   "GET /api/team/sites/new": { why: "the add-a-site map: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
-  "POST /api/team/sites/new/map": { why: "zoom, pan, areas on the add page: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
-  "POST /api/team/sites/pick": { why: "a tap or typed position, answers with the confirmation: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "POST /api/team/sites/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "POST /api/team/sites": { why: "save a new site: the add door, then add_feeding_site on the colony it goes into (a guardian's must be hers)", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "POST /api/team/sites/:id": { why: "edit name, notes, how to find it: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "POST /api/team/sites/:id/colony": { why: "change a site's colony: reassign_feeding_site (island-only by kind)" },
   "POST /api/team/sites/:id/retire": { why: "retire a site: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "POST /api/team/sites/:id/restore": { why: "bring a site back: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
-  "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
-  "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
+  "POST /api/team/sites/:id/move/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   // PR 4.1: both sighting buttons check against the sighting's CAT's colony, from the record.
   // The walk names no sighting, so there is no colony: only the team passes.
   "POST /api/team/sites/from-sighting": { why: "'Make a feeding site here': add_feeding_site and view_exact_location on the sighting's cat's colony" },

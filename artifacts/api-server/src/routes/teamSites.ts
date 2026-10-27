@@ -9,18 +9,10 @@ import { can, type CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import {
-  clampView,
-  inIsland,
-  MAX_ZOOM,
-  viewAround,
-  type Position,
-  type View,
-} from "../lib/mapTiles/geometry";
+import { inIsland, type Position } from "../lib/mapTiles/geometry";
 import { sightingSpot } from "../lib/sightingSpot";
 import { areaByKey } from "../lib/areas/namedAreas";
 import { currentColonyOf } from "../lib/colonyMembership";
-import { applyMove, readTap } from "../lib/mapTiles/mapForms";
 import {
   listSites,
   recentSiteChanges,
@@ -31,7 +23,6 @@ import {
 import { renderNoSuchSite, renderSitePage, renderSitesPage, SITES_PATH } from "../lib/teamPages/sitePages";
 import type { Visible } from "../lib/guardianView";
 import {
-  CONFIRM_ZOOM,
   NEW_PATH,
   PICK_PATH,
   renderAddConfirm,
@@ -73,9 +64,9 @@ import {
 // capabilities against the sighting's CAT's colony, read from the record.
 // The "for any colony?" check is the sign-in door's alone.
 //
-// **No position in any address (K13).** The list's and a site's map is
-// MapLibre (SYC-705; positions are page data, never in an address); the pick
-// and move pages' buttons are POST forms with hidden fields; the "Show
+// **No position in any address (K13).** Every map here is MapLibre (SYC-705;
+// positions are page data, never in an address); a place page's pin, area
+// list and typed numbers are POST forms, the pin's spot in hidden fields; the "Show
 // retired" setting is a fixed key (`retired=1`), never a position. A marker
 // links to a site's number.
 //
@@ -95,8 +86,6 @@ async function sitesPage(
   showRetired: boolean,
   note?: string,
   sighting?: Position,
-  /** TEMPORARY until SYC-705 Task 2b.7: map-at-sighting's old picture map. */
-  buttonMapAt?: View,
 ): Promise<void> {
   const v = pageViewer(res);
   const [counts, changes, sites] = await Promise.all([
@@ -118,7 +107,6 @@ async function sitesPage(
         showRetired,
         note,
         sighting,
-        buttonMapAt,
         mayAdd: mayAddSomewhere(res),
       }),
     );
@@ -280,7 +268,7 @@ const StampOnly = z.object({ updatedAt: stampField });
 const TypedForm = z.object({ lat: latField, lng: lngField });
 
 /**
- * What the previous step held, carried through a nudge tap in hidden fields.
+ * What the picker carried in hidden fields (the colony an add page was opened for).
  * Lenient: anything unreadable becomes empty, never an error.
  */
 const carried = (max: number) => z.preprocess(lf, z.string().max(max).refine(noNul)).catch("");
@@ -317,11 +305,13 @@ async function knownColony(
 function newPickerPage(
   res: Response,
   status: number,
-  view: View,
   note?: string,
   colony?: { id: number; name: string } | null,
 ): void {
   const v = pageViewer(res);
+  // The map's own scripts, so the wider header: for the 200 page only. A
+  // refusal re-render (400) keeps the strict header and shows the no-map path.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -336,9 +326,11 @@ function newPickerPage(
           : t("new.intro", v.lang),
         carry: colony ? { colonyId: String(colony.id) } : undefined,
         back: { href: SITES_PATH, label: t("site.backToSites", v.lang) },
-        view,
-        tapAction: PICK_PATH,
-        moveAction: `${NEW_PATH}/map`,
+        centre: ISLAND_CENTRE,
+        zoom: START_ZOOM,
+        pickAction: PICK_PATH,
+        areas: true,
+        map: status === 200,
         note,
         legend: t("new.private", v.lang),
       }),
@@ -377,24 +369,7 @@ router.get(
   async (req: Request, res: Response) => {
     setTeamHeaders(res);
     const colony = await knownColony(pageViewer(res).visible, req.query["colony"]);
-    newPickerPage(res, 200, viewAround(ISLAND_CENTRE, START_ZOOM), undefined, colony);
-  },
-);
-
-/** POST /api/team/sites/new/map: zoom, pan and the area buttons on the add page. */
-router.post(
-  "/team/sites/new/map",
-  ...addForm,
-  async (req: Request, res: Response) => {
-    const colony = await knownColony(
-      pageViewer(res).visible,
-      (req.body as Record<string, unknown> | undefined)?.["colonyId"],
-    );
-    const view = applyMove(req.body);
-    if (!view) {
-      return void newPickerPage(res, 400, viewAround(ISLAND_CENTRE, START_ZOOM), t("sites.moveNote", pageViewer(res).lang), colony);
-    }
-    newPickerPage(res, 200, view, undefined, colony);
+    newPickerPage(res, 200, undefined, colony);
   },
 );
 
@@ -449,15 +424,17 @@ router.post(
         pageViewer(res).visible,
         (req.body as Record<string, unknown> | undefined)?.["colonyId"],
       );
-      return void newPickerPage(res, picked.status, viewAround(ISLAND_CENTRE, START_ZOOM), picked.note, colony);
+      return void newPickerPage(res, picked.status, picked.note, colony);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
+    // "Check the spot" carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(
       renderAddConfirm({
         personName: teamPerson(res).name,
         lang: pageViewer(res).lang,
         spot: picked.spot,
-        zoom: CONFIRM_ZOOM,
+        approximate: picked.approximate,
         colonies: await colonyOptions(pageViewer(res).visible),
         carry: AddCarryForm.parse(req.body ?? {}),
         island: pageViewer(res).island,
@@ -523,13 +500,15 @@ router.post(
     const inNow = (await currentColonyOf([found.catId])).get(found.catId);
     const colonyId = covers(v.visible, inNow) ? inNow : undefined;
     if (!isFormPost(req)) return void res.json({ ...found.spot, colonyId: colonyId ?? null });
+    // The same "Check the spot" page, with its small map: the wider header for this 200.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(
       renderAddConfirm({
         personName: v.personName,
         lang: v.lang,
         island: v.island,
         spot: found.spot,
-        zoom: CONFIRM_ZOOM,
+        approximate: false,
         colonies: await colonyOptions(v.visible),
         carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
       }),
@@ -549,8 +528,9 @@ router.post(
     const found = await sightingFor(req, res);
     if (!found) return;
     if (!isFormPost(req)) return void res.json(found.spot);
-    // Still the old picture map (no script) until SYC-705 Task 2b.7.
-    await sitesPage(res, 200, false, undefined, found.spot, viewAround(found.spot, SITE_ZOOM));
+    // The Feeding sites page's MapLibre map, opened on the sighting (Samuel, 26 Oct 2026): the wider header.
+    setTeamHeaders(res, { scripts: true });
+    await sitesPage(res, 200, false, undefined, found.spot);
   },
 );
 
@@ -748,11 +728,12 @@ function movePickerPage(
   status: number,
   site: MovingSite,
   stamp: string,
-  view: View,
   note?: string,
 ): void {
   const v = pageViewer(res);
   const base = sitePath(site.id);
+  // As the add page: the wider header for the 200 page with its map only.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -764,11 +745,13 @@ function movePickerPage(
         title: `${t("move.title", v.lang)} ${site.name}`,
         intro: t("move.intro", v.lang),
         back: { href: base, label: t("sproblem.backToSite", v.lang) },
-        view,
+        centre: { lat: site.lat, lng: site.lng },
+        zoom: SITE_ZOOM,
         markers: [{ lat: site.lat, lng: site.lng, label: t("move.now", v.lang), look: "retired" }],
-        tapAction: `${base}/move/pick`,
-        moveAction: `${base}/move/map`,
+        pickAction: `${base}/move/pick`,
         carry: { updatedAt: stamp },
+        areas: true,
+        map: status === 200,
         note,
         legend: t("move.legend", v.lang),
       }),
@@ -784,34 +767,7 @@ router.get(
     const id = siteIdOf(req);
     const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
     if (!site) return notFound(req, res);
-    movePickerPage(res, 200, site, site.stamp, viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM));
-  },
-);
-
-/** POST /api/team/sites/:id/move/map: zoom, pan and the area buttons on the move page. */
-router.post(
-  "/team/sites/:id/move/map",
-  ...formRoute("edit_feeding_site", { target: thisSite }),
-  async (req: Request, res: Response) => {
-    const id = siteIdOf(req);
-    const site = id === null ? null : await siteForMove(pageViewer(res).visible, id);
-    if (id === null || !site) return notFound(req, res);
-    const stamp = StampOnly.safeParse(req.body ?? {});
-    if (!stamp.success) {
-      return badForm(req, res, ["updatedAt"], { href: sitePath(id), label: t("sproblem.backToSite", pageViewer(res).lang) });
-    }
-    const view = applyMove(req.body);
-    if (!view) {
-      return void movePickerPage(
-        res,
-        400,
-        site,
-        stamp.data.updatedAt,
-        viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM),
-        t("sites.moveNote", pageViewer(res).lang),
-      );
-    }
-    movePickerPage(res, 200, site, stamp.data.updatedAt, view);
+    movePickerPage(res, 200, site, site.stamp);
   },
 );
 
@@ -835,17 +791,17 @@ router.post(
     const picked = readPick(body, pageViewer(res).lang);
     if (!picked.ok) {
       if (!isFormPost(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-      // Back on the site's own map, not the whole island.
-      const view = viewAround({ lat: site.lat, lng: site.lng }, SITE_ZOOM);
-      return void movePickerPage(res, picked.status, site, stamp.data.updatedAt, view, picked.note);
+      return void movePickerPage(res, picked.status, site, stamp.data.updatedAt, picked.note);
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
+    // The move's "Check the spot", with its small map: the wider header for this 200.
+    setTeamHeaders(res, { scripts: true });
     res.type("html").send(
       renderMoveConfirm({
         personName: teamPerson(res).name,
         site: { ...site, stamp: stamp.data.updatedAt },
         spot: picked.spot,
-        zoom: CONFIRM_ZOOM,
+        approximate: picked.approximate,
         reason: MoveCarryForm.parse(body).reason,
         island: pageViewer(res).island,
         lang: pageViewer(res).lang,

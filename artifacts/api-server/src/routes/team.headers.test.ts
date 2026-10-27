@@ -332,6 +332,19 @@ describe("the wider header is the named pages' alone, and exactly this", () => {
       "GET /api/team/sites/:id",
       "GET /api/team/colonies/:id",
       "GET /api/team/cats/:id",
+      // SYC-705 Task 2b.7: the place pages and their confirmations.
+      "GET /api/team/sites/new",
+      "GET /api/team/sites/:id/move",
+      "POST /api/team/sites/pick",
+      "POST /api/team/sites/:id/move/pick",
+      "POST /api/team/sites/from-sighting",
+      "POST /api/team/sites/map-at-sighting",
+      "GET /api/team/colonies/:id/centre",
+      "POST /api/team/colonies/:id/centre/pick",
+      "POST /api/team/areas/new",
+      "POST /api/team/areas/new/pick",
+      "GET /api/team/areas/:key/centre",
+      "POST /api/team/areas/:key/centre/pick",
     ]);
   });
 

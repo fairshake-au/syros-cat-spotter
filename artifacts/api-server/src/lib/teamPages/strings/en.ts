@@ -596,6 +596,7 @@ export const en = {
   "confirm.notesOwn": "Notes (optional)",
   "confirm.save": "Save the site",
   "confirm.again": "Start again on the full map",
+  "confirm.drag": "Not quite right? Drag the small map to move the pin. What you have typed stays.",
   "confirm.nudge": "Not quite right? Tap the small map to move the pin. Place the pin first, then fill in the details.",
   "confirm.checkTap": "Details for checking the tap",
 
@@ -715,6 +716,13 @@ export const en = {
   "map.catsAsGrid": "Show these cats as a grid",
   "map.goToArea": "Go to an area",
   "map.place": "Map: drag it until the pin is on the spot. The arrow keys move it too.",
+  "map.useSpot": "Use this spot",
+  "pick.dragHint": "Drag the map until the pin is on the spot, then press “Use this spot”.",
+  "pick.noMap": "Without the map, choose the area the spot is in, or type the position.",
+  "pick.noMapTyped": "Without the map, type the position.",
+  "pick.areaLabel": "The area",
+  "pick.areaHint": "This uses the middle of the area, so the position is only roughly right. Move it on the map when you can.",
+  "pick.useArea": "Use this area’s centre",
   "map.loading": "Loading the map…",
   "map.compass": "Turn north up",
   // SYC-516 C1: the dashboard's error pages (spec 3.1).
