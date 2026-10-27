@@ -56,6 +56,11 @@ export interface MovedStatements {
   withdrawn: Observation[];
 }
 
+/** A statement a move wrote: a spotter's answer copied, or someone's withdrawn (it carries the move's id). */
+export function isMovedStatement(o: Observation): boolean {
+  return o.sightingMoveId != null;
+}
+
 /** A value that asserts nothing itself: a retraction or a claim withdrawn. */
 function assertsNothing(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
