@@ -47,7 +47,7 @@ describe("the Cats grid has exactly one script: ours", () => {
   ])("%s", async (_what, path) => {
     const res = await page(path, staff);
     expect(res.status).toBe(200);
-    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
     expect(tags).toHaveLength(1);
     expect(tags[0]).toMatch(OUR_SCRIPT);
     expect(res.text.match(/<script\b/gi)).toHaveLength(1);
@@ -70,8 +70,6 @@ describe("no other team page has any script", () => {
     ["the colonies list", () => "/api/team/colonies", () => staff],
     ["a colony", () => `/api/team/colonies/${colonyId}`, () => staff],
     ["a colony's cats", () => `/api/team/colonies/${colonyId}/cats`, () => staff],
-    ["the Feeding sites page", () => "/api/team/sites", () => staff],
-    ["the add-a-site page", () => "/api/team/sites/new", () => staff],
     ["the map", () => "/api/team/map", () => staff],
     ["Colour check", () => "/api/team/colour-check", () => staff],
     ["the likely-sterilised list", () => "/api/team/likely", () => staff],
@@ -88,13 +86,58 @@ describe("no other team page has any script", () => {
   });
 });
 
-// SYC-396 PR 1.5: the island Map (the Cats page as a map) has exactly two
-// scripts, Leaflet then ours, and one stylesheet, Leaflet's, all by hashed
-// name from /api/team/assets/. Its no-script move page has none at all.
-describe("the island Map loads Leaflet and our map script, and nothing else", () => {
-  const LEAFLET = /^<script src="\/api\/team\/assets\/leaflet\.[0-9a-f]{12}\.js" defer><\/script>$/;
-  const MAP = /^<script src="\/api\/team\/assets\/dashboard-map\.[0-9a-f]{12}\.js" defer><\/script>$/;
-  const CSS = /^<link rel="stylesheet" href="\/api\/team\/assets\/leaflet\.[0-9a-f]{12}\.css">$/;
+// SYC-705 Task 2b.5: a page with a MapLibre map loads exactly MapLibre's
+// stylesheet, then PMTiles, map-core.js and dashboard-pin.js, all by hashed
+// name from /api/team/assets/; the library and its worker are named on the map
+// box (data-maplibre, data-worker), never as script tags. A cat's page and a
+// colony's page load them only when they have a map (with no sightings or
+// sites they are in the list above, with no script).
+describe("a page with a MapLibre map loads its files, and nothing else", () => {
+  const CSS = /^<link rel="stylesheet" href="\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.css">$/;
+  const TAGS = [
+    /^<script src="\/api\/team\/assets\/pmtiles\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/map-core\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/dashboard-pin\.[0-9a-f]{12}\.js" defer><\/script>$/,
+  ];
+  it.each([
+    ["the Feeding sites page", "/api/team/sites"],
+    ["the Feeding sites page, with retired sites", "/api/team/sites?retired=1"],
+    // SYC-705 Task 2b.7: the place pages (drag the map under the pin).
+    ["the add-a-site page", "/api/team/sites/new"],
+  ])("%s", async (_what, path) => {
+    const res = await page(path, staff);
+    expect(res.status).toBe(200);
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
+    expect(tags).toHaveLength(3);
+    tags.forEach((t, i) => expect(t).toMatch(TAGS[i]!));
+    expect(res.text.match(/<script\b/gi)).toHaveLength(3);
+    const links = res.text.match(/<link\b[^>]*>/gi) ?? [];
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatch(CSS);
+    const head = res.text.slice(0, res.text.indexOf("</head>"));
+    for (const t of [...tags, ...links]) expect(head).toContain(t);
+    const lib = / data-maplibre="(\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    const worker = / data-worker="(\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    expect(lib).not.toBeNull();
+    expect(worker).not.toBeNull();
+    // Every file it names is served.
+    for (const src of [...[...tags, ...links].map((t) => /(?:src|href)="([^"]+)"/.exec(t)![1]!), lib![1]!, worker![1]!]) {
+      expect((await request(app).get(src)).status, src).toBe(200);
+    }
+  });
+});
+
+// SYC-396 PR 1.5; SYC-705 Task 2b.6: the island Map (the Cats page as a map)
+// loads MapLibre's stylesheet, then PMTiles, map-core.js and our cats map
+// script, all by hashed name from /api/team/assets/; the library and its
+// worker are named on the map box, never as script tags. No picture-map library.
+describe("the island Map loads the MapLibre files and our map script, and nothing else", () => {
+  const TAGS = [
+    /^<script src="\/api\/team\/assets\/pmtiles\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/map-core\.[0-9a-f]{12}\.js" defer><\/script>$/,
+    /^<script src="\/api\/team\/assets\/dashboard-map\.[0-9a-f]{12}\.js" defer><\/script>$/,
+  ];
+  const CSS = /^<link rel="stylesheet" href="\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.css">$/;
 
   it.each([
     ["the map", "/api/team/cats?view=map"],
@@ -103,32 +146,24 @@ describe("the island Map loads Leaflet and our map script, and nothing else", ()
   ] as [string, string | (() => string)][])("%s", async (_what, p) => {
     const res = await page(typeof p === "string" ? p : p(), staff);
     expect(res.status).toBe(200);
-    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
-    expect(tags).toHaveLength(2);
-    expect(tags[0]).toMatch(LEAFLET);
-    expect(tags[1]).toMatch(MAP);
-    expect(res.text.match(/<script\b/gi)).toHaveLength(2);
+    const tags = res.text.match(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi) ?? [];
+    expect(tags).toHaveLength(3);
+    tags.forEach((t, i) => expect(t).toMatch(TAGS[i]!));
+    expect(res.text.match(/<script\b/gi)).toHaveLength(3);
+    expect(res.text).not.toMatch(/leaflet/i);
     const links = res.text.match(/<link\b[^>]*>/gi) ?? [];
     expect(links).toHaveLength(1);
     expect(links[0]).toMatch(CSS);
     const head = res.text.slice(0, res.text.indexOf("</head>"));
     for (const t of [...tags, ...links]) expect(head).toContain(t);
+    const lib = / data-maplibre="(\/api\/team\/assets\/maplibre-gl\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    const worker = / data-worker="(\/api\/team\/assets\/maplibre-gl-worker\.[0-9a-f]{12}\.mjs)"/.exec(res.text);
+    expect(lib).not.toBeNull();
+    expect(worker).not.toBeNull();
     // Every file it names is served.
-    for (const t of [...tags, ...links]) {
-      const src = /(?:src|href)="([^"]+)"/.exec(t)![1]!;
+    for (const src of [...[...tags, ...links].map((t) => /(?:src|href)="([^"]+)"/.exec(t)![1]!), lib![1]!, worker![1]!]) {
       expect((await request(app).get(src)).status, src).toBe(200);
     }
-  });
-
-  it("the button-map move page (no script) has no script and no stylesheet", async () => {
-    const res = await request(app)
-      .post("/api/team/cats/map")
-      .set("Origin", "https://team.catspotters.com")
-      .set("Cookie", staff.cookie)
-      .type("form")
-      .send({ vz: "12", vx: "0", vy: "0", go: "in" });
-    expect(res.status).toBe(200);
-    expect(res.text).not.toMatch(/<script|<link\b/i);
   });
 
   it("refused to a cat guardian: no script", async () => {

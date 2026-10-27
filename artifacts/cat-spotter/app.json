@@ -34,7 +34,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot."
+          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       "expo-notifications",
@@ -49,7 +51,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Syros Cat Spotter needs access to your photos so you can submit cat sightings.",
-          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot."
+          "cameraPermission": "Syros Cat Spotter uses the camera to photograph cats you spot.",
+          "microphonePermission": false
         }
       ]
     ],
