@@ -57,3 +57,5 @@ Nothing; orchestrator review.
 | R5 (L3) | plain move: drop merge_id IS NULL | refuses a move row carrying an old merge's id through the plain setting |
 | R6 (L4) | drop sighting and cat checks on moved statements | refuses a moved statement that replaces nothing, another sighting's row, or sits on a third cat |
 | R6b (L4) | drop only the cat check | same test (third-cat case) |
+
+Final checks on 32cb2083e: lib/db 705/707 (4 files timed out under load, all pass alone 44/44); api-server 6164 pass; migrate:check ok; typecheck 0/0/0; PR #377 body updated with Review outcome. Next: nothing (orchestrator).
