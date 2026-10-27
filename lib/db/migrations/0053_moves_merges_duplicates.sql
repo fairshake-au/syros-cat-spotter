@@ -152,6 +152,8 @@ BEGIN
     SELECT 1 FROM "sighting_moves" m
      WHERE m.id = move_setting::integer
        AND m.txid = txid_current()
+       -- A merge's moves go through app.cat_merge_id only (review L3).
+       AND m.merge_id IS NULL
        AND m.sighting_id = p_sighting
        AND m.from_cat_id = p_from
        AND m.to_cat_id = p_to

@@ -463,6 +463,24 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     expect((await sightingRow(s)).cat_id).toBe(victim);
   });
 
+  it("refuses a move row carrying an old merge's id through the plain move setting (review L3)", async () => {
+    const a = await cat();
+    const b = await cat();
+    const survivor = await cat();
+    const away = await cat();
+    const oldMerge = await merge(away, survivor);
+    const s = await resolved(a);
+    // Labelled as that merge's, so its undo would carry this sighting.
+    await expect(
+      inTx(c, async () => {
+        const id = await moveRow(c, s, a, b, { mergeId: oldMerge, reason: "merged" });
+        await setMove(c, id);
+        await recat(c, s, b);
+      }),
+    ).rejects.toThrow(APPEND_ONLY);
+    expect((await sightingRow(s)).cat_id).toBe(a);
+  });
+
   it("refuses a merge row that supersedes another merge (review L2)", async () => {
     const a = await cat();
     const b = await cat();
