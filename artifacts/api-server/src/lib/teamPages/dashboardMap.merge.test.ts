@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { catMapRig, posCat, type CatMapRig } from "./__fixtures__/catMapRig";
+import { renderCatMapPage } from "./catMapPage";
 
 // SYC-619 Task 14 (spec §5.5): the map's own grid puts cats either side of a
 // grid line into two bubbles that nearly touch. After bucketing, any bubbles
@@ -146,10 +147,15 @@ describe("the real drawCats", () => {
     expect(t.markers("catcluster")).toHaveLength(0);
   });
 
-  it("each marker is a 44px tap target named by its cat, not a position", async () => {
+  it("each marker is a 44px tap target (a button the page's CSS sizes) named by its cat, not a position", async () => {
     const { drawn } = await drawnAt([[10, 10]], 15);
     expect(drawn[0]!.tagName).toBe("BUTTON");
     expect(drawn[0]!.className).toBe("catpinicon");
+    // jsdom has no layout, so the size is read from the page's own stylesheet.
+    const css = renderCatMapPage({ personName: "T", filters: {}, colonies: [], cats: [], catCount: 0, sites: [], focus: null, now: new Date() });
+    expect(css).toContain("button.catpinicon{width:44px;height:44px;padding:0;margin:0;box-sizing:border-box;cursor:pointer}");
+    // Its dot or ring is centred inside.
+    expect(css).toContain(".catpinicon{display:flex;align-items:center;justify-content:center;");
     expect(drawn[0]!.getAttribute("aria-label")).toBe("Cat ba: Sterilised");
   });
 

@@ -477,6 +477,7 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .map[data-map]{position:relative;height:min(60vh,420px);min-height:260px;line-height:normal;border:1px solid var(--line);border-radius:10px;background:var(--sunk);overflow:hidden}
 .catmap .map[data-map],.planmap .map[data-map]{height:260px;min-height:0}
 .map[data-map] .mapcanvas{position:absolute;inset:0}
+.map[data-map]:not(.maplive):not([aria-busy]),#island-map:not(.maplive):not([aria-busy]){height:auto;min-height:0}
 .mapnojs{margin:0;padding:12px;font-size:14px;line-height:1.4;color:var(--muted)}
 .mapctl{position:absolute;top:8px;right:8px;z-index:2;display:flex;flex-direction:column;gap:6px}
 .mapctl button{width:44px;height:44px;padding:0;font:inherit;font-size:20px;font-weight:700;line-height:1;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
@@ -516,6 +517,7 @@ details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .mapmove .zoomrow button{background:var(--accent);color:var(--on-accent)}
 .mapmove button:disabled,.mapmove .zoomrow button:disabled{background:transparent;border-style:dashed;color:var(--muted);cursor:not-allowed}
 .mapmove .label{margin:8px 0 6px}
+.mapmove>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-weight:700}
 form.addsite{margin:12px 0 0}
 form.addsite button,form.typedpos button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
 /* "Move on the map" looks like the other actions' cards (.fixes summary). */
@@ -691,6 +693,7 @@ ${HELP_CSS}
 .catsheet .sheetbtns a.primary{background:var(--accent);color:var(--on-accent)}
 .catsheet .sheetclose{margin-left:auto;flex:none;min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-2)}
 .catpinicon{display:flex;align-items:center;justify-content:center;background:transparent;border:0}
+button.catpinicon{width:44px;height:44px;padding:0;margin:0;box-sizing:border-box;cursor:pointer}
 .catpinicon:focus-visible{outline:3px solid var(--ink);outline-offset:2px;border-radius:50%}
 .trailpt{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--trail);color:var(--on-accent);font:700 12px/1 ${FONT_STACK};box-shadow:0 0 0 2px var(--card)}
 .mapfallback{margin:8px 0}

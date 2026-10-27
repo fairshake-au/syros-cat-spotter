@@ -137,8 +137,9 @@
 
   /** Cats closer than this many screen pixels are drawn as one group (a marker is 44px). */
   var CELL = 44;
-  /** The closest app zoom a fit may go to (SYC-573), and the padding round it. */
-  var FIT_MAX_ZOOM = 17;
+  /** The closest app zoom the cats fit may go to (SYC-573, as on Leaflet), a trail's fit, and the padding round both. */
+  var FIT_MAX_ZOOM = 16;
+  var TRAIL_MAX_ZOOM = 17;
   var FIT_PADDING = 40;
   /** A "Go to" area opens at this app zoom. */
   var AREA_ZOOM = 15;
@@ -200,7 +201,10 @@
   var fittedOrSkipped = false;
   var fitPending = false;
 
-  /** Run a map move of our own, so it isn't mistaken for the person's. */
+  /**
+   * Run a map move of our own, so it isn't mistaken for the person's.
+   * Defensive: today's fits come when no fit can follow, but it keeps a future one from counting as a user move.
+   */
   function ownMove(fn) {
     programmatic++;
     try {
@@ -766,9 +770,20 @@
       place(n, p);
     });
     ownMove(function () {
-      if (pts.length > 1) map.fitBounds(boundsOf(pts), { padding: FIT_PADDING, maxZoom: CatMap.toMapLibreZoom(FIT_MAX_ZOOM) });
+      if (pts.length > 1) map.fitBounds(boundsOf(pts), { padding: FIT_PADDING, maxZoom: CatMap.toMapLibreZoom(TRAIL_MAX_ZOOM) });
       else map.jumpTo({ center: [pts[0].lng, pts[0].lat], zoom: CatMap.toMapLibreZoom(16) });
     });
+  }
+
+  /**
+   * A movestart from MapLibre's own resize (a phone turned, a scrollbar
+   * appearing) isn't the person moving the map. MapLibre 6 fires it with the
+   * ResizeObserver's entries as the event data, copied onto the event by
+   * index (map.ts resize(entries); evented.ts Event extends itself with data).
+   */
+  function fromResize(ev) {
+    var first = ev && ev[0];
+    return !!(first && typeof first === "object" && "contentRect" in first);
   }
 
   function live(m) {
@@ -778,8 +793,8 @@
       var el = document.getElementById(id);
       if (el) el.hidden = false;
     });
-    map.on("movestart", function () {
-      if (programmatic === 0) userMoved = true;
+    map.on("movestart", function (ev) {
+      if (programmatic === 0 && !fromResize(ev)) userMoved = true;
     });
     map.on("zoomend", drawCats);
     map.on("click", closeSheet);

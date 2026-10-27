@@ -674,6 +674,7 @@ export const el: Record<StringKey, string> = {
   "map.attrib": "© OpenStreetMap contributors",
   "map.needsJs": "Ο χάρτης χρειάζεται νεότερο πρόγραμμα περιήγησης με ενεργή JavaScript.",
   "map.catsAsGrid": "Δείτε αυτές τις γάτες σε πλέγμα",
+  "map.goToArea": "Μετάβαση σε περιοχή",
   "map.loading": "Φόρτωση του χάρτη…",
   "map.compass": "Βορράς προς τα πάνω",
   "error.notFound.title": "Αυτή η σελίδα δεν υπάρχει",

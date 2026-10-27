@@ -711,6 +711,7 @@ export const en = {
   "map.attrib": "© OpenStreetMap contributors",
   "map.needsJs": "The map needs a newer browser with JavaScript on.",
   "map.catsAsGrid": "Show these cats as a grid",
+  "map.goToArea": "Go to an area",
   "map.loading": "Loading the map…",
   "map.compass": "Turn north up",
   // SYC-516 C1: the dashboard's error pages (spec 3.1).

@@ -7,12 +7,12 @@ import { catMapRig, posCat } from "./__fixtures__/catMapRig";
 // page and scripts (map-core.js, dashboard-map.js) on the fake MapLibre,
 // whose camera moves fire `movestart` the way MapLibre does, so the "was that
 // move ours?" logic is what is tested. SYC-705: fit with padding, never
-// closer than app zoom 17 (MapLibre 16).
+// closer than app zoom 16 (MapLibre 15), today's Leaflet cap.
 
 const fits = (m: { calls: any[][] }) => m.calls.filter((c) => c[0] === "fitBounds");
 
 describe("the island map fits to the cats once (SYC-573)", () => {
-  it("starts on the island, then fits the first answer with padding and a zoom cap of app 17", async () => {
+  it("starts on the island, then fits the first answer with padding and a zoom cap of app 16", async () => {
     const t = await catMapRig();
     expect(fits(t.map())).toHaveLength(0); // the island, from the page's data-map
     expect(t.map().options.zoom).toBe(11); // app 12
@@ -23,13 +23,21 @@ describe("the island map fits to the cats once (SYC-573)", () => {
       [24.94, 37.44],
       [24.97, 37.46],
     ]);
-    expect(o).toEqual({ padding: 40, maxZoom: 16 });
+    expect(o).toEqual({ padding: 40, maxZoom: 15 });
   });
 
-  it("caps a fit to one cat at app zoom 17", async () => {
+  it("caps a fit to one cat at app zoom 16", async () => {
     const t = await catMapRig();
     await t.answer(0, [posCat(1, 37.44, 24.94)]);
-    expect(t.map().getZoom()).toBe(16);
+    expect(t.map().getZoom()).toBe(15);
+  });
+
+  it("a resize (a phone turned, a scrollbar) before the answer is not the person's move: it still fits", async () => {
+    const t = await catMapRig();
+    // As MapLibre 6's resize(entries) fires it: the ResizeObserver entries copied onto the event by index.
+    t.map().fire("movestart", { 0: { contentRect: { width: 300, height: 400 }, target: t.document.getElementById("island-map") } });
+    await t.answer(0, [posCat(1, 37.44, 24.94), posCat(2, 37.46, 24.97)]);
+    expect(fits(t.map())).toHaveLength(1);
   });
 
   it("fits even when the cats arrive before the map has drawn itself", async () => {

@@ -123,8 +123,12 @@ describe("a focused cat's trail", () => {
 });
 
 describe("Go to an area", () => {
-  it("has a button per named area, by key, and each opens that area at app zoom 15", async () => {
+  it("has a button per named area, by key, folded under 'Go to an area', and each opens that area at app zoom 15", async () => {
     const t = await catMapRig();
+    const fold = t.document.getElementById("mapmove");
+    expect(fold.tagName).toBe("DETAILS");
+    expect(fold.open).toBe(false);
+    expect(fold.querySelector("summary").textContent).toBe("Go to an area");
     const buttons = [...t.document.querySelectorAll("#mapgoto button")] as any[];
     expect(buttons.map((b) => b.getAttribute("data-area"))).toEqual(SEED_AREAS.map((a) => a.key));
     expect(buttons.map((b) => b.textContent)).toEqual(SEED_AREAS.map((a) => a.name));

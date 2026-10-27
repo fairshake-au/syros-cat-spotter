@@ -141,10 +141,11 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "</div>" +
     // No script, or the map can't start: the same cats as the grid.
     `<p class="mapfallback" id="mapgrid"><a class="tap" id="map-gridlink" href="${esc(gridHref)}">${esc(tr("en", "map.catsAsGrid"))}</a></p>` +
-    '<div class="mapmove" id="mapmove" hidden><p class="label">Go to</p>' +
+    // Every named area is a lot of buttons on a phone: folded until opened.
+    `<details class="mapmove" id="mapmove" hidden><summary>${esc(tr("en", "map.goToArea"))}</summary>` +
     '<div class="arearow" id="mapgoto" role="group" aria-label="Go to">' +
     areas.map((a) => `<button type="button" data-area="${esc(a.key)}">${esc(a.name)}</button>`).join("") +
-    "</div></div>" +
+    "</div></details>" +
     credit +
     mapPrivacyNote();
   return renderPage({

@@ -98,7 +98,7 @@ describe("the island Map page", () => {
     expect(res.text).not.toContain("/api/team/cats/map");
     // The layers and Go to stay hidden until the script shows them.
     expect(res.text).toContain('<fieldset class="maplayers" id="maplayers" hidden>');
-    expect(res.text).toContain('<div class="mapmove" id="mapmove" hidden>');
+    expect(res.text).toContain('<details class="mapmove" id="mapmove" hidden><summary>Go to an area</summary>');
   });
 
   it("no script or no map: links to the same cats as the grid, with the filters and never a position", async () => {
