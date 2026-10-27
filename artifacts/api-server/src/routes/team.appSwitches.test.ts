@@ -161,7 +161,7 @@ describe("the App switches page", () => {
   });
 
   it("refuses an extra photos form with no state, and writes nothing", async () => {
-    for (const body of [{}, { on: "yes" }]) {
+    for (const body of [{}, { on: "yes" }] as Record<string, string>[]) {
       expect((await send(team.cookie, "extra-photos", body)).status).toBe(400);
     }
     expect(await stored(PHOTOS_KEY)).toBe(false);
