@@ -485,7 +485,7 @@ a.sublink{display:block;font-size:14px;padding-top:0}
 .maplibregl-marker.pin{margin:0}
 .mapfallback.maplive{display:none}
 /* SYC-705 Task 2b.7: a place map's fixed pin, its tip on the middle of the box; the person drags the map under it. */
-.map[data-map] .placepin{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-34px 0 0 -14px;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--accent);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.map[data-map] .placepin{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-34px 0 0 -14px;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--accent);border:3px solid var(--on-accent);box-shadow:0 1px 4px rgba(0,0,0,.4)}
 [data-mapon][hidden]{display:none}
 .pickform .actions{margin:8px 0}
 .areapick select{margin-bottom:8px}

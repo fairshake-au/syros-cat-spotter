@@ -8,7 +8,7 @@ import { renderPage } from "./layout";
 // own rules.
 
 const css = (() => {
-  const html = renderPage({ title: "T", personName: "P", body: "" });
+  const html = renderPage({ title: "T", active: null, personName: "P", body: "" });
   // Comments out: they hold braces and words, not rules.
   return /<style>([\s\S]*?)<\/style>/.exec(html)![1]!.replace(/\/\*[\s\S]*?\*\//g, "");
 })();

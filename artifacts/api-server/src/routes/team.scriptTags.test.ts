@@ -70,7 +70,6 @@ describe("no other team page has any script", () => {
     ["the colonies list", () => "/api/team/colonies", () => staff],
     ["a colony", () => `/api/team/colonies/${colonyId}`, () => staff],
     ["a colony's cats", () => `/api/team/colonies/${colonyId}/cats`, () => staff],
-    ["the add-a-site page", () => "/api/team/sites/new", () => staff],
     ["the map", () => "/api/team/map", () => staff],
     ["Colour check", () => "/api/team/colour-check", () => staff],
     ["the likely-sterilised list", () => "/api/team/likely", () => staff],
@@ -103,6 +102,8 @@ describe("a page with a MapLibre map loads its files, and nothing else", () => {
   it.each([
     ["the Feeding sites page", "/api/team/sites"],
     ["the Feeding sites page, with retired sites", "/api/team/sites?retired=1"],
+    // SYC-705 Task 2b.7: the place pages (drag the map under the pin).
+    ["the add-a-site page", "/api/team/sites/new"],
   ])("%s", async (_what, path) => {
     const res = await page(path, staff);
     expect(res.status).toBe(200);
