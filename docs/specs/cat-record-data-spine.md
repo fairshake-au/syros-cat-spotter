@@ -1134,9 +1134,9 @@ Readers resolve them through `cat_identity` (§10.3), as for everything else, so
 
 `move-a-sighting.md` owns moving a sighting and its photos; this section records what it changes here.
 
-- **A move is a statement:** an add-only `sighting_moves` row (who, when, from, to, why). A sighting's `cat_id` may change after it is resolved, but only in the same transaction as that row; the sightings guard refuses any other change. The move rows are the history of where a sighting was filed.
-- **Statements made from the sighting follow it.** The spotter's own rows (`ear_tip`, `food_and_water`, `note`, and any later kind written with a `sightingId`) are restated on the new cat, keeping the spotter as author, role, provenance, photo, sighting and `observedAt`, superseding the old row, with `sighting_move_id` set. A team, guardian or vet row carrying that sighting's id is retracted on the old cat and not restated.
-- **A row replaced by a row on any cat stops counting on its own cat.** This widens the welfare re-tie rule in `loadCatRecords` to every kind.
+- **A move is a statement:** an add-only `sighting_moves` row (who, when, from, to, why). A sighting's `cat_id` may change after it is resolved, but only in the transaction that wrote that row, proven by a transaction-local setting; the sightings guard refuses any other change. The move rows are the history of where a sighting was filed, and "as of" reads use them (`move-a-sighting.md` §7.7).
+- **Statements made from the sighting follow it.** The spotter's own rows (`ear_tip`, `food_and_water`, `note`, and any later kind written with a `sightingId`) are restated on the new cat, keeping the spotter as author, role, provenance, photo, sighting and `observedAt`, superseding the old row, with `sighting_move_id` set. A team, guardian or vet row carrying that sighting's id is retracted on the old cat (the retraction keeps the sighting's id and the row's `observedAt`, so it is never evidence of life) and not restated.
+- **A row replaced by a move's row on another cat stops counting on its own cat.** `loadCatRecords` lists those replacing rows with the cat, marked `elsewhere`, so every existing supersession check sees them and no fold counts them. The welfare re-tie query becomes the same mechanism.
 - **One photo can be split out of a spot** as its own resolved sighting on the right cat, with the same spotter, place and time, no points, and the same `photos.id`.
 - **Changes caused by a move are corrections, never news** (§9.3).
 
