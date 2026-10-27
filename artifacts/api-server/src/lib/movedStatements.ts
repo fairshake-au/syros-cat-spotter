@@ -25,7 +25,8 @@ import type { DbOrTx } from "./observations";
  *   superseding the spotter's copy, and withdrawn from the old cat. So on
  *   the new cat the team's answer still decides, and the spotter's never
  *   comes back on either cat. (The team's row carries no sighting id;
- *   migration 0054 lets the withdrawal through.)
+ *   migration 0053's insert rule lets a withdrawal replace a row that
+ *   supersedes a row of the moved sighting, one hop.)
  * - **Everyone else's rows are withdrawn**, not copied: a `{ retracted: true }`
  *   of the same kind on the original row's own cat, superseding it, in the
  *   mover's name, carrying the sighting's id and the original's
