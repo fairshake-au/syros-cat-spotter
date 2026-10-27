@@ -9,17 +9,25 @@ import {
   primaryKey,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 
-// Every points award, one row per resolved sighting. The week board reads
-// this and nothing else, so a week's result never moves once it is written.
+// Every points award: one row per resolved sighting, and one per phone and
+// pair for finding a duplicate (which-cat-is-which.md §9.8). The week board
+// reads this and nothing else, so a week's result never moves once it is
+// written.
 export const pointsLedgerTable = pgTable(
   "points_ledger",
   {
     id: serial("id").primaryKey(),
     // Null once deletion has unlinked the spotter.
     deviceId: text("device_id"),
-    sightingId: integer("sighting_id").notNull().unique(),
+    // A sighting's award. Null on a duplicate-finder award
+    // (which-cat-is-which.md §9.8), which names its pair instead.
+    sightingId: integer("sighting_id").unique(),
+    // A duplicate-finder award's pair: canonical ids at the merge, low < high.
+    duplicateCatLow: integer("duplicate_cat_low"),
+    duplicateCatHigh: integer("duplicate_cat_high"),
     catId: integer("cat_id").notNull(),
     points: integer("points").notNull(),
     athensDay: date("athens_day", { mode: "string" }).notNull(),
@@ -27,15 +35,30 @@ export const pointsLedgerTable = pgTable(
     earnedAt: timestamp("earned_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    // live | history
+    // live | history | duplicate
     source: text("source").notNull(),
   },
   (t) => [
-    // A spotter earns for a cat once a day.
+    // A spotter earns for a cat once a day from sightings. A duplicate-finder
+    // award for the same cat the same day is paid as well.
     uniqueIndex("points_ledger_once_a_day_uq")
       .on(t.deviceId, t.catId, t.athensDay)
-      .where(sql`${t.points} > 0`),
+      .where(sql`${t.sightingId} is not null and ${t.points} > 0`),
     index("points_ledger_week_device_idx").on(t.weekStart, t.deviceId),
+    // A phone is paid once per pair, ever: undoing and re-making a merge
+    // never pays twice.
+    uniqueIndex("points_ledger_duplicate_pair_uq").on(
+      t.deviceId,
+      t.duplicateCatLow,
+      t.duplicateCatHigh,
+    ),
+    // Either a sighting's award, or a duplicate-finder award with its pair.
+    check(
+      "points_ledger_award_ck",
+      sql`(${t.sightingId} is not null and ${t.duplicateCatLow} is null and ${t.duplicateCatHigh} is null)
+        or (${t.sightingId} is null and ${t.duplicateCatLow} is not null and ${t.duplicateCatHigh} is not null
+          and ${t.duplicateCatLow} < ${t.duplicateCatHigh})`,
+    ),
   ],
 );
 
