@@ -199,21 +199,6 @@ const TIED_TEXT: Record<string, string> = {
  *   not tied, no suggestion        -> as before
  * The suggestion is never applied by itself: the tie writes history.
  */
-/**
- * SYC-492: "Find this cat from the report's photo", into Find from a photo
- * with the report carried as `tie`, so each result offers "This is the cat".
- * The report's area goes by its key, never its position (spec §10.4); off
- * Syros there's no area to carry, and findAddress drops a key it doesn't know.
- * Only with a photo to search from, and only for those who may tie: the find
- * page's own capability, find_cat_from_photo, has the same roles (pinned by
- * a test).
- */
-export function findFromReportLink(r: Pick<QueueReport, "id" | "lat" | "lng" | "photo">, canTie: boolean): string {
-  if (!canTie || !r.photo.url) return "";
-  const href = findAddress({ area: areaFor(r.lat, r.lng).key }, r.id);
-  return `<a class="tap sublink" href="${esc(href)}">Find this cat from the report's photo</a>`;
-}
-
 function catRow(r: QueueReport, canTie: boolean): string {
   const search = `/api/team/cats?tie=${encodeURIComponent(r.id)}`;
   const find = findFromReportLink(r, canTie);
@@ -257,6 +242,21 @@ function catRow(r: QueueReport, canTie: boolean): string {
     "Which cat",
     `<a class="tap" href="${esc(search)}">Match to a known cat</a>` + find,
   );
+}
+
+/**
+ * SYC-492: "Find this cat from the report's photo", into Find from a photo
+ * with the report carried as `tie`, so each result offers "This is the cat".
+ * The report's area goes by its key, never its position (spec §10.4); off
+ * Syros there's no area to carry, and findAddress drops a key it doesn't know.
+ * Only with a photo to search from, and only for those who may tie: the find
+ * page's own capability, find_cat_from_photo, has the same roles (pinned by
+ * a test).
+ */
+export function findFromReportLink(r: Pick<QueueReport, "id" | "lat" | "lng" | "photo">, canTie: boolean): string {
+  if (!canTie || !r.photo.url) return "";
+  const href = findAddress({ area: areaFor(r.lat, r.lng).key }, r.id);
+  return `<a class="tap sublink" href="${esc(href)}">Find this cat from the report's photo</a>`;
 }
 
 export interface ReportRowOptions {

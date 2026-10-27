@@ -75,6 +75,8 @@ export const MATCHING_DOWN_ISLAND_WORDS = "Matching isn't working right now. Try
 export const STALE_PLACE_WORDS =
   "That area or colony isn't on the list any more. Choose another, or choose Anywhere on the island.";
 export const TOO_BIG_WORDS = "That photo is too big. Choose one under 10 MB.";
+/** SYC-492: "Use the report's photo" with no photo the team can see on that report. */
+export const NO_REPORT_PHOTO_WORDS = "This report has no photo to use. Choose or take a photo instead.";
 
 const BAND_WORD: Record<Band, string> = {
   very_likely: "Very likely",
@@ -202,7 +204,19 @@ function photoForm(o: FindFormOptions): string {
   } else {
     const photoProblem =
       o.problem?.field === "photo" ? `<p class="warn" id="photo-error">${esc(o.problem.words)}</p>` : "";
+    const reportPhoto = o.tie?.report?.photo.url ?? null;
     inside =
+      // SYC-492: the report's own photo, read on the server, so one tap runs
+      // the search. Its own form, so `source` never rides on the upload.
+      (reportPhoto
+        ? `<form class="findphoto fromreport" method="post" action="${FIND_PATH}" enctype="multipart/form-data">` +
+          hiddenFilters(o.filters, o.tie) +
+          '<input type="hidden" name="source" value="report">' +
+          `<img class="reportphoto" src="${esc(reportPhoto)}" alt="Photo sent with this report" width="160" loading="lazy">` +
+          `<button type="submit" class="primary">Use the report's photo</button>` +
+          "</form>" +
+          '<p class="hint">Or choose another photo.</p>'
+        : "") +
       `<form class="findphoto" method="post" action="${FIND_PATH}" enctype="multipart/form-data">` +
       hiddenFilters(o.filters, o.tie) +
       '<label class="flabel" for="find-photo">Choose or take a photo</label>' +
@@ -211,7 +225,7 @@ function photoForm(o: FindFormOptions): string {
       (photoProblem ? ' aria-describedby="photo-error" aria-invalid="true"' : "") +
       ">" +
       '<p class="hint">A JPEG, PNG, HEIC or WebP photo under 10 MB. Its location and other hidden details are removed before it is sent to the AI service the app already uses for matching. The photo isn\'t kept.</p>' +
-      `<button type="submit" class="primary">${o.narrowing.count > FIND_MAX_CATS ? "Compare" : `Compare with ${cats(o.narrowing.count)}`}</button>` +
+      `<button type="submit" class="${reportPhoto ? "secondary" : "primary"}">${o.narrowing.count > FIND_MAX_CATS ? "Compare" : `Compare with ${cats(o.narrowing.count)}`}</button>` +
       // Shown by find-photo.js when the search starts; with no script it stays hidden.
       '<p class="hint" id="find-progress" role="status" hidden>Comparing your photo. This can take up to half a minute. Please keep this page open and don\'t tap again.</p>' +
       "</form>";
