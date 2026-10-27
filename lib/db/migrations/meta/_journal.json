@@ -379,13 +379,6 @@
       "when": 1793082390925,
       "tag": "0053_moves_merges_duplicates",
       "breakpoints": true
-    },
-    {
-      "idx": 54,
-      "version": "7",
-      "when": 1793092578809,
-      "tag": "0054_news_moved_merged",
-      "breakpoints": true
     }
   ]
 }
