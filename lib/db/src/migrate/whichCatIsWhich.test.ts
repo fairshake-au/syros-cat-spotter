@@ -1050,6 +1050,21 @@ describe("a temporary table can't shadow a guard's lookup (review M1)", () => {
   });
 });
 
+describe("news silenced by a move or a merge (§9.12)", () => {
+  const silenced = (reason: string) =>
+    c.query(
+      `insert into cat_news_changes (cat_id, change, evidence_ids, found_at, state, silenced_reason)
+       values (1, 'seen_again', '{}', now(), 'silenced', $1)`,
+      [reason],
+    );
+
+  it("accepts moved and merged, and still refuses an unknown reason", async () => {
+    await silenced("moved");
+    await silenced("merged");
+    await expect(silenced("shuffled")).rejects.toThrow(/cat_news_changes_reason_ck/);
+  });
+});
+
 describe("the bell's new kinds (C5)", () => {
   it("accepts merged and duplicate_points with a message and no cat update", async () => {
     for (const kind of ["merged", "duplicate_points"]) {
