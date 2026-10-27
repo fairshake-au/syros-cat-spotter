@@ -1345,7 +1345,10 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
     });
     return;
   }
-  const catId = sighting.catId;
+  // The cat the answers go to: the one the sighting is filed under when they
+  // are written, re-read inside the transaction below (a move may file it
+  // elsewhere meanwhile; which-cat-is-which.md §5.7, §9.7).
+  let catId: number | null = sighting.catId;
 
   if (Date.now() - sighting.createdAt.getTime() > ANSWER_WINDOW_MS) {
     res.status(422).json({
@@ -1375,8 +1378,13 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
 
   const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
   const EAR_TIP_CHECKED = { code: "EAR_TIP_CHECKED" } as const;
+  const REFILED = { code: "REFILED" } as const;
   let written: Answer[] = [];
-  try {
+  // A move holds this lock while it files the sighting elsewhere; one that
+  // lands between the read above and the lock sends us round once more, on
+  // the cat it is under now. Twice at most: three moves of one spot inside
+  // one request don't happen.
+  for (let attempt = 0; ; attempt += 1) try {
     await db.transaction(async (tx) => {
       // Serialise every answer this device sends about this cat, so neither
       // "once per question per sighting" nor "ear tip once per cat" can be
@@ -1388,6 +1396,19 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${`sighting-answers:${sighting.deviceId}`}), ${catId})`,
       );
+      // The sighting's cat, read again under FOR SHARE (§9.7): a move holds
+      // the row FOR UPDATE until it commits, so this waits for it and then
+      // sees where it filed the sighting. The answers go there, never to the
+      // cat it has just left.
+      const now = await tx.execute<{ cat_id: number | null }>(
+        sql`select cat_id from sightings where id = ${sightingId} for share`,
+      );
+      const filedUnder = now.rows[0]?.cat_id ?? null;
+      if (filedUnder === null || filedUnder !== catId) {
+        catId = filedUnder;
+        throw REFILED;
+      }
+      const filed: number = filedUnder;
       const answeredHere = new Set(
         (
           await tx
@@ -1408,7 +1429,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       const ear = toWrite.find((a) => a.kind === "ear_tip");
       if (ear) {
         const keep = await (async (): Promise<boolean> => {
-          const state = await earTipStateFor(tx, spotterId, catId);
+          const state = await earTipStateFor(tx, spotterId, filed);
           if (state.state === "open") return true;
           // Without changeEarTip a second answer is left out, as PR 7 did, so
           // the reward screen can never change an answer by accident.
@@ -1441,7 +1462,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
 
       for (const a of toWrite) {
         await writeObservation(tx, {
-          catId,
+          catId: filed,
           kind: a.kind,
           value: a.value,
           deviceId: sighting.deviceId,
@@ -1461,7 +1482,16 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       }
       written = toWrite;
     });
+    break;
   } catch (err) {
+    if (err === REFILED && catId !== null && attempt < 2) continue;
+    if (err === REFILED) {
+      res.status(409).json({
+        error: "This sighting hasn't been matched to a cat yet",
+        code: "NOT_RESOLVED",
+      });
+      return;
+    }
     if (err === ALREADY_ANSWERED) {
       res.status(409).json({
         error: "This sighting's questions were already answered",
