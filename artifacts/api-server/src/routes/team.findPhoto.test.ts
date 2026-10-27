@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import sharp from "sharp";
-import { and, like, sql } from "drizzle-orm";
-import { catsTable, db, photosTable, pool } from "@workspace/db";
+import { and, eq, like, sql } from "drizzle-orm";
+import { catsTable, db, photosTable, pool, welfareReportsTable } from "@workspace/db";
 
 // SYC-396 PR 2.5, Task 2.5.2: the Find-from-a-photo page, its upload and its
 // daily caps. The matching service is mocked in every test (no real call is
@@ -930,5 +930,98 @@ describe("the daily caps", () => {
     const lateInWindow = Math.floor(Date.now() / DAY) * DAY + DAY - 60_000;
     for (let i = 0; i < FIND_PHOTO_PERSON_LIMIT; i++) await checkFindLimits(team.id, lateInWindow);
     expect(await checkFindLimits(team.id, lateInWindow + 120_000)).toBe("person");
+  });
+});
+
+describe("SYC-492: Use the report's photo", () => {
+  /** The red of the "Your photo" picture on a results page: which photo was really compared. */
+  async function shownRed(text: string): Promise<number> {
+    const m = /<img src="data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})" alt="Your photo"/.exec(text);
+    expect(m).not.toBeNull();
+    return (await sharp(Buffer.from(m![1]!, "base64")).stats()).channels[0]!.mean;
+  }
+
+  it("from a report with a photo, the form offers the report's photo in its own form", async () => {
+    const team = await teamMember("rpform");
+    const report = await seedReport({ photo: { mime: "image/jpeg", bytes: await jpeg("#00aa00") } });
+    const page = await form(team.cookie, `?colony=${colony}&tie=${report.publicId}`);
+    const own = /<form class="findphoto fromreport"[\s\S]*?<\/form>/.exec(page.text)?.[0];
+    expect(own).toBeDefined();
+    expect(own).toContain('<input type="hidden" name="source" value="report">');
+    expect(own).toContain(`<input type="hidden" name="tie" value="${report.publicId}">`);
+    expect(own).toContain(`src="/api/team/report-photos/${report.photoPublicId}"`);
+    expect(own).toContain(">Use the report's photo</button>");
+    expect(own).not.toContain('type="file"');
+    // The upload is still there, beside it.
+    expect(page.text).toContain('type="file"');
+  });
+
+  it("is not offered for a report with no photo, or with no report", async () => {
+    const team = await teamMember("rpnone");
+    const report = await seedReport({ photo: "failed" });
+    for (const q of [`?colony=${colony}&tie=${report.publicId}`, `?colony=${colony}`]) {
+      const page = await form(team.cookie, q);
+      expect(page.text).not.toContain("fromreport");
+      expect(page.text).not.toContain('name="source"');
+    }
+  });
+
+  it("one tap searches with the report's own photo, ignores any upload, and ties the report", async () => {
+    const team = await teamMember("rpsearch");
+    const report = await seedReport({ photo: { mime: "image/jpeg", bytes: await jpeg("#ff0000", 200) } });
+    // An upload sent alongside (dark) is ignored: the report's photo (red) is the one compared.
+    const res = await search(
+      team.cookie,
+      { colony: String(colony), tie: report.publicId, source: "report" },
+      { bytes: await jpeg("#000000", 200) },
+    );
+    expect(res.status).toBe(200);
+    expect(matchMock).toHaveBeenCalledTimes(1);
+    expect(await shownRed(res.text)).toBeGreaterThan(200);
+    expect(res.text).toContain(`<form method="post" action="/api/team/reports/${report.publicId}/cat">`);
+    expect(res.text).toContain("This is the cat");
+    expect(await findPersonHits(team.id)).toBe(1);
+    // With no upload at all it works the same.
+    const bare = await search(team.cookie, { colony: String(colony), tie: report.publicId, source: "report" }, null);
+    expect(bare.status).toBe(200);
+  });
+
+  it("a report photo the team can't see is never sent, and uses no search", async () => {
+    const team = await teamMember("rphidden");
+    const bytes = await jpeg("#ff0000");
+    // Stored, but marked as not received: the Queue shows "No photo".
+    const failed = await seedReport({ photo: { mime: "image/jpeg", bytes } });
+    await db.update(welfareReportsTable).set({ photoState: "failed" }).where(eq(welfareReportsTable.publicId, failed.publicId));
+    // Stored, but still marked uploading.
+    const pending = await seedReport({ photo: { mime: "image/jpeg", bytes } });
+    await db.update(welfareReportsTable).set({ photoState: "pending" }).where(eq(welfareReportsTable.publicId, pending.publicId));
+    // A type the team's report-photo route won't serve.
+    const odd = await seedReport({ photo: { mime: "image/svg+xml", bytes } });
+    // An issue report ("Report an issue"), never a welfare one.
+    const issue = await seedReport({ kind: "content", photo: { mime: "image/jpeg", bytes } });
+    for (const r of [failed, pending, odd, issue]) {
+      const res = await search(team.cookie, { colony: String(colony), tie: r.publicId, source: "report" }, null);
+      expect(res.status, r.publicId).toBeGreaterThanOrEqual(400);
+      if (res.status === 400) expect(res.text).toContain("This report has no photo to use.");
+    }
+    // A draft: no such report at all.
+    const draft = await seedReport({ isDraft: true, photo: { mime: "image/jpeg", bytes } });
+    const res = await search(team.cookie, { colony: String(colony), tie: draft.publicId, source: "report" }, null);
+    expect(res.status).toBe(404);
+    // And with no report to tie, there is no report photo to use.
+    const none = await search(team.cookie, { colony: String(colony), source: "report" }, null);
+    expect(none.status).toBe(400);
+    expect(none.text).toContain("This report has no photo to use.");
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(fingerprintMock).not.toHaveBeenCalled();
+    expect(await findPersonHits(team.id)).toBe(0);
+    expect(await findTeamHits()).toBe(0);
+  });
+
+  it("a cat guardian can't use it either", async () => {
+    const report = await seedReport({ photo: { mime: "image/jpeg", bytes: await jpeg("#ff0000") } });
+    const res = await search(guardian.cookie, { colony: String(colony), tie: report.publicId, source: "report" }, null);
+    expect(res.status).toBe(403);
+    expect(matchMock).not.toHaveBeenCalled();
   });
 });
