@@ -227,7 +227,7 @@ describe.each(CASES)("every reader of merges: $name", ({ build, expected }) => {
 
   it("hasMetCat: the phone that met Mimi has met every cat she was merged into, and nobody else", async () => {
     for (const id of [c.agatha, c.dora]) {
-      expect(await hasMetCat(db, id, c.device), `cat ${id}`).toBe(e.fedByMimi.includes(id));
+      expect(await hasMetCat(db, id, c.device, "claim"), `cat ${id}`).toBe(e.fedByMimi.includes(id));
     }
   });
 

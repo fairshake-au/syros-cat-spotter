@@ -21,7 +21,7 @@ export interface TestMove extends MovedStatements {
 export async function moveSighting(
   sightingId: number,
   toCatId: number,
-  opts: { by?: string; role?: "staff" | "management"; createdAt?: Date } = {},
+  opts: { by?: string; role?: "staff" | "management"; createdAt?: Date; madeNewCat?: boolean; letSpottersName?: boolean } = {},
   exec?: DbOrTx,
 ): Promise<TestMove> {
   const run = async (tx: DbOrTx): Promise<TestMove> => {
@@ -38,6 +38,8 @@ export async function moveSighting(
         source: "cat_page",
         movedByAccountId: opts.by ?? "vitest-mover",
         roleAtTime: opts.role ?? "staff",
+        madeNewCat: opts.madeNewCat ?? false,
+        letSpottersName: opts.letSpottersName ?? false,
         ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
       })
       .returning({ id: sightingMovesTable.id });

@@ -136,7 +136,7 @@ async function detailViewer(
   if (!proven) {
     return { viewer: PUBLIC_VIEWER, canClaim: false, claimCooldown: false, isFollowing: undefined, canName: undefined };
   }
-  const canName = cat.namePending ? await hasMetCat(db, cat.id, deviceId) : false;
+  const canName = cat.namePending ? await hasMetCat(db, cat.id, deviceId, "name") : false;
   if (cat.ownerDeviceId === deviceId) {
     // An owner always follows the cat.
     return { viewer: { tier: "owner", deviceId }, canClaim: false, claimCooldown: false, isFollowing: true, canName };
@@ -789,7 +789,7 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
       const cat = locked.rows[0];
       if (!cat || cat.redacted_at !== null) return { ok: false, why: "NOT_FOUND" };
       if (!cat.name_pending) return { ok: false, why: "ALREADY_NAMED" };
-      if (!(await hasMetCat(tx, catId, deviceId))) return { ok: false, why: "NEEDS_SIGHTING" };
+      if (!(await hasMetCat(tx, catId, deviceId, "name"))) return { ok: false, why: "NEEDS_SIGHTING" };
       const [holder] = await tx
         .select({ id: catsTable.id })
         .from(catsTable)
