@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { catNewsBaselineTable, catNewsChangesTable, db, pool } from "@workspace/db";
+import { catNewsBaselineTable, catNewsChangesTable, catNewsRunsTable, db, pool } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
 vi.mock("@workspace/integrations-openai-ai-server", () => ({
@@ -9,7 +9,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 import { daysAgo, moveKit } from "../../test/moveKit";
 import { moveSighting } from "../../test/moves";
 import { recordedMerge } from "../../test/merges";
-import { compareCat, loadCorrections, rebaselineNews, seedNewsBaseline, type Corrections } from "./nightly";
+import { compareCat, loadCorrections, rebaselineNews, runNightlyNewsCheck, seedNewsBaseline, type Corrections } from "./nightly";
 
 // SYC-150 PR 3.1 (which-cat-is-which.md §9.12, §5.8): a move or a merge is a
 // correction, never news. The nightly check silences a change one made
@@ -117,5 +117,24 @@ describe("the corrections the nightly walk reads, and re-baselining", () => {
     expect(rows.find((r) => r.catId === agatha)!.lastSightingAt).toEqual(s.createdAt);
     expect(rows.find((r) => r.catId === unwalked)).toBeUndefined();
     expect(await db.select().from(catNewsChangesTable).where(eq(catNewsChangesTable.catId, agatha))).toEqual([]);
+  });
+});
+
+// Folded in from the independent review of #380 (finding 3): the walk end to
+// end, so dropping the corrections it hands compareCat goes red.
+describe("the nightly walk silences a move as `moved`, even before the move re-baselines", () => {
+  it("Agatha, last seen 300 days ago, gets Mimi's sighting from 2 days ago: never news", async () => {
+    const agatha = await cat();
+    const mimi = await cat();
+    await kit.sighting(agatha, kit.device(), daysAgo(300));
+    const s = await kit.sighting(mimi, kit.device(), daysAgo(2));
+    await seedNewsBaseline([agatha, mimi], db, daysAgo(1));
+    await moveSighting(s.id, agatha);
+
+    await db.delete(catNewsRunsTable);
+    const r = await runNightlyNewsCheck();
+    expect(r.status).toBe("ran");
+    const changes = await db.select().from(catNewsChangesTable).where(eq(catNewsChangesTable.catId, agatha));
+    expect(changes.map((c) => [c.change, c.state, c.silencedReason])).toEqual([["seen_again", "silenced", "moved"]]);
   });
 });
