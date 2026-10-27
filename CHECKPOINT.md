@@ -36,5 +36,7 @@ Branch: claude/syc-150-pr2.1-migration. Migration: lib/db/migrations/0053_moves_
 
 Also done: suite fixes (ISLAND_ROLES, dataSpine wording, unfollowSticks wait filter); supersedes guard + test (30 tests in whichCatIsWhich).
 
+8. Draft PR #377 opened. Full suites green, typecheck 0/0/0, migrate:check ok.
+
 ## Next
-7. Full suites (lib/db, api-server), migrate:check, typecheck. 8. Draft PR.
+Nothing; orchestrator review.
