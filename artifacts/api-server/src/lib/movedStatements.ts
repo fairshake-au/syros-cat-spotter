@@ -18,6 +18,14 @@ import type { DbOrTx } from "./observations";
  *   putting it in a team member's name would turn a spotter's guess into a
  *   team statement. A deleted spotter's row is copied as it is, with nobody
  *   on it.
+ * - **A team answer that marked one of the spotter's answers wrong moves
+ *   too** (Samuel's decision, 27 Oct 2026, review R3: "move the team's
+ *   answer"): it is about the photo. The spotter's overruled answer is
+ *   copied, then the team's is copied in its own author's name and role,
+ *   superseding the spotter's copy, and withdrawn from the old cat. So on
+ *   the new cat the team's answer still decides, and the spotter's never
+ *   comes back on either cat. (The team's row carries no sighting id;
+ *   migration 0054 lets the withdrawal through.)
  * - **Everyone else's rows are withdrawn**, not copied: a `{ retracted: true }`
  *   of the same kind on the original row's own cat, superseding it, in the
  *   mover's name, carrying the sighting's id and the original's
@@ -84,74 +92,111 @@ export async function writeMovedObservation(tx: DbOrTx, moveId: number): Promise
 
   const spotter = await lockSpotter(tx, move);
 
-  // The rows of this sighting that still stand, locked.
+  // The rows of this sighting on the cats it leaves, locked, and every row
+  // that supersedes one of them (the team's answers about the photo carry no
+  // sighting id), locked too, and what supersedes those.
   await tx.execute(sql`select id from observations where sighting_id = ${move.sightingId} order by id for update`);
-  const ofSighting = await tx.select().from(observationsTable).where(eq(observationsTable.sightingId, move.sightingId));
-  const ids = ofSighting.map((o) => o.id);
-  const replaced = new Set(
-    ids.length === 0
-      ? []
-      : (
-          await tx
-            .select({ supersedesId: observationsTable.supersedesId })
-            .from(observationsTable)
-            .where(inArray(observationsTable.supersedesId, ids))
-        ).map((r) => r.supersedesId),
-  );
   const fromCats = new Set((await catsFeeding([move.fromCatId], {}, tx)).get(move.fromCatId)?.ids ?? [move.fromCatId]);
-  const standing = ofSighting
-    .filter((o) => !replaced.has(o.id) && fromCats.has(o.catId) && !assertsNothing(o.value))
-    .sort((a, b) => a.id - b.id);
+  const ofSighting = (await tx.select().from(observationsTable).where(eq(observationsTable.sightingId, move.sightingId))).filter(
+    (o) => fromCats.has(o.catId),
+  );
+  const replacing = await supersedersOf(tx, ofSighting.map((o) => o.id));
+  const overrulers = [...replacing.values()].flat().filter((t) => fromCats.has(t.catId) && !isSpotters(t, spotter) && !isMovedStatement(t));
+  const replacingOverrulers = await supersedersOf(tx, overrulers.map((t) => t.id));
+  const stands = (o: Observation, by: ReadonlyMap<number, Observation[]>) => (by.get(o.id) ?? []).length === 0;
 
   const copied: Observation[] = [];
   const withdrawn: Observation[] = [];
-  for (const o of standing) {
-    if (isSpotters(o, spotter)) {
-      const [row] = await tx
-        .insert(observationsTable)
-        .values({
-          catId: move.toCatId,
-          kind: o.kind,
-          value: o.value as object,
-          deviceId: o.deviceId,
-          accountId: o.accountId,
-          roleAtTime: o.roleAtTime,
-          authorityScope: o.authorityScope,
-          provenance: o.provenance,
-          suggestedValue: o.suggestedValue as object | null,
-          suggestionSource: o.suggestionSource,
-          sightingId: o.sightingId,
-          photoId: o.photoId,
-          importRecordId: o.importRecordId,
-          observedAt: o.observedAt,
-          supersedesId: o.id,
-          supersedeReason: "moved",
-          sightingMoveId: move.id,
-          redactedAt: o.redactedAt,
-          redactionReason: o.redactionReason,
-        })
-        .returning();
-      copied.push(row!);
-    } else {
-      const [row] = await tx
-        .insert(observationsTable)
-        .values({
-          catId: o.catId,
-          kind: o.kind,
-          value: { retracted: true },
-          accountId: move.movedByAccountId,
-          roleAtTime: move.roleAtTime,
-          sightingId: move.sightingId,
-          observedAt: o.observedAt,
-          supersedesId: o.id,
-          supersedeReason: "moved",
-          sightingMoveId: move.id,
-        })
-        .returning();
-      withdrawn.push(row!);
+  const handled = new Set<number>();
+
+  const copy = async (o: Observation, onto: { supersedesId: number; supersedeReason: string | null }) => {
+    const [row] = await tx
+      .insert(observationsTable)
+      .values({
+        catId: move.toCatId,
+        kind: o.kind,
+        value: o.value as object,
+        deviceId: o.deviceId,
+        accountId: o.accountId,
+        roleAtTime: o.roleAtTime,
+        authorityScope: o.authorityScope,
+        provenance: o.provenance,
+        suggestedValue: o.suggestedValue as object | null,
+        suggestionSource: o.suggestionSource,
+        sightingId: move.sightingId,
+        photoId: o.photoId,
+        importRecordId: o.importRecordId,
+        observedAt: o.observedAt,
+        supersedesId: onto.supersedesId,
+        supersedeReason: onto.supersedeReason,
+        sightingMoveId: move.id,
+        redactedAt: o.redactedAt,
+        redactionReason: o.redactionReason,
+      })
+      .returning();
+    copied.push(row!);
+    return row!;
+  };
+  const withdraw = async (o: Observation) => {
+    const [row] = await tx
+      .insert(observationsTable)
+      .values({
+        catId: o.catId,
+        kind: o.kind,
+        value: { retracted: true },
+        accountId: move.movedByAccountId,
+        roleAtTime: move.roleAtTime,
+        sightingId: move.sightingId,
+        observedAt: o.observedAt,
+        supersedesId: o.id,
+        supersedeReason: "moved",
+        sightingMoveId: move.id,
+      })
+      .returning();
+    withdrawn.push(row!);
+    handled.add(o.id);
+  };
+
+  for (const o of [...ofSighting].sort((a, b) => a.id - b.id)) {
+    if (!isSpotters(o, spotter) || assertsNothing(o.value)) continue;
+    const by = replacing.get(o.id) ?? [];
+    if (by.length === 0) {
+      // The spotter's answer, standing: it goes with the photo.
+      await copy(o, { supersedesId: o.id, supersedeReason: "moved" });
+      continue;
+    }
+    // Overruled by the team (Samuel, 27 Oct 2026: "move the team's answer"):
+    // the spotter's answer and the answer that overruled it both go, the
+    // team's still in its own author's name and role and still overruling
+    // the spotter's copy, so the spotter's answer doesn't come back on either
+    // cat. Only when every row that replaced it is such an answer, standing.
+    // Anything else (their own later change, an earlier move's copy, a
+    // correction corrected since) is left as it is.
+    const team = by.filter((t) => overrulers.includes(t));
+    if (team.length !== by.length || !team.every((t) => stands(t, replacingOverrulers))) continue;
+    const spottersCopy = await copy(o, { supersedesId: o.id, supersedeReason: "moved" });
+    for (const t of team.sort((a, b) => a.id - b.id)) {
+      await copy(t, { supersedesId: spottersCopy.id, supersedeReason: t.supersedeReason });
+      await withdraw(t);
     }
   }
+
+  // Everyone else's rows on the sighting, standing: withdrawn, not copied.
+  for (const o of [...ofSighting].sort((a, b) => a.id - b.id)) {
+    if (isSpotters(o, spotter) || handled.has(o.id) || assertsNothing(o.value) || !stands(o, replacing)) continue;
+    await withdraw(o);
+  }
   return { copied, withdrawn };
+}
+
+/** Every row superseding one of these, by the row it supersedes, locked. */
+async function supersedersOf(tx: DbOrTx, ids: readonly number[]): Promise<Map<number, Observation[]>> {
+  const out = new Map<number, Observation[]>();
+  if (ids.length === 0) return out;
+  await tx.execute(sql`select id from observations where supersedes_id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)}) order by id for update`);
+  const rows = await tx.select().from(observationsTable).where(inArray(observationsTable.supersedesId, [...ids]));
+  for (const r of rows) out.set(r.supersedesId!, [...(out.get(r.supersedesId!) ?? []), r]);
+  return out;
 }
 
 /**

@@ -236,3 +236,50 @@ describe("an agreement, then the photo moves back (review R6)", () => {
     expect(likely.find((l) => l.catId === c.agatha)).toBeUndefined();
   });
 });
+
+describe("a team 'not clipped' that marked the spotter's answer wrong moves with the photo (review R3; Samuel, 27 Oct 2026)", () => {
+  /** The ear-tip rows that stand for a cat: its own, nothing replacing them, asserting something. */
+  const standingEarTips = async (catId: number) => {
+    const r = (await loadCatRecords([catId])).get(catId)!;
+    const replaced = new Set(r.observations.map((o) => o.supersedesId));
+    return r.observations.filter(
+      (o) => o.kind === "ear_tip" && !o.elsewhere && !replaced.has(o.id) && (o.value as { retracted?: unknown }).retracted !== true,
+    );
+  };
+
+  it("Mimi loses the team's answer; Agatha shows it, in the team member's name, and the spotter's clip doesn't come back", async () => {
+    const c = await scene();
+    // The team marks the spotter's answer wrong, about the photo, on Mimi
+    // (the Likely list's "Not clipped": no sighting id of its own).
+    const team = await writeObservation(db, {
+      catId: c.mimi,
+      kind: "ear_tip",
+      value: { clipped: false },
+      accountId: STAFF.id,
+      roleAtTime: "staff",
+      observedAt: c.s.createdAt,
+      supersedesId: c.ear.id,
+      supersedeReason: "photo shows a whole ear",
+    });
+    const mimiBefore = await sterilisedOf(c.mimi);
+    expect(mimiBefore.confidence).not.toBe("likely");
+
+    const moved = await moveSighting(c.s.id, c.agatha, { by: "vitest-mover-carol" });
+
+    expect(await standingEarTips(c.mimi)).toEqual([]);
+    const onAgatha = await standingEarTips(c.agatha);
+    expect(onAgatha).toHaveLength(1);
+    const spottersCopy = moved.copied.find((o) => o.supersedesId === c.ear.id)!;
+    expect(onAgatha[0]).toMatchObject({
+      accountId: STAFF.id,
+      roleAtTime: "staff",
+      value: { clipped: false },
+      supersedesId: spottersCopy.id,
+      supersedeReason: "photo shows a whole ear",
+      sightingId: c.s.id,
+    });
+    expect(moved.withdrawn).toEqual([expect.objectContaining({ catId: c.mimi, supersedesId: team.id, accountId: "vitest-mover-carol" })]);
+    expect(await sterilisedOf(c.agatha)).toMatchObject({ value: mimiBefore.value, confidence: mimiBefore.confidence });
+    expect((await sterilisedOf(c.agatha)).confidence).not.toBe("likely");
+  });
+});
