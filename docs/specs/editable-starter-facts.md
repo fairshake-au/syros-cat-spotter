@@ -3,7 +3,7 @@
 **Status:** Draft for Samuel's approval, 26 October 2026. An independent adversarial review (Sonnet, 26 October) found 2 blockers, 7 major and 9 minor issues. All are folded in below; how each was handled is in §11.
 **Owner:** Samuel
 **Ticket:** SYC-754. Builds on the App switches page (SYC-383) and the starter facts (SYC-48, [`starter-facts.md`](./starter-facts.md)).
-**Decisions already made** (Samuel, 26 October 2026): see §9. **Still open:** three questions in §8.
+**Decisions** (Samuel, 26 October 2026): all answered, see §8 and §9.
 
 ---
 
@@ -37,11 +37,11 @@ A small note under a fact says which languages it has, for example *"English and
 - **The ear-tip fact keeps its photo** whatever its words say. The edit page for it shows the photo and says *"The app shows this photo above the words."*
 - **On one of the twenty original facts,** a line beside **Save** says: *"Phones not yet updated keep showing the old words. If the old words are wrong, hide the fact for now."* (§3.2).
 
-**When the English changes but a translation doesn't.** If the English you're saving differs from the stored English, and the Greek or French you're saving is the same as the stored Greek or French (and not empty), the page asks before saving: *"You changed the English. Check the Greek and French still say the same thing, or empty them so readers see the new English."* with **Save anyway** and **Go back**. A language with no words yet doesn't trigger it. See open question A (§8).
+**When the English changes but a translation doesn't.** If the English you're saving differs from the stored English, and the Greek or French you're saving is the same as the stored Greek or French (and not empty), the page asks before saving: *"You changed the English. Check the Greek and French still say the same thing, or empty them so readers see the new English."* with **Save anyway** and **Go back**. A language with no words yet doesn't trigger it.
 
 ### 2.2 Add
 
-At the bottom of the list, **Add a fact** opens the same three-box page, empty. A new fact goes to the end of the list on the page, and is **shown straight away** (Decision 3; but see open question C, §8). Pressing **Add** twice by mistake adds it once: the form carries a one-time code, and a second post with the same code shows the fact that was added.
+At the bottom of the list, **Add a fact** opens the same three-box page, empty. A new fact goes to the end of the list on the page, and is **shown straight away** (Decision 3; question C, §8). Pressing **Add** twice by mistake adds it once: the form carries a one-time code, and a second post with the same code shows the fact that was added.
 
 ### 2.3 Delete
 
@@ -190,20 +190,13 @@ Named here so the plan doesn't miss them:
 
 ---
 
-## 8. Open questions for Samuel
+## 8. Questions raised while writing this (answered)
 
-**A. When the English is edited, what happens to the Greek and French?**
-- *Ask before saving (recommended).* The page asks, as in §2.1. Benefit: a typo fix in English doesn't wipe good translations, and nobody changes the meaning without being reminded. Risk: someone presses "Save anyway" without checking, and Greek readers see the old meaning.
-- *Clear them automatically.* Greek and French readers see the new English until someone translates again. Benefit: nobody ever sees an out-of-date translation. Risk: every English typo fix loses two translations.
-- *Do nothing.* Benefit: simplest. Risk: translations drift from the English without anyone noticing.
+Samuel, 26 October 2026, each with a recommendation; he took all three:
 
-**B. Should the team be able to change the order of the list?**
-- *No, new facts go last (recommended).* The order only matters on the page: phones shuffle, apart from ear-tip and milk at the start.
-- *Yes, with Move up / Move down.* More to build, for little difference to spotters.
-
-**C. Should a new fact go live straight away, or start hidden?** (Raised by the review.) Nine of the originals were held back until Syros Cats said yes, because the app speaks in their name. Decision 3 says saves go live straight away.
-- *Live straight away, as decided (recommended if the people with this permission are Syros Cats' own team).* Benefit: one step. Risk: a wrong or badly worded fact goes to every spotter at once, with the charity's name on it.
-- *New facts start hidden; edits go live.* Someone presses **Show it** when it's been read. Benefit: a built-in pause for a second look at brand-new words. Risk: one more tap, and a fact can be forgotten in the hidden state.
+- **A. English edited, translation not:** the page asks before saving (§2.1).
+- **B. List order:** can't be changed; new facts go last.
+- **C. New facts:** go live straight away, as Decision 3.
 
 ---
 
@@ -234,7 +227,7 @@ Samuel, 26 October 2026, asked one at a time with a recommendation each (SYC-754
 |---|---|
 | B1 Show/Hide lost between migration and publish; rollback serves a stale list | Old list kept in step on every change; re-copy on first start (§4.1, §6) |
 | B2 a server read failure could blank every phone's facts | Missing `facts` = keep; `[]` = none; server omits the field on failure (§4.2) |
-| M1 missing hidden row would show the nine unapproved facts; new/edited facts skip Syros Cats' yes | Migration uses today's default (§4.1); open question C (§8) |
+| M1 missing hidden row would show the nine unapproved facts; new/edited facts skip Syros Cats' yes | Migration uses today's default (§4.1); question C answered: live straight away (§8) |
 | M2 timestamp clash check unreliable; delete-while-editing and double Add undefined | Whole-number `version`; both cases defined; one-time code on Add; same lock for all (§2.1, §2.2, §4.1) |
 | M3 "added to the end" was wrong; seen lists grow; `visibleFacts` uses built-in list | Random slot, as the code does; seen lists trimmed; `visibleFacts` from saved facts (§3, §4.3) |
 | M4 photo tied to the name in several places; English fallback on empty strings | Photo follows the flag; fixed start by name; empty = missing (§4.3) |
