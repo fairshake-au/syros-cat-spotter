@@ -4,10 +4,10 @@ Branch: claude/syc-150-pr2.1-migration. Migration: lib/db/migrations/0053_moves_
 
 ## Done
 1. Schema + generated DDL + rollback (migrate:check ok, runner.test ok, typecheck 0/0/0).
+2. awardPoints scoped + lib/pointsLedger.test.ts.
+3. Triggers in 0053 + rollback; signature.ts modelledOnly skips constraint triggers (contype t). migrate:check ok, runner cycle ok.
 
 ## Next
-2. awardPoints pre-check scoped to sighting_id is not null + api-server test.
-3. Triggers in 0053 (+ rollback).
 4. Legit-path tests. 5. Refusal tests. 6. Mutation probes. 7. Full suites. 8. Draft PR.
 
 ## Notes

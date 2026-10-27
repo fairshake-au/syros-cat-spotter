@@ -119,13 +119,448 @@ ALTER TABLE "sighting_matches" ADD CONSTRAINT "sighting_matches_team_step_ck" CH
 ALTER TABLE "sighting_matches" ADD CONSTRAINT "sighting_matches_team_cat_ck" CHECK (("sighting_matches"."team_cat_id" IS NOT NULL) = coalesce("sighting_matches"."team_action" IN ('matched', 'made_new_cat', 'different_cat', 'new_cat'), false));--> statement-breakpoint
 ALTER TABLE "points_ledger" ADD CONSTRAINT "points_ledger_award_ck" CHECK (("points_ledger"."sighting_id" is not null and "points_ledger"."duplicate_cat_low" is null and "points_ledger"."duplicate_cat_high" is null)
         or ("points_ledger"."sighting_id" is null and "points_ledger"."duplicate_cat_low" is not null and "points_ledger"."duplicate_cat_high" is not null
-          and "points_ledger"."duplicate_cat_low" < "points_ledger"."duplicate_cat_high"));
+          and "points_ledger"."duplicate_cat_low" < "points_ledger"."duplicate_cat_high"));--> statement-breakpoint
+-- Database guards (which-cat-is-which.md §9.4). Each one proves "in this
+-- move" or "in this merge" through a transaction-local setting, never by
+-- finding an older row: the writer inserts its row, then calls
+-- set_config('app.sighting_move_id', id, true) or
+-- set_config('app.cat_merge_id', id, true), and the guard checks the row with
+-- that id has txid = txid_current() and matches. txid_current() is the whole
+-- transaction's id, the same inside a savepoint; xmin is not used.
+--
+-- True when the sighting's cat may change from from_cat to to_cat now:
+--   a move:  app.sighting_move_id names a move row of this transaction, for
+--            this sighting and these two cats;
+--   a merge: app.cat_merge_id names a cat_identity row of this transaction,
+--            and a move row of this transaction carries its id, this
+--            sighting and these two cats. A merge moves the merged-away
+--            cat's sightings to the survivor; its undo (a row naming the cat
+--            itself) moves them back to the merged-away cat.
+CREATE FUNCTION "sighting_move_is_current"(p_sighting integer, p_from integer, p_to integer)
+RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE
+  move_setting text := current_setting('app.sighting_move_id', true);
+  merge_setting text := current_setting('app.cat_merge_id', true);
+BEGIN
+  IF coalesce(move_setting, '') <> '' AND EXISTS (
+    SELECT 1 FROM "sighting_moves" m
+     WHERE m.id = move_setting::integer
+       AND m.txid = txid_current()
+       AND m.sighting_id = p_sighting
+       AND m.from_cat_id = p_from
+       AND m.to_cat_id = p_to
+  ) THEN
+    RETURN true;
+  END IF;
+
+  IF coalesce(merge_setting, '') <> '' AND EXISTS (
+    SELECT 1 FROM "cat_identity" ci
+      JOIN "sighting_moves" m ON m.merge_id = ci.id
+     WHERE ci.id = merge_setting::integer
+       AND ci.txid = txid_current()
+       AND m.txid = txid_current()
+       AND m.sighting_id = p_sighting
+       AND m.from_cat_id = p_from
+       AND m.to_cat_id = p_to
+       AND (
+         (ci.canonical_cat_id <> ci.cat_id
+           AND m.reason = 'merged'
+           AND p_from = ci.cat_id
+           AND p_to = ci.canonical_cat_id)
+         OR (ci.canonical_cat_id = ci.cat_id
+           AND m.reason = 'merge_undone'
+           AND p_to = ci.cat_id)
+       )
+  ) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
+END
+$$;--> statement-breakpoint
+-- A sighting stays append-only. 0046's branches are kept word for word; one
+-- is added: a recorded move of a resolved sighting's cat.
+CREATE OR REPLACE FUNCTION "sightings_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  -- What a status move may change, and what redaction may change. Every
+  -- other column must stay byte-for-byte what it was (compared as text).
+  move_exempt text[] := ARRAY['status', 'cat_id', 'area_key', 'on_island'];
+  stamp_exempt text[] := ARRAY['area_key', 'on_island'];
+  redact_exempt text[] := ARRAY['device_id', 'redacted_at', 'redaction_reason'];
+  -- What a move between cats may change (which-cat-is-which.md §9.4).
+  recat_exempt text[] := ARRAY['cat_id'];
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- A sighting arrives from a spotter. Only deletion may take them away.
+    IF NEW.redacted_at IS NOT NULL OR NEW.redaction_reason IS NOT NULL THEN
+      RAISE EXCEPTION 'sightings: a new row cannot arrive already redacted';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'sightings are append-only: delete is not allowed (id %)', OLD.id;
+  END IF;
+
+  -- A status move: the cat is set once, and nothing else changes.
+  --   pending -> resolved          the spotter picks the cat (routes/sightings.ts)
+  --   pending -> awaiting_team     "Ask Syros Cats to match it" (SYC-119)
+  --   awaiting_team -> resolved    the team matches it on the spotter's behalf
+  -- A place already stamped stays as it is through a move.
+  IF (to_jsonb(NEW) - move_exempt)::text = (to_jsonb(OLD) - move_exempt)::text
+     AND OLD.cat_id IS NULL
+     AND (OLD.area_key IS NULL OR NEW.area_key IS NOT DISTINCT FROM OLD.area_key)
+     AND (OLD.on_island IS NULL OR NEW.on_island IS NOT DISTINCT FROM OLD.on_island)
+     AND ((NEW.area_key IS NULL) = (NEW.on_island IS NULL))
+     AND (
+       (OLD.status IN ('pending', 'awaiting_team')
+         AND NEW.status = 'resolved'
+         AND NEW.cat_id IS NOT NULL)
+       OR (OLD.status = 'pending'
+         AND NEW.status = 'awaiting_team'
+         AND NEW.cat_id IS NULL)
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+
+  -- A place stamp (SYC-706): where the spot is, written once to a row that
+  -- has none yet (the history backfill), with nothing else changed.
+  IF (to_jsonb(NEW) - stamp_exempt)::text = (to_jsonb(OLD) - stamp_exempt)::text
+     AND OLD.area_key IS NULL
+     AND OLD.on_island IS NULL
+     AND NEW.area_key IS NOT NULL
+     AND NEW.on_island IS NOT NULL
+  THEN
+    RETURN NEW;
+  END IF;
+
+  -- Redaction (§8.5): the spotter cleared, stamped with a reason, nothing
+  -- else changed. Running deletion again is safe; the stamp never changes.
+  IF (to_jsonb(NEW) - redact_exempt)::text = (to_jsonb(OLD) - redact_exempt)::text
+     AND NEW.device_id IS NULL
+     AND (
+       (OLD.redacted_at IS NULL
+         AND NEW.redacted_at IS NOT NULL
+         AND coalesce(NEW.redaction_reason, '') <> '')
+       OR (OLD.redacted_at IS NOT NULL
+         AND NEW.redacted_at = OLD.redacted_at
+         AND NEW.redaction_reason IS NOT DISTINCT FROM OLD.redaction_reason)
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+
+  -- A move between cats (SYC-150): a resolved sighting's cat changes from
+  -- the move row's from_cat_id to its to_cat_id, nothing else changes, and
+  -- the move, or the merge that made it, was recorded in this transaction.
+  IF (to_jsonb(NEW) - recat_exempt)::text = (to_jsonb(OLD) - recat_exempt)::text
+     AND OLD.status = 'resolved'
+     AND OLD.cat_id IS NOT NULL
+     AND NEW.cat_id IS NOT NULL
+     AND NEW.cat_id <> OLD.cat_id
+     AND "sighting_move_is_current"(OLD.id, OLD.cat_id, NEW.cat_id)
+  THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'sightings are append-only: the only permitted updates are a status move, a place stamp, redaction and a recorded move (id %)', OLD.id;
+END
+$$;--> statement-breakpoint
+-- No sighting is ever filed under a merged-away cat (§9.2): not by a resolve,
+-- a move or a new row. The cat row is taken FOR SHARE first, so a merge of
+-- that cat being committed (its deferred check holds the cat FOR UPDATE) is
+-- waited for and then seen.
+CREATE FUNCTION "sightings_not_under_merged_away"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.cat_id IS NULL
+     OR (TG_OP = 'UPDATE' AND NEW.cat_id IS NOT DISTINCT FROM OLD.cat_id) THEN
+    RETURN NEW;
+  END IF;
+  PERFORM 1 FROM "cats" WHERE id = NEW.cat_id FOR SHARE;
+  IF EXISTS (
+    SELECT 1 FROM "cat_identity" ci
+     WHERE ci.cat_id = NEW.cat_id
+       AND ci.canonical_cat_id <> ci.cat_id
+       AND NOT EXISTS (SELECT 1 FROM "cat_identity" u WHERE u.supersedes_id = ci.id)
+  ) THEN
+    RAISE EXCEPTION 'sightings: cat % is merged into another, so nothing is filed under it (sighting %)', NEW.cat_id, NEW.id;
+  END IF;
+  RETURN NEW;
+END
+$$;--> statement-breakpoint
+CREATE TRIGGER "sightings_not_under_merged_away" BEFORE INSERT OR UPDATE OF "cat_id" ON "sightings"
+  FOR EACH ROW EXECUTE FUNCTION "sightings_not_under_merged_away"();--> statement-breakpoint
+-- The other half (§9.2): at commit, a merge still standing is refused while
+-- a resolved sighting names the merged-away cat. The merge moves every one to
+-- the survivor in its own transaction. The cat row is taken FOR UPDATE, so a
+-- resolve of that cat still in flight commits first and is seen here.
+CREATE FUNCTION "cat_identity_no_sighting_left"() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.canonical_cat_id = NEW.cat_id
+     OR EXISTS (SELECT 1 FROM "cat_identity" u WHERE u.supersedes_id = NEW.id) THEN
+    RETURN NULL;
+  END IF;
+  PERFORM 1 FROM "cats" WHERE id = NEW.cat_id FOR UPDATE;
+  IF EXISTS (
+    SELECT 1 FROM "sightings" s
+     WHERE s.cat_id = NEW.cat_id
+       AND s.status = 'resolved'
+  ) THEN
+    RAISE EXCEPTION 'cat_identity: cat % still has resolved sightings; a merge moves every one to the cat it is merged into (merge %)', NEW.cat_id, NEW.id;
+  END IF;
+  RETURN NULL;
+END
+$$;--> statement-breakpoint
+CREATE CONSTRAINT TRIGGER "cat_identity_no_sighting_left" AFTER INSERT ON "cat_identity"
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW EXECUTE FUNCTION "cat_identity_no_sighting_left"();--> statement-breakpoint
+-- Statements stay append-only. 0001's branches are kept; the insert branch
+-- gains one case: a statement a move copied or withdrew (§9.5) carries the
+-- move's id, and may arrive already redacted (a deleted spotter's copied
+-- answer), only with that move named by app.sighting_move_id, recorded in
+-- this transaction, for the statement's own sighting.
+CREATE OR REPLACE FUNCTION "observations_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  -- The only columns redaction may touch. Every other column must stay
+  -- byte-for-byte what it was (compared as text, so even a jsonb value's
+  -- numeric representation cannot change).
+  exempt text[] := ARRAY['redacted_at', 'redaction_reason', 'device_id', 'account_id', 'value'];
+  value_ok boolean;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Written by a move: only with that move, in this transaction.
+    IF NEW.sighting_move_id IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM "sighting_moves" m
+         WHERE m.id = NEW.sighting_move_id
+           AND current_setting('app.sighting_move_id', true) = NEW.sighting_move_id::text
+           AND m.txid = txid_current()
+           AND m.sighting_id = NEW.sighting_id
+      ) THEN
+        RAISE EXCEPTION 'observations: a row naming a move needs that move, recorded in this transaction (move %)', NEW.sighting_move_id;
+      END IF;
+      RETURN NEW;
+    END IF;
+    -- A row arrives attributed. Only redaction may take its author away.
+    IF NEW.redacted_at IS NOT NULL OR NEW.redaction_reason IS NOT NULL THEN
+      RAISE EXCEPTION 'observations: a new row cannot arrive already redacted';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'observations are append-only: delete is not allowed (id %)', OLD.id;
+  END IF;
+
+  -- Redaction keeps the value, except that a note's text may be emptied (§8.3).
+  value_ok := NEW.value::text = OLD.value::text
+    OR (OLD.kind = 'note' AND NEW.value = '{}'::jsonb);
+
+  IF (to_jsonb(NEW) - exempt)::text = (to_jsonb(OLD) - exempt)::text
+     AND value_ok
+     AND NEW.device_id IS NULL
+     AND NEW.account_id IS NULL
+     AND (
+       -- First redaction: stamped, with a reason, the author cleared.
+       (OLD.redacted_at IS NULL
+         AND NEW.redacted_at IS NOT NULL
+         AND coalesce(NEW.redaction_reason, '') <> '')
+       -- Already redacted: running deletion again is safe, and may still
+       -- empty a note it missed; the stamp and reason never change.
+       OR (OLD.redacted_at IS NOT NULL
+         AND NEW.redacted_at = OLD.redacted_at
+         AND NEW.redaction_reason IS NOT DISTINCT FROM OLD.redaction_reason)
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'observations are append-only: the only permitted update is redaction (id %)', OLD.id;
+END
+$$;--> statement-breakpoint
+-- Add-only records with one way to change a row: redaction, which clears
+-- the column naming a person (the trigger's argument) and stamps
+-- redacted_at, nothing else. Running deletion again is safe; the stamp
+-- never changes.
+CREATE FUNCTION "add_only_but_redaction"() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  person text;
+  exempt text[];
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION '% is add-only: delete is not allowed (id %)', TG_TABLE_NAME, OLD.id;
+  END IF;
+  person := TG_ARGV[0];
+  exempt := ARRAY[person, 'redacted_at'];
+  IF (to_jsonb(NEW) - exempt)::text = (to_jsonb(OLD) - exempt)::text
+     AND to_jsonb(NEW) -> person = 'null'::jsonb
+     AND (
+       (OLD.redacted_at IS NULL AND NEW.redacted_at IS NOT NULL)
+       OR (OLD.redacted_at IS NOT NULL AND NEW.redacted_at = OLD.redacted_at)
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION '% is add-only: the only permitted update is redaction (id %)', TG_TABLE_NAME, OLD.id;
+END
+$$;--> statement-breakpoint
+CREATE TRIGGER "sighting_moves_append_only" BEFORE UPDATE OR DELETE ON "sighting_moves"
+  FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('moved_by_account_id');--> statement-breakpoint
+CREATE TRIGGER "sighting_moves_no_truncate" BEFORE TRUNCATE ON "sighting_moves"
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
+-- A merge is a row and an undo is another row (§9.2); 0001's guard refused
+-- every update. Redaction of who merged is now the one update allowed.
+DROP TRIGGER "cat_identity_append_only" ON "cat_identity";--> statement-breakpoint
+DROP FUNCTION "cat_identity_append_only"();--> statement-breakpoint
+CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
+  FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
+CREATE TRIGGER "duplicate_reports_add_only" BEFORE UPDATE OR DELETE ON "duplicate_reports"
+  FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('device_id');--> statement-breakpoint
+CREATE TRIGGER "duplicate_reports_no_truncate" BEFORE TRUNCATE ON "duplicate_reports"
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
+CREATE TRIGGER "duplicate_decisions_add_only" BEFORE UPDATE OR DELETE ON "duplicate_decisions"
+  FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
+CREATE TRIGGER "duplicate_decisions_no_truncate" BEFORE TRUNCATE ON "duplicate_decisions"
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();--> statement-breakpoint
+CREATE TRIGGER "new_cat_checks_add_only" BEFORE UPDATE OR DELETE ON "new_cat_checks"
+  FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
+CREATE TRIGGER "new_cat_checks_no_truncate" BEFORE TRUNCATE ON "new_cat_checks"
+  FOR EACH STATEMENT EXECUTE FUNCTION "append_only_no_truncate"();
 
 -- rollback-begin
 -- -- SYC-150 PR 2.1. Roll the app back first: code that writes moves, merges or duplicates needs all of this.
 -- -- Lost on the way down: every move, merge detail, follow change, duplicate report, decision and check;
 -- -- the duplicate-finder points rows (profiles.points keeps what they paid); and the merged and
 -- -- duplicate_points bell lines, which the old check would refuse.
+-- -- The guards go back as 0046 (sightings) and 0001 (observations, cat_identity) left them.
+-- DROP TRIGGER "cat_identity_append_only" ON "cat_identity";
+-- CREATE FUNCTION "cat_identity_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+-- BEGIN
+--   -- A merge is a row and an unmerge is another row (§10.3). Nothing changes
+--   -- or removes a row, so every merge stays reversible.
+--   RAISE EXCEPTION 'cat_identity is append-only: % is not allowed', TG_OP;
+-- END
+-- $$;
+-- CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
+--   FOR EACH ROW EXECUTE FUNCTION "cat_identity_append_only"();
+-- DROP TRIGGER "cat_identity_no_sighting_left" ON "cat_identity";
+-- DROP FUNCTION "cat_identity_no_sighting_left"();
+-- DROP TRIGGER "sightings_not_under_merged_away" ON "sightings";
+-- DROP FUNCTION "sightings_not_under_merged_away"();
+-- CREATE OR REPLACE FUNCTION "observations_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+-- DECLARE
+--   -- The only columns redaction may touch. Every other column must stay
+--   -- byte-for-byte what it was (compared as text, so even a jsonb value's
+--   -- numeric representation cannot change).
+--   exempt text[] := ARRAY['redacted_at', 'redaction_reason', 'device_id', 'account_id', 'value'];
+--   value_ok boolean;
+-- BEGIN
+--   IF TG_OP = 'INSERT' THEN
+--     -- A row arrives attributed. Only redaction may take its author away.
+--     IF NEW.redacted_at IS NOT NULL OR NEW.redaction_reason IS NOT NULL THEN
+--       RAISE EXCEPTION 'observations: a new row cannot arrive already redacted';
+--     END IF;
+--     RETURN NEW;
+--   END IF;
+--   IF TG_OP = 'DELETE' THEN
+--     RAISE EXCEPTION 'observations are append-only: delete is not allowed (id %)', OLD.id;
+--   END IF;
+--
+--   -- Redaction keeps the value, except that a note's text may be emptied (§8.3).
+--   value_ok := NEW.value::text = OLD.value::text
+--     OR (OLD.kind = 'note' AND NEW.value = '{}'::jsonb);
+--
+--   IF (to_jsonb(NEW) - exempt)::text = (to_jsonb(OLD) - exempt)::text
+--      AND value_ok
+--      AND NEW.device_id IS NULL
+--      AND NEW.account_id IS NULL
+--      AND (
+--        -- First redaction: stamped, with a reason, the author cleared.
+--        (OLD.redacted_at IS NULL
+--          AND NEW.redacted_at IS NOT NULL
+--          AND coalesce(NEW.redaction_reason, '') <> '')
+--        -- Already redacted: running deletion again is safe, and may still
+--        -- empty a note it missed; the stamp and reason never change.
+--        OR (OLD.redacted_at IS NOT NULL
+--          AND NEW.redacted_at = OLD.redacted_at
+--          AND NEW.redaction_reason IS NOT DISTINCT FROM OLD.redaction_reason)
+--      )
+--   THEN
+--     RETURN NEW;
+--   END IF;
+--   RAISE EXCEPTION 'observations are append-only: the only permitted update is redaction (id %)', OLD.id;
+-- END
+-- $$;
+-- CREATE OR REPLACE FUNCTION "sightings_append_only"() RETURNS trigger LANGUAGE plpgsql AS $$
+-- DECLARE
+--   -- What a status move may change, and what redaction may change. Every
+--   -- other column must stay byte-for-byte what it was (compared as text).
+--   move_exempt text[] := ARRAY['status', 'cat_id', 'area_key', 'on_island'];
+--   stamp_exempt text[] := ARRAY['area_key', 'on_island'];
+--   redact_exempt text[] := ARRAY['device_id', 'redacted_at', 'redaction_reason'];
+-- BEGIN
+--   IF TG_OP = 'INSERT' THEN
+--     -- A sighting arrives from a spotter. Only deletion may take them away.
+--     IF NEW.redacted_at IS NOT NULL OR NEW.redaction_reason IS NOT NULL THEN
+--       RAISE EXCEPTION 'sightings: a new row cannot arrive already redacted';
+--     END IF;
+--     RETURN NEW;
+--   END IF;
+--   IF TG_OP = 'DELETE' THEN
+--     RAISE EXCEPTION 'sightings are append-only: delete is not allowed (id %)', OLD.id;
+--   END IF;
+--
+--   -- A status move: the cat is set once, and nothing else changes.
+--   --   pending -> resolved          the spotter picks the cat (routes/sightings.ts)
+--   --   pending -> awaiting_team     "Ask Syros Cats to match it" (SYC-119)
+--   --   awaiting_team -> resolved    the team matches it on the spotter's behalf
+--   -- A place already stamped stays as it is through a move.
+--   IF (to_jsonb(NEW) - move_exempt)::text = (to_jsonb(OLD) - move_exempt)::text
+--      AND OLD.cat_id IS NULL
+--      AND (OLD.area_key IS NULL OR NEW.area_key IS NOT DISTINCT FROM OLD.area_key)
+--      AND (OLD.on_island IS NULL OR NEW.on_island IS NOT DISTINCT FROM OLD.on_island)
+--      AND ((NEW.area_key IS NULL) = (NEW.on_island IS NULL))
+--      AND (
+--        (OLD.status IN ('pending', 'awaiting_team')
+--          AND NEW.status = 'resolved'
+--          AND NEW.cat_id IS NOT NULL)
+--        OR (OLD.status = 'pending'
+--          AND NEW.status = 'awaiting_team'
+--          AND NEW.cat_id IS NULL)
+--      )
+--   THEN
+--     RETURN NEW;
+--   END IF;
+--
+--   -- A place stamp (SYC-706): where the spot is, written once to a row that
+--   -- has none yet (the history backfill), with nothing else changed.
+--   IF (to_jsonb(NEW) - stamp_exempt)::text = (to_jsonb(OLD) - stamp_exempt)::text
+--      AND OLD.area_key IS NULL
+--      AND OLD.on_island IS NULL
+--      AND NEW.area_key IS NOT NULL
+--      AND NEW.on_island IS NOT NULL
+--   THEN
+--     RETURN NEW;
+--   END IF;
+--
+--   -- Redaction (§8.5): the spotter cleared, stamped with a reason, nothing
+--   -- else changed. Running deletion again is safe; the stamp never changes.
+--   IF (to_jsonb(NEW) - redact_exempt)::text = (to_jsonb(OLD) - redact_exempt)::text
+--      AND NEW.device_id IS NULL
+--      AND (
+--        (OLD.redacted_at IS NULL
+--          AND NEW.redacted_at IS NOT NULL
+--          AND coalesce(NEW.redaction_reason, '') <> '')
+--        OR (OLD.redacted_at IS NOT NULL
+--          AND NEW.redacted_at = OLD.redacted_at
+--          AND NEW.redaction_reason IS NOT DISTINCT FROM OLD.redaction_reason)
+--      )
+--   THEN
+--     RETURN NEW;
+--   END IF;
+--
+--   RAISE EXCEPTION 'sightings are append-only: the only permitted updates are a status move, a place stamp and redaction (id %)', OLD.id;
+-- END
+-- $$;
+-- DROP FUNCTION "sighting_move_is_current"(integer, integer, integer);
 -- DELETE FROM "notifications" WHERE "kind" IN ('merged', 'duplicate_points');
 -- ALTER TABLE "notifications" DROP CONSTRAINT "notifications_kind_ck";
 -- ALTER TABLE "notifications" ADD CONSTRAINT "notifications_kind_ck" CHECK (("notifications"."kind" = 'cat' and "notifications"."cat_update_id" is not null)
@@ -162,4 +597,5 @@ ALTER TABLE "points_ledger" ADD CONSTRAINT "points_ledger_award_ck" CHECK (("poi
 -- DROP TABLE "duplicate_decisions";
 -- DROP TABLE "sighting_moves";
 -- DROP TABLE "merge_follow_changes";
+-- DROP FUNCTION "add_only_but_redaction"();
 -- rollback-end
