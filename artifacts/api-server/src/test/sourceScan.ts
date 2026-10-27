@@ -161,3 +161,15 @@ export function templates(code: string): { start: number; body: string }[] {
   }
   return out;
 }
+
+/** Every quoted string literal ('…' or "…") in `code`, with its start offset. */
+export function quotedStrings(code: string): { start: number; body: string }[] {
+  const out: { start: number; body: string }[] = [];
+  for (const m of code.matchAll(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g)) {
+    out.push({ start: m.index!, body: m[0].slice(1, -1) });
+  }
+  return out;
+}
+
+/** Every template literal and quoted string: the places raw SQL can sit. */
+export const sqlStrings = (code: string): { start: number; body: string }[] => [...templates(code), ...quotedStrings(code)];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REPO_ROOT, lineAt, sourceFiles, withoutComments } from "../test/sourceScan";
+import { REPO_ROOT, lineAt, sourceFiles, sqlStrings, withoutComments } from "../test/sourceScan";
 
 /**
  * SYC-410 (which-cat-is-which.md §9.3): one way to list or count cats.
@@ -19,20 +19,31 @@ import { REPO_ROOT, lineAt, sourceFiles, withoutComments } from "../test/sourceS
  *    in the same file keeps the count, so whoever touches a listed file checks
  *    that its reasons still match.
  *  - Test files, fixtures and migrations are not scanned.
+ *  - Closed after the review of PR 1.2: an aliased import (`catsTable as x`),
+ *    a comma join in raw SQL, and raw SQL in a quoted string. Still open: a
+ *    table reached through a re-export under another file's name, SQL built
+ *    from pieces (`"from " + name`), and `db.execute` of a string read from
+ *    elsewhere.
  *  - Writes (`update(catsTable)`, `insert(catsTable)`, raw `update cats`) are
  *    not reads and are not matched.
  */
 
-/** The shapes of a read of the cats table. */
-const CATS_READS: RegExp[] = [
-  /\.(from|innerJoin|leftJoin|rightJoin|fullJoin|crossJoin)\(\s*catsTable\b/g,
-  /\balias\(\s*catsTable\b/g,
-  /\$\{\s*catsTable\s*\}/g,
-  /\bquery\.cats\b/g,
-  /\b(from|join)\s+cats\b/gi,
-  // Rebinding the table hides every later read.
-  /=\s*catsTable\s*[;,)]/g,
-];
+/** The shapes of a read of the cats table, for the names this file gives `catsTable`. */
+function catsShapes(names: string[]): RegExp[] {
+  const t = `(?:${names.join("|")})`;
+  return [
+    new RegExp(`\\.(from|innerJoin|leftJoin|rightJoin|fullJoin|crossJoin)\\(\\s*${t}\\b`, "g"),
+    new RegExp(`\\balias\\(\\s*${t}\\b`, "g"),
+    new RegExp(`\\$\\{\\s*${t}\\s*\\}`, "g"),
+    /\bquery\.cats\b/g,
+    /\b(from|join)\s+cats\b/gi,
+    // Rebinding the table hides every later read.
+    new RegExp(`=\\s*${t}\\s*[;,)]`, "g"),
+  ];
+}
+
+// A comma join in raw SQL: `from sightings s, cats c`.
+const COMMA_JOIN = /,\s*cats\b(?=\s+(?:as\s+)?\w|\s*(?:where|on|,|$))/i;
 
 /**
  * File (from the repo root, with "/") -> one reason per hit, in source order.
@@ -169,8 +180,14 @@ const ALLOWLIST: Record<string, readonly string[]> = {
 
 /** The `file:line` of every read of the cats table in `code`, in source order. */
 export function catsReads(code: string): number[] {
+  // `import { catsTable as theCats }` hides every read under a new name.
+  const names = ["catsTable", ...[...code.matchAll(/\bcatsTable\s+as\s+(\w+)/g)].map((m) => m[1]!)];
   const offsets = new Set<number>();
-  for (const rx of CATS_READS) for (const m of code.matchAll(new RegExp(rx.source, rx.flags))) offsets.add(m.index!);
+  for (const rx of catsShapes(names)) for (const m of code.matchAll(rx)) offsets.add(m.index!);
+  // Raw SQL, in a template or a quoted string: `from a, cats c`.
+  for (const t of sqlStrings(code)) {
+    if (/\bselect\b/i.test(t.body) && /\bfrom\b/i.test(t.body) && COMMA_JOIN.test(t.body)) offsets.add(t.start);
+  }
   return [...offsets].sort((a, b) => a - b).map((o) => lineAt(code, o));
 }
 
@@ -229,6 +246,13 @@ describe("SYC-410: only liveCats lists or counts cats", () => {
     expect(n("sql`select 1 from x join cats c on c.id = x.cat_id`")).toBe(1);
     expect(n("sql`select id from ${catsTable}`")).toBe(1);
     expect(n("const c = catsTable;")).toBe(1);
+    // An aliased import hides the name; the alias is followed.
+    expect(n('import { catsTable as theCats } from "@workspace/db";\ndb.select().from(theCats)')).toBe(1);
+    expect(n('import { catsTable as theCats } from "@workspace/db";\ndb.select().from(otherTable)')).toBe(0);
+    // A comma join in raw SQL, in a template or a quoted string.
+    expect(n("sql`select 1 from sightings s, cats c where s.cat_id = c.id`")).toBe(1);
+    expect(n('pool.query("select 1 from sightings s, cats as c where s.cat_id = c.id")')).toBe(1);
+    expect(n("sql`select name, cats_count from x`")).toBe(0);
     expect(n("db.query.cats.findMany()")).toBe(1);
     expect(n("db.select().from(rightTable).rightJoin(catsTable, x).fullJoin(catsTable, y)")).toBe(2);
     // Not reads: columns of the table, writes, the word in a string, a comment.
