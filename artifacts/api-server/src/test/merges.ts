@@ -26,3 +26,25 @@ export async function mergeKeepingSightings(
     return row!;
   });
 }
+
+/**
+ * Tests only (SYC-150 PR 2.1). Writes a `cat_identity` row the database now
+ * refuses: an undo naming another cat than the merge it supersedes. Since
+ * migration 0053 `cat_identity_supersedes_own_cat` refuses that at insert,
+ * so the reader tests that prove such a row undoes nothing (review of #375,
+ * A2: bad data the readers must still survive) switch that one trigger off
+ * for the insert, in the test's own transaction.
+ */
+export async function identityRowPastTheGuard(
+  values: typeof catIdentityTable.$inferInsert,
+): Promise<CatIdentity> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`alter table cat_identity disable trigger cat_identity_supersedes_own_cat`);
+    const [row] = await tx.insert(catIdentityTable).values(values).returning();
+    // The deferred "no sighting left" check still runs; run it now, so the
+    // table has no pending trigger events when the guard goes back on.
+    await tx.execute(sql`set constraints cat_identity_no_sighting_left immediate`);
+    await tx.execute(sql`alter table cat_identity enable trigger cat_identity_supersedes_own_cat`);
+    return row!;
+  });
+}
