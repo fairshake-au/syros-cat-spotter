@@ -93,6 +93,8 @@ async function sitesPage(
     recentSiteChanges(v.visible),
     listSites(v.visible, { includeRetired: showRetired }),
   ]);
+  // The MapLibre map's own scripts: the wider header, only now the page is built.
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -128,8 +130,7 @@ router.get(
       ]);
       return void res.json({ counts, sites });
     }
-    // The page's MapLibre map (SYC-705): its own scripts, so the wider header.
-    setTeamHeaders(res, { scripts: true });
+    // The page's MapLibre map (SYC-705): sitesPage sets the wider header once the page is built.
     await sitesPage(res, 200, showRetired);
   },
 );
@@ -427,18 +428,18 @@ router.post(
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     // "Check the spot" carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderAddConfirm({
+      personName: teamPerson(res).name,
+      lang: pageViewer(res).lang,
+      spot: picked.spot,
+      approximate: picked.approximate,
+      colonies: await colonyOptions(pageViewer(res).visible),
+      carry: AddCarryForm.parse(req.body ?? {}),
+      island: pageViewer(res).island,
+    });
     setTeamHeaders(res, { scripts: true });
-    res.type("html").send(
-      renderAddConfirm({
-        personName: teamPerson(res).name,
-        lang: pageViewer(res).lang,
-        spot: picked.spot,
-        approximate: picked.approximate,
-        colonies: await colonyOptions(pageViewer(res).visible),
-        carry: AddCarryForm.parse(req.body ?? {}),
-        island: pageViewer(res).island,
-      }),
-    );
+    res.type("html").send(html);
   },
 );
 
@@ -500,18 +501,18 @@ router.post(
     const colonyId = covers(v.visible, inNow) ? inNow : undefined;
     if (!isFormPost(req)) return void res.json({ ...found.spot, colonyId: colonyId ?? null });
     // The same "Check the spot" page, with its small map: the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderAddConfirm({
+      personName: v.personName,
+      lang: v.lang,
+      island: v.island,
+      spot: found.spot,
+      approximate: false,
+      colonies: await colonyOptions(v.visible),
+      carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
+    });
     setTeamHeaders(res, { scripts: true });
-    res.type("html").send(
-      renderAddConfirm({
-        personName: v.personName,
-        lang: v.lang,
-        island: v.island,
-        spot: found.spot,
-        approximate: false,
-        colonies: await colonyOptions(v.visible),
-        carry: { name: "", colonyId: colonyId === undefined ? "" : String(colonyId), directions: "", notes: "" },
-      }),
-    );
+    res.type("html").send(html);
   },
 );
 
@@ -527,8 +528,7 @@ router.post(
     const found = await sightingFor(req, res);
     if (!found) return;
     if (!isFormPost(req)) return void res.json(found.spot);
-    // The Feeding sites page's MapLibre map, opened on the sighting (Samuel, 26 Oct 2026): the wider header.
-    setTeamHeaders(res, { scripts: true });
+    // The Feeding sites page's MapLibre map, opened on the sighting (Samuel, 26 Oct 2026): sitesPage sets the wider header.
     await sitesPage(res, 200, false, undefined, found.spot);
   },
 );
@@ -794,18 +794,18 @@ router.post(
     }
     if (!isFormPost(req)) return void res.json(picked.spot);
     // The move's "Check the spot", with its small map: the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderMoveConfirm({
+      personName: teamPerson(res).name,
+      site: { ...site, stamp: stamp.data.updatedAt },
+      spot: picked.spot,
+      approximate: picked.approximate,
+      reason: MoveCarryForm.parse(body).reason,
+      island: pageViewer(res).island,
+      lang: pageViewer(res).lang,
+    });
     setTeamHeaders(res, { scripts: true });
-    res.type("html").send(
-      renderMoveConfirm({
-        personName: teamPerson(res).name,
-        site: { ...site, stamp: stamp.data.updatedAt },
-        spot: picked.spot,
-        approximate: picked.approximate,
-        reason: MoveCarryForm.parse(body).reason,
-        island: pageViewer(res).island,
-        lang: pageViewer(res).lang,
-      }),
-    );
+    res.type("html").send(html);
   },
 );
 
@@ -848,22 +848,22 @@ router.get(
     // Back after signing in again (SYC-516 C3): "Edit details" filled in.
     const kept = mayAct ? await useHeldTyping(req, person, `site:${site.id}`) : null;
     // The page's MapLibre map (SYC-705): its own scripts, so the wider header, for this 200 page only.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderSitePage({
+      kept: kept ?? undefined,
+      site,
+      personName: v.personName,
+      lang: v.lang,
+      island: v.island,
+      colonies: await colonyOptions(v.visible),
+      done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
+      // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
+      // guardian edits, moves and retires her own sites, never "Change colony".
+      mayAct,
+      mayReassign: can(person, "reassign_feeding_site"),
+    });
     setTeamHeaders(res, { scripts: true });
-    res.type("html").send(
-      renderSitePage({
-        kept: kept ?? undefined,
-        site,
-        personName: v.personName,
-        lang: v.lang,
-        island: v.island,
-        colonies: await colonyOptions(v.visible),
-        done: typeof req.query["done"] === "string" ? req.query["done"] : undefined,
-        // Asked of can() against the site's own colony (SYC-209 PR 4.2): a cat
-        // guardian edits, moves and retires her own sites, never "Change colony".
-        mayAct,
-        mayReassign: can(person, "reassign_feeding_site"),
-      }),
-    );
+    res.type("html").send(html);
   },
 );
 

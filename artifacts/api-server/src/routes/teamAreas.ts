@@ -252,25 +252,25 @@ router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req
   }
   if (wantsJson(req)) return void res.json(picked.spot);
   // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+  // Built first, then the wider header: an error answer keeps the strict one.
+  const html = renderCentreConfirm({
+    personName: person.name,
+    island: isIslandWide(person),
+    active: "settings",
+    title: `Where is ${a.name}?`,
+    question: () => `Make this the centre of ${a.name}?`,
+    saveLabel: "Add the area",
+    spot: picked.spot,
+    zoom: CENTRE_ZOOM,
+    nowLabel: "",
+    newLabel: `The centre of ${a.name}`,
+    saveAction: AREAS_PATH,
+    saveFields: { op: "add", name: a.name, key: a.key },
+    back: { href: AREAS_PATH, label: "Back to the areas" },
+    help: AREA_CENTRE_WHAT,
+  });
   setTeamHeaders(res, { scripts: true });
-  res.type("html").send(
-    renderCentreConfirm({
-      personName: person.name,
-      island: isIslandWide(person),
-      active: "settings",
-      title: `Where is ${a.name}?`,
-      question: () => `Make this the centre of ${a.name}?`,
-      saveLabel: "Add the area",
-      spot: picked.spot,
-      zoom: CENTRE_ZOOM,
-      nowLabel: "",
-      newLabel: `The centre of ${a.name}`,
-      saveAction: AREAS_PATH,
-      saveFields: { op: "add", name: a.name, key: a.key },
-      back: { href: AREAS_PATH, label: "Back to the areas" },
-      help: AREA_CENTRE_WHAT,
-    }),
-  );
+  res.type("html").send(html);
 });
 
 // ── An area's centre, by tapping a map (SYC-517, 517-B) ────────────────────
@@ -355,27 +355,27 @@ router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), as
   if (wantsJson(req)) return void res.json(picked.spot);
   const base = `${AREAS_PATH}/${a.key}/centre`;
   // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+  // Built first, then the wider header: an error answer keeps the strict one.
+  const html = renderCentreConfirm({
+    personName: person.name,
+    island: isIslandWide(person),
+    active: "settings",
+    title: `Move the centre of ${a.name}`,
+    question: () => `Move the centre of ${a.name} here?`,
+    saveLabel: "Move the centre here",
+    spot: picked.spot,
+    zoom: CENTRE_ZOOM,
+    now: a,
+    nowInWords: false,
+    nowLabel: "The centre now",
+    newLabel: "The new centre",
+    saveAction: AREAS_PATH,
+    saveFields: { op: "move", key: a.key },
+    back: { href: `${base}`, label: "Start again on this area's map" },
+    help: AREA_CENTRE_WHAT,
+  });
   setTeamHeaders(res, { scripts: true });
-  res.type("html").send(
-    renderCentreConfirm({
-      personName: person.name,
-      island: isIslandWide(person),
-      active: "settings",
-      title: `Move the centre of ${a.name}`,
-      question: () => `Move the centre of ${a.name} here?`,
-      saveLabel: "Move the centre here",
-      spot: picked.spot,
-      zoom: CENTRE_ZOOM,
-      now: a,
-      nowInWords: false,
-      nowLabel: "The centre now",
-      newLabel: "The new centre",
-      saveAction: AREAS_PATH,
-      saveFields: { op: "move", key: a.key },
-      back: { href: `${base}`, label: "Start again on this area's map" },
-      help: AREA_CENTRE_WHAT,
-    }),
-  );
+  res.type("html").send(html);
 });
 
 export default router;

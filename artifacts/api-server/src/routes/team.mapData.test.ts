@@ -111,6 +111,8 @@ const get = (path: string, who?: Signed) => {
 };
 
 const FOREVER = "private, max-age=31536000, immutable";
+/** The style is built from our code, so it is not immutable: a deploy may change it under the same version. */
+const HOUR = "private, max-age=3600";
 
 describe("the current version", () => {
   it("answers { version }, no-store, under the strict security header", async () => {
@@ -223,7 +225,8 @@ describe("the style", () => {
     const en = await style(CURRENT, "en");
     expect(en.res.status).toBe(200);
     expect(en.res.headers["content-type"]).toMatch(/^application\/json/);
-    expect(en.res.headers["cache-control"]).toBe(FOREVER);
+    expect(en.res.headers["cache-control"]).toBe(HOUR);
+    expect(en.res.headers["cache-control"]).not.toMatch(/immutable/);
     expect(en.json.glyphs).toBe(`/api/team/map-data/v${CURRENT}/fonts/{fontstack}/{range}.pbf`);
     expect(en.json.sprite).toBe(`/api/team/map-data/v${CURRENT}/sprites/light`);
     expect(en.json.sources.protomaps.url).toBe(`pmtiles://syros-v${CURRENT}.pmtiles`);

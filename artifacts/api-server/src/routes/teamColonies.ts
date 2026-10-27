@@ -548,27 +548,27 @@ router.post(
     if (!isFormPost(req)) return void res.json(picked.spot);
     const base = centreBase(c.id);
     // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+    // Built first, then the wider header: an error answer keeps the strict one.
+    const html = renderCentreConfirm({
+      personName: v.personName,
+      lang: v.lang,
+      island: v.island,
+      active: v.island ? "colonies" : "myColonies",
+      title: `${t("centre.title", v.lang)}: ${c.name}`,
+      question: (place) => t("centre.confirm", v.lang, { place }),
+      saveLabel: t("centre.save", v.lang),
+      spot: picked.spot,
+      zoom: picked.approximate ? 15 : CENTRE_ZOOM,
+      approximate: picked.approximate,
+      now: c.centre,
+      nowLabel: t("centre.now", v.lang),
+      newLabel: t("centre.new", v.lang),
+      saveAction: base,
+      back: { href: `${base}/centre`, label: t("centre.again", v.lang) },
+      help: t("colony.centreNote", v.lang),
+    });
     setTeamHeaders(res, { scripts: true });
-    res.type("html").send(
-      renderCentreConfirm({
-        personName: v.personName,
-        lang: v.lang,
-        island: v.island,
-        active: v.island ? "colonies" : "myColonies",
-        title: `${t("centre.title", v.lang)}: ${c.name}`,
-        question: (place) => t("centre.confirm", v.lang, { place }),
-        saveLabel: t("centre.save", v.lang),
-        spot: picked.spot,
-        zoom: picked.approximate ? 15 : CENTRE_ZOOM,
-        approximate: picked.approximate,
-        now: c.centre,
-        nowLabel: t("centre.now", v.lang),
-        newLabel: t("centre.new", v.lang),
-        saveAction: base,
-        back: { href: `${base}/centre`, label: t("centre.again", v.lang) },
-        help: t("colony.centreNote", v.lang),
-      }),
-    );
+    res.type("html").send(html);
   },
 );
 

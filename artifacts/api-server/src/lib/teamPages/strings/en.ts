@@ -517,7 +517,7 @@ export const en = {
   "map.teamOnly": "This map is only for the team.",
   "map.whyTitle": "Why does the map work like this?",
   "map.whyBody":
-    "Our server fetches the map pictures, so your browser never tells a map company where you are looking.",
+    "Your browser downloads the whole Syros map from our own server, so no map company and no request ever learns which part of the island you are looking at.",
 
   // Entry points (SYC-209 PR 3.4): from a cat's sighting, and from a colony.
   "sighting.makeSite": "Make a feeding site here",

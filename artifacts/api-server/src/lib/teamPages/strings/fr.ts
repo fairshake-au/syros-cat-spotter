@@ -480,7 +480,7 @@ export const fr: Record<StringKey, string> = {
   "map.teamOnly": "Cette carte est réservée à l’équipe.",
   "map.whyTitle": "Pourquoi la carte fonctionne-t-elle ainsi ?",
   "map.whyBody":
-    "Notre serveur récupère les images de la carte, donc ton navigateur ne dit jamais à une entreprise de cartographie où tu regardes.",
+    "Ton navigateur télécharge toute la carte de Syros depuis notre propre serveur, donc aucune entreprise de cartographie ni aucune requête ne sait quelle partie de l'île tu regardes.",
 
   "sighting.makeSite": "Créer un point de nourrissage ici",
   "sighting.showOnMap": "Afficher sur notre carte",

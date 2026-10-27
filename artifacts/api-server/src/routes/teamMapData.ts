@@ -31,6 +31,8 @@ export function setMapSourceForTests(src: MapSource | undefined): void {
 }
 
 const FOREVER = "private, max-age=31536000, immutable";
+/** The style comes from our code, not the map host, so a deploy can change it under the same version. */
+const STYLE_CACHE = "private, max-age=3600";
 
 const notFound = (res: Response) => void res.status(404).json({ error: "Not found" });
 
@@ -54,12 +56,12 @@ function readVersion(raw: unknown): number | null {
 const isServed = (version: number, current: number) => version <= current && version >= current - 1;
 
 /** The whole body, never a range: Content-Length and Accept-Ranges: none, written by hand. */
-function sendWhole(res: Response, type: string, body: Buffer): void {
+function sendWhole(res: Response, type: string, body: Buffer, cache: string = FOREVER): void {
   res.status(200);
   res.setHeader("Content-Type", type);
   res.setHeader("Content-Length", String(body.length));
   res.setHeader("Accept-Ranges", "none");
-  res.setHeader("Cache-Control", FOREVER);
+  res.setHeader("Cache-Control", cache);
   res.end(body);
 }
 
@@ -114,7 +116,7 @@ router.get("/team/map-data/v:version/style-:lang.json", ...door, async (req: Req
     glyphsUrl: `/api/team/map-data/v${version}/fonts/{fontstack}/{range}.pbf`,
     spriteUrl: `/api/team/map-data/v${version}/sprites/light`,
   });
-  sendWhole(res, "application/json; charset=utf-8", Buffer.from(JSON.stringify(style)));
+  sendWhole(res, "application/json; charset=utf-8", Buffer.from(JSON.stringify(style)), STYLE_CACHE);
 });
 
 export default router;
