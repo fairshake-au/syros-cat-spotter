@@ -25,6 +25,7 @@ vi.mock("../lib/matching", () => ({
 
 import app from "../app";
 import { loadCatRecords } from "../lib/observations";
+import { moveSightings } from "../lib/moveSightings";
 import { resolveCat } from "../lib/resolve";
 
 const DEVICE = "vitest-addlater";
@@ -419,5 +420,59 @@ describe("GET /api/profiles/:deviceId/cats/:catId/open-sightings", () => {
     await sightingOf(catId, device);
     const res = await openSightings(catId, device, "vitest-addlater-WRONG-secret-012345");
     expect(res.status).toBe(403);
+  });
+});
+
+describe("open-sightings: a spot the team filed under this cat (SYC-150 PR 3.3, D4)", () => {
+  const mover = { id: "vitest-addlater-mover", scopes: [{ role: "staff", colonyId: null }] } as never;
+  const moveTo = (from: number, to: number, sightingId: number) =>
+    moveSightings(mover, { sightingIds: [sightingId], expectedCatId: from, toCatId: to, reason: "wrong_pick", source: "cat_page" });
+  type Item = { sightingId: number; filedByTeam?: boolean };
+
+  /** Mimi with another sighting (so a move leaves her something), the spotter's spot of her, and Agatha. */
+  async function setUp() {
+    const mimi = await seedCat();
+    const agatha = await seedCat();
+    const device = `${DEVICE}-${uid()}`;
+    await sightingOf(mimi, `${DEVICE}-${uid()}`, 9);
+    const spot = await sightingOf(mimi, device, 3);
+    return { mimi, agatha, device, spot };
+  }
+
+  it("says the team filed it there, on the cat it was filed under, and not on a spot taken there directly", async () => {
+    const { mimi, agatha, device, spot } = await setUp();
+    const own = await sightingOf(agatha, device, 2);
+    expect((await moveTo(mimi, agatha, spot.id)).ok).toBe(true);
+
+    const res = await openSightings(agatha, device);
+    expect(res.status).toBe(200);
+    const byId = new Map<number, Item>((res.body.sightings as Item[]).map((x) => [x.sightingId, x]));
+    expect(byId.get(spot.id)?.filedByTeam).toBe(true);
+    expect(byId.get(own.id)?.filedByTeam).toBe(false);
+    // Who moved it and why never leave the server.
+    expect(JSON.stringify(res.body)).not.toMatch(/vitest-addlater-mover|wrong_pick|movedBy|reason/);
+  });
+
+  it("says it on a spot whose questions are all answered, too", async () => {
+    const { mimi, agatha, device, spot } = await setUp();
+    await answer(spot.id, device, { foodAndWater: "yes", note: "Fine" });
+    expect((await moveTo(mimi, agatha, spot.id)).ok).toBe(true);
+    const res = await openSightings(agatha, device);
+    const item = (res.body.sightings as Item[]).find((x) => x.sightingId === spot.id);
+    expect(item?.filedByTeam).toBe(true);
+  });
+
+  it("is off once it has moved on again, and the old cat's page doesn't carry it", async () => {
+    const { mimi, agatha, device, spot } = await setUp();
+    const third = await seedCat();
+    await sightingOf(agatha, `${DEVICE}-${uid()}`, 8);
+    expect((await moveTo(mimi, agatha, spot.id)).ok).toBe(true);
+    expect((await moveTo(agatha, third, spot.id)).ok).toBe(true);
+    const onAgatha = (await openSightings(agatha, device)).body.sightings as Item[];
+    expect(onAgatha.some((x) => x.sightingId === spot.id)).toBe(false);
+    const onThird = (await openSightings(third, device)).body.sightings as Item[];
+    expect(onThird.find((x) => x.sightingId === spot.id)?.filedByTeam).toBe(true);
+    const onMimi = (await openSightings(mimi, device)).body.sightings as Item[];
+    expect(onMimi.some((x) => x.sightingId === spot.id)).toBe(false);
   });
 });

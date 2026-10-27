@@ -12,6 +12,7 @@ import {
   photosTable,
   sightingsTable,
   sightingMatchesTable,
+  sightingMovesTable,
   sightingPhotosTable,
   profilesTable,
   observationsTable,
@@ -1577,6 +1578,25 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
   // Samuel, 11 Oct 2026).
   const hidden = await hiddenPhotoIds(recent.map((r) => r.photoId ?? 0));
 
+  // SYC-150 PR 3.3 (which-cat-is-which.md §5.9, D4): a spot the team filed
+  // under this cat says so ("Syros Cats filed this under Agatha"). Read from
+  // the sighting's newest move: it counts only if it is a team move onto this
+  // cat (not a merge's), so a later move away or a merge takes the line off.
+  // Who moved it and why never leave the server.
+  const newestMove = new Map<number, { toCatId: number; mergeId: number | null }>();
+  if (recent.length > 0) {
+    const moves = await db
+      .select({
+        sightingId: sightingMovesTable.sightingId,
+        toCatId: sightingMovesTable.toCatId,
+        mergeId: sightingMovesTable.mergeId,
+      })
+      .from(sightingMovesTable)
+      .where(inArray(sightingMovesTable.sightingId, recent.map((r) => r.id)))
+      .orderBy(asc(sightingMovesTable.id));
+    for (const m of moves) newestMove.set(m.sightingId, m);
+  }
+
   const sightings = recent
     .map((r) => {
       const kinds = new Set(answered.filter((a) => a.sightingId === r.id).map((a) => a.kind));
@@ -1588,9 +1608,10 @@ router.get("/profiles/:deviceId/cats/:catId/open-sightings", async (req, res) =>
           hidden,
         ),
         open: { foodAndWater: !kinds.has("food_and_water"), note: !kinds.has("note") },
+        filedByTeam: newestMove.get(r.id)?.toCatId === catId && newestMove.get(r.id)?.mergeId === null,
       };
     })
-    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked");
+    .filter((s) => s.open.foodAndWater || s.open.note || ear.state !== "checked" || s.filedByTeam);
 
   res.json({
     earTip:
