@@ -26,6 +26,8 @@ import { REPO_ROOT, sourceFiles, withoutComments } from "../test/sourceScan";
 const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/movedStatements.ts": "the one writer (writeMovedObservation)",
   "artifacts/api-server/src/lib/observations.ts": "reads only: loadCatRecords lists a moved statement as `elsewhere`",
+  "artifacts/api-server/src/lib/moveSightings.ts":
+    "the move route's lib (PR 3.2): sets the transaction-local app.sighting_move_id the triggers check, then calls writeMovedObservation; writes no statement column itself",
   "lib/db/src/schema/observations.ts": "the column's definition",
 };
 
