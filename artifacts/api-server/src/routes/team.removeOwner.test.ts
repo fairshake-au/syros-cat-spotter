@@ -16,6 +16,7 @@ import {
   sightingsTable,
 } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
+import { mergeKeepingSightings } from "../test/merges";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
   sessionCookieFor,
@@ -895,7 +896,7 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
     const { c: b, d } = await ownedCat("mergedin");
     const [h] = await homed(b.id);
     expect((await deleteMe(d)).status).toBe(204);
-    const [merge] = await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: a.id, reason: "test", createdBy: "vitest" }).returning();
+    const merge = await mergeKeepingSightings({ catId: b.id, canonicalCatId: a.id, reason: "test", createdBy: "vitest" });
     try {
       const staff = { id: susanId, scopes: [{ role: "staff", colonyId: null }] };
       const view = (await teamCatView(a.id, new Date(), staff))!;

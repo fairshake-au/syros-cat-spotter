@@ -9,8 +9,10 @@ Branch: claude/syc-150-pr2.1-migration. Migration: lib/db/migrations/0053_moves_
 
 4-5. lib/db/src/migrate/whichCatIsWhich.test.ts: 28 tests, all pass (legit paths + refusals + 16a race + C4 index + C5 kinds).
 
+4b. test/merges.ts mergeKeepingSightings: 8 existing api-server tests wrote old-shape merges (sightings left on merged cat); now insert with the deferred check off. 9 merge-writing files: 322 pass. Typecheck 0/0/0.
+
 ## Next
-api-server suite for existing merge tests (deferred check). 6. Mutation probes. 7. Full suites. 8. Draft PR.
+6. Mutation probes. 7. Full suites. 8. Draft PR.
 
 ## Notes
 - Existing api-server tests insert merges over cats that still have resolved sightings; the deferred check (item 3) will refuse those. Plan: a test helper doing a recorded merge.
