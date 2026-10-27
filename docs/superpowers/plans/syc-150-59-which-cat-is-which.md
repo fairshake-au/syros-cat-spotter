@@ -335,7 +335,7 @@ Slices 1 and 2 can be built in parallel. 4.2 and 4.3 can run in parallel, and so
 
 ## Rollout
 
-1. **0.1, 1.1 and 1.2 merge.** These are behaviour-neutral. Before the republish, record `GET /api/cats/count` (the "of 142" total) and the first page of `GET /api/cats`. After it, the live `/api/healthz` shows the commit (memory: *confirm the live build before smoke*), and both match.
+1. **0.1, 1.1 and 1.2 merge.** These are behaviour-neutral. Before the republish, record the island total (the "of 142" in the profile payload, which comes from `totalCatCount`, `lib/catHelpers.ts:720`) with a read-only count on production, and the first page of `GET /api/cats`. After it, the live `/api/healthz` shows the commit (memory: *confirm the live build before smoke*), and both match. The exact read-only tool is written into the build's rollout checklist; it never creates a device or any other row.
 2. **2.1 merges. Don't republish yet:** its migration (the only one in this plan) runs on production first.
    - Probe 1: `migrate:history` on production. It's read-only.
    - Probe 2: a forged `UPDATE sightings SET cat_id` **inside a transaction that is rolled back**, on a throwaway Neon branch restored from production. This writes to Neon, so Samuel switches the session to ask mode first (memory: *Neon writes need ask mode*), and he gets one line of warning before it runs.
