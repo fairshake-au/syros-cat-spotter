@@ -16,7 +16,15 @@ import {
 import { actingRole, can, type CapabilityHolder } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
-import { BLANK_NAME_BODY, catNamed, isUniqueViolation, NAME_TAKEN_WORDS, OFFENSIVE_NAME_WORDS } from "./catNames";
+import {
+  BLANK_NAME_BODY,
+  catNamed,
+  hasLinkOrPhoneNumber,
+  isUniqueViolation,
+  NAME_HAS_LINK,
+  NAME_TAKEN_WORDS,
+  OFFENSIVE_NAME_WORDS,
+} from "./catNames";
 import { lockSpottersFirst, writeMovedObservation } from "./movedStatements";
 import { rebaselineNews } from "./news/nightly";
 import { writeObservation, type DbOrTx } from "./observations";
@@ -84,6 +92,7 @@ export type MoveRefusalCode =
   | "EMPTY_NAME"
   | "OFFENSIVE_NAME"
   | "SYR_SHAPED_NAME"
+  | "NAME_HAS_LINK"
   | "NAME_TAKEN"
   | "REPORT_NOT_FOUND";
 
@@ -346,9 +355,16 @@ async function canonicalOrRefuse(tx: DbOrTx, catId: number): Promise<number> {
   return canonical;
 }
 
+/**
+ * §9.7 move step 2: "name rules as at resolve" (routes/sightings.ts), the
+ * web-link and phone-number check included (review of #386).
+ */
 function refuseBadName(name: string): void {
   const problem = newCatNameProblem(name);
-  if (problem === null) return;
+  if (problem === null) {
+    if (hasLinkOrPhoneNumber(name)) throw new MoveRefused("NAME_HAS_LINK", NAME_HAS_LINK);
+    return;
+  }
   const code: MoveRefusalCode =
     problem === BLANK_NAME_BODY.error ? "EMPTY_NAME" : problem === OFFENSIVE_NAME_WORDS ? "OFFENSIVE_NAME" : "SYR_SHAPED_NAME";
   throw new MoveRefused(code, problem);

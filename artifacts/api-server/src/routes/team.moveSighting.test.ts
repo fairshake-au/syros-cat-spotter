@@ -301,6 +301,11 @@ describe("the refusals (§6, §9.7 move step 1)", () => {
     expect((await move(named("   "))).body.code).toBe("EMPTY_NAME");
     expect((await move(named("fuck"))).body.code).toBe("OFFENSIVE_NAME");
     expect((await move(named("SYR-0042"))).body.code).toBe("SYR_SHAPED_NAME");
+    // Resolve's rules (§9.7 move step 2): no web link or phone number.
+    const link = await move(named("Kiki www.catsforsale.com"));
+    expect(link.status).toBe(400);
+    expect(link.body).toMatchObject({ code: "NAME_HAS_LINK", error: "Names can't include web links or phone numbers." });
+    expect((await move(named("Kiki 6912345678"))).body.code).toBe("NAME_HAS_LINK");
     const agatha = await catRow(c.agatha);
     const taken = await move(named(agatha.name.toLowerCase()));
     expect(taken.status).toBe(409);

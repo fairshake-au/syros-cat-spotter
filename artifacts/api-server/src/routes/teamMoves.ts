@@ -53,6 +53,7 @@ const STATUS: Record<Exclude<MoveRefusalCode, "NOT_AUTHORISED">, number> = {
   EMPTY_NAME: 400,
   OFFENSIVE_NAME: 400,
   SYR_SHAPED_NAME: 400,
+  NAME_HAS_LINK: 400,
   NAME_TAKEN: 409,
 };
 
