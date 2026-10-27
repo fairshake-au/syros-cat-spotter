@@ -324,7 +324,7 @@ export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput):
   }
 
   // The "That's a different cat" report the move came from closes as done.
-  const queued = input.source === "report" ? await closeReport(tx, person, input.reportId) : null;
+  const queued = input.source === "report" ? await closeReport(tx, person, input.reportId, { fromCatId, photos: movedPhotos }) : null;
 
   // The match records' team step (§9.7 move step 8).
   await fillTeamStep(tx, person, { madeNewCat, toCatId, moves });
@@ -520,10 +520,20 @@ async function makeNewCat(
  * Returns the outcome email's outbox row, if closing queued one (an issue
  * report queues none today; welfareActions.ts), to send after the commit.
  */
-async function closeReport(tx: Tx, person: Person, publicId: string | undefined): Promise<number | null> {
+async function closeReport(
+  tx: Tx,
+  person: Person,
+  publicId: string | undefined,
+  moved: { fromCatId: number; photos: ReadonlySet<number> },
+): Promise<number | null> {
   if (!publicId) throw new MoveRefused("REPORT_NOT_FOUND", MOVE_WORDS.reportNotFound);
   const [report] = await tx
-    .select({ state: welfareReportsTable.state })
+    .select({
+      state: welfareReportsTable.state,
+      catId: welfareReportsTable.catId,
+      reporterCatId: welfareReportsTable.reporterCatId,
+      photoId: welfareReportsTable.photoId,
+    })
     .from(welfareReportsTable)
     .where(
       and(
@@ -535,10 +545,18 @@ async function closeReport(tx: Tx, person: Person, publicId: string | undefined)
     )
     .for("update");
   if (!report) throw new MoveRefused("REPORT_NOT_FOUND", MOVE_WORDS.reportNotFound);
+  // Only a report about what moved (review of #386, R6): about the cat the
+  // sightings left (or a cat merged into it), as tied by the team or, until
+  // then, as sent from; and about one of the moved photos, or no photo.
+  const feeding = new Set((await catsFeeding([moved.fromCatId], {}, tx)).get(moved.fromCatId)?.ids ?? [moved.fromCatId]);
+  const reportCat = report.catId ?? report.reporterCatId;
+  if (reportCat === null || !feeding.has(reportCat) || (report.photoId !== null && !moved.photos.has(report.photoId))) {
+    throw new MoveRefused("REPORT_NOT_FOUND", MOVE_WORDS.reportNotFound);
+  }
   // Closed by someone meanwhile: the move still stands, the report as it is.
   if (report.state !== "new" && report.state !== "looking") return null;
-  const moved = await moveReportStateIn(tx, { publicId, from: report.state as "new" | "looking", to: "done", person });
-  return moved.queued;
+  const closed = await moveReportStateIn(tx, { publicId, from: report.state as "new" | "looking", to: "done", person });
+  return closed.queued;
 }
 
 /**

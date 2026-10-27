@@ -178,6 +178,28 @@ describe("a move (§9.7 move steps 3–8)", () => {
     expect((await sightingRow(d.s.id)).catId).toBe(d.mimi);
   });
 
+  it("closes only a report about what moved: another cat's, or another photo of hers, is refused and stays open (review of #386, R6)", async () => {
+    const c = await twoCats();
+    const elsewhere = await kit.cat();
+    const theirs = await kit.sighting(elsewhere, kit.device());
+    const body = { sightingIds: [c.s.id], expectedCatId: c.mimi, toCatId: c.agatha, reason: "wrong_pick", source: "report" };
+    const aboutAnotherCat = await seedReport({ publicId: `vt-move-${tag()}`, kind: "content", reason: "wrong_cat", catId: elsewhere, photoId: theirs.photoId });
+    const aboutAnotherPhoto = await seedReport({ publicId: `vt-move-${tag()}`, kind: "content", reason: "wrong_cat", catId: c.mimi, photoId: c.older.photoId });
+    for (const r of [aboutAnotherCat, aboutAnotherPhoto]) {
+      const res = await move({ ...body, reportId: r.publicId });
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe("REPORT_NOT_FOUND");
+      const [after] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.id, r.id));
+      expect(after!.state).toBe("new");
+    }
+    expect((await sightingRow(c.s.id)).catId).toBe(c.mimi);
+    // About her, with no photo, sent from her page (not tied yet): closed.
+    const sentFromHerPage = await seedReport({ publicId: `vt-move-${tag()}`, kind: "content", reason: "wrong_cat", reporterCatId: c.mimi });
+    expect((await move({ ...body, reportId: sentFromHerPage.publicId })).status).toBe(200);
+    const [closed] = await db.select().from(welfareReportsTable).where(eq(welfareReportsTable.id, sentFromHerPage.id));
+    expect(closed!.state).toBe("done");
+  });
+
   it("fills the match record's team step once, in the move's transaction (step 8)", async () => {
     const c = await twoCats();
     await db.insert(sightingMatchesTable).values({ sightingId: c.s.id, choice: "hand_pick", chosenCatId: c.mimi, chosenAt: daysAgo(3) });
