@@ -175,6 +175,28 @@ async function mapChecks(p, engine, width, what, t0, file, sel) {
   return { ms, s };
 }
 
+
+/** On a place picker: pin shown, Use this spot visible, then drag and check lat/lng are filled. */
+async function placeChecks(p, engine, width, label) {
+  const st = await p.evaluate(() => {
+    const vis = (e) => !!e && e.getBoundingClientRect().height > 0 && getComputedStyle(e).visibility !== "hidden";
+    return { pin: vis(document.querySelector(".map .placepin")), use: [...document.querySelectorAll("button[data-mapon]")].map(vis) };
+  });
+  check(engine, width, `${label}: the pin is shown and "Use this spot" is visible`, st.pin && st.use.length > 0 && st.use.every(Boolean), st);
+  await p.locator('.mapctl button').first().click();
+  await p.waitForTimeout(800);
+  const b = await p.locator(".map canvas").first().boundingBox();
+  const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+  await p.mouse.move(cx, cy);
+  await p.mouse.down();
+  await p.mouse.move(cx - 60, cy + 40, { steps: 8 });
+  await p.mouse.up();
+  await p.waitForTimeout(900);
+  const ll = await p.evaluate(() => ({ lat: document.querySelector("#pickform [name=lat]")?.value, lng: document.querySelector("#pickform [name=lng]")?.value }));
+  check(engine, width, `${label}: lat/lng inputs are filled after a drag`, Boolean(ll.lat && ll.lng && Number.isFinite(+ll.lat) && Number.isFinite(+ll.lng)), ll);
+  await p.screenshot({ path: SHOT(engine, width, 9, label.replace(/\W+/g, "-") + "-dragged") });
+}
+
 async function runSession(engine, width, browser, first) {
   const { ctx, seen, phone } = await newSession(browser, engine, width);
   const p = await ctx.newPage();
@@ -201,6 +223,17 @@ async function runSession(engine, width, browser, first) {
     check(engine, width, "1 cats map: cat markers present", markers.length >= 4, { count: markers.length, labels: markers.map((m) => m.label) });
     const group = markers.map((m) => ({ ...m, n: Number((/^(\d+) cats here/.exec(m.label ?? "") ?? [])[1] ?? 0) })).filter((m) => m.n >= 12);
     check(engine, width, "1 cats map: group count in Ermoupoli at island view", group.length >= 1, group.map((g) => g.label));
+    const keyPlus = await p.evaluate(() => {
+      const box = document.getElementById("island-map");
+      const key = [...document.querySelectorAll("#maplegend summary, summary")].find((b) => b.textContent.trim() === "Key");
+      const plus = [...box.querySelectorAll("button")].find((b) => b.textContent.trim() === "+");
+      if (!key || !plus) return { key: !!key, plus: !!plus };
+      const a = key.getBoundingClientRect();
+      const c = plus.getBoundingClientRect();
+      const overlap = !(a.right <= c.left || c.right <= a.left || a.bottom <= c.top || c.bottom <= a.top);
+      return { overlap, key: a.toJSON(), plus: c.toJSON() };
+    });
+    check(engine, width, "1 cats map: Key button and + button do not overlap", keyPlus.overlap === false, keyPlus);
     const bad = markers.filter((m) => Math.abs(m.r.width - 44) > 0.6 || Math.abs(m.r.height - 44) > 0.6);
     check(engine, width, "1 cats map: markers' bounding boxes are 44x44", markers.length > 0 && bad.length === 0, bad.length ? bad.slice(0, 4) : { checked: markers.length });
 
@@ -303,6 +336,7 @@ async function runSession(engine, width, browser, first) {
       };
     });
     check(engine, width, "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)", st.fixedPin && st.revealedControls.length > 0 && st.revealedControls.every(Boolean), st);
+    await placeChecks(p, engine, width, "6 colony centre picker");
   }
 
   // ── 6b. Move picker for a site (also has a marker for the current spot) ──
@@ -319,6 +353,7 @@ async function runSession(engine, width, browser, first) {
       };
     });
     check(engine, width, "6b move-a-site picker: the fixed pin and the revealed controls are there", st.fixedPin && st.revealedControls.length > 0 && st.revealedControls.every(Boolean), st);
+    await placeChecks(p, engine, width, "6b move-a-site picker");
   }
 
   // ── 7. "Show on our map" from a sighting ─────────────────────────────────
@@ -393,6 +428,11 @@ async function runNoJs(engine, width, browser) {
       useSpotVisible: vis(document.querySelector("button[data-mapon]")),
     };
   });
+  const intro = await p.evaluate(() => {
+    const hit = [...document.querySelectorAll("body *")].filter((e) => e.children.length === 0 && /Move the map until the pin/.test(e.textContent));
+    return hit.map((e) => ({ tag: e.tagName, visible: e.getBoundingClientRect().height > 0 && getComputedStyle(e).visibility !== "hidden" && getComputedStyle(e).display !== "none" }));
+  });
+  check(engine, width, '5 no JS: the "Move the map until the pin..." line is absent or hidden', intro.every((i) => !i.visible), intro);
   await p.screenshot({ path: sh(11, "nojs-picker") });
   check(engine, width, "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)", view.noMapLine && view.areaList && view.areas > 5 && !view.useSpotVisible, view);
   await p.selectOption("select[name=area]", "kini");

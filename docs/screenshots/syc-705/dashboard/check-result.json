@@ -1,14 +1,14 @@
 {
  "summary": {
-  "total": 160,
-  "passed": 148,
-  "failed": 12,
+  "total": 184,
+  "passed": 184,
+  "failed": 0,
   "coldLoads": [
    {
     "engine": "chromium",
     "width": 390,
     "page": "cats map, fresh context",
-    "msToLive": 1955,
+    "msToLive": 1909,
     "serverCold": true,
     "mapDataRequests": 8,
     "totalRequests": 17,
@@ -27,7 +27,7 @@
     "engine": "chromium",
     "width": 1280,
     "page": "cats map, fresh context",
-    "msToLive": 805,
+    "msToLive": 1330,
     "serverCold": false,
     "mapDataRequests": 8,
     "totalRequests": 17,
@@ -46,7 +46,7 @@
     "engine": "webkit",
     "width": 390,
     "page": "cats map, fresh context",
-    "msToLive": 320,
+    "msToLive": 318,
     "serverCold": false,
     "mapDataRequests": 8,
     "totalRequests": 19,
@@ -65,7 +65,7 @@
     "engine": "webkit",
     "width": 1280,
     "page": "cats map, fresh context",
-    "msToLive": 282,
+    "msToLive": 259,
     "serverCold": false,
     "mapDataRequests": 8,
     "totalRequests": 19,
@@ -312,13 +312,13 @@
    "what": "1 cats map: draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 5321,
-    "landPx": 281448,
-    "seaPx": 355254,
+    "distinct": 5258,
+    "landPx": 281492,
+    "seaPx": 348202,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 1955
+    "msToLive": 1909
    }
   },
   {
@@ -354,6 +354,35 @@
    "detail": [
     "14 cats here. Zoom in to see each one."
    ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 31,
+     "y": 29.234375,
+     "width": 24.171875,
+     "height": 36,
+     "top": 29.234375,
+     "right": 55.171875,
+     "bottom": 65.234375,
+     "left": 31
+    },
+    "plus": {
+     "x": 325,
+     "y": 27.234375,
+     "width": 44,
+     "height": 44,
+     "top": 27.234375,
+     "right": 369,
+     "bottom": 71.234375,
+     "left": 325
+    }
+   }
   },
   {
    "engine": "chromium",
@@ -394,13 +423,13 @@
      "2",
      "3"
     ],
-    "distinct": 6204,
-    "landPx": 215819,
-    "seaPx": 109868,
+    "distinct": 6161,
+    "landPx": 216191,
+    "seaPx": 102469,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 245
+    "msToLive": 855
    }
   },
   {
@@ -415,7 +444,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 289
+    "msToLive": 357
    }
   },
   {
@@ -448,7 +477,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 231
+    "msToLive": 227
    }
   },
   {
@@ -481,7 +510,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 240
+    "msToLive": 239
    }
   },
   {
@@ -501,8 +530,8 @@
      "lng": "24.93"
     },
     "pre": {
-     "lat": "37.448747",
-     "lng": "24.938494"
+     "lat": "37.448744",
+     "lng": "24.938488"
     }
    }
   },
@@ -512,13 +541,13 @@
    "what": "4 \"Check the spot\" page: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 4908,
-    "landPx": 342685,
+    "distinct": 4858,
+    "landPx": 342351,
     "seaPx": 18,
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 214
+    "msToLive": 327
    }
   },
   {
@@ -529,8 +558,8 @@
    "detail": {
     "h1": "Check the spot",
     "mid": {
-     "lat": "37.448747",
-     "lng": "24.938494"
+     "lat": "37.448744",
+     "lng": "24.938488"
     }
    }
   },
@@ -541,14 +570,14 @@
    "ok": true,
    "detail": {
     "name": "Pincb",
-    "siteId": 42,
+    "siteId": 11,
     "pin": {
-     "lat": "37.448747",
-     "lng": "24.938494"
+     "lat": "37.448744",
+     "lng": "24.938488"
     },
     "saved": [
-     "37.448747",
-     "24.938494",
+     "37.448744",
+     "24.938488",
      "f"
     ],
     "metresApart": 0
@@ -560,31 +589,54 @@
    "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 8584,
-    "landPx": 151789,
-    "seaPx": 69956,
+    "distinct": 8999,
+    "landPx": 151698,
+    "seaPx": 69974,
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 239
+    "msToLive": 317
    }
   },
   {
    "engine": "chromium",
    "width": 390,
    "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "centreMarkers": 0,
-    "fixedPin": false,
+    "centreMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ],
     "hiddenInputs": [
-     "lat=",
-     "lng="
+     "lat=37.4445",
+     "lng=24.942"
     ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444878",
+    "lng": "24.942714"
    }
   },
   {
@@ -593,27 +645,50 @@
    "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 6844,
-    "landPx": 148519,
-    "seaPx": 49321,
+    "distinct": 7391,
+    "landPx": 147796,
+    "seaPx": 49339,
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 232
+    "msToLive": 256
    }
   },
   {
    "engine": "chromium",
    "width": 390,
    "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "siteMarkers": 0,
-    "fixedPin": false,
+    "siteMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444489",
+    "lng": "24.942857"
    }
   },
   {
@@ -637,7 +712,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 550
+    "msToLive": 583
    }
   },
   {
@@ -654,11 +729,8 @@
    "engine": "chromium",
    "width": 390,
    "what": "8 no console errors",
-   "ok": false,
-   "detail": [
-    "pageerror at /api/team/colonies/1/centre: TypeError: Class constructor WF cannot be invoked without 'new' |     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:35 <-     at Array.forEach (<anonymous>) <-     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:104:59",
-    "pageerror at /api/team/sites/1/move: TypeError: Class constructor WF cannot be invoked without 'new' |     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:35 <-     at Array.forEach (<anonymous>) <-     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:104:59"
-   ]
+   "ok": true,
+   "detail": []
   },
   {
    "engine": "chromium",
@@ -704,6 +776,18 @@
   {
    "engine": "chromium",
    "width": 390,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
    "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
    "ok": true,
    "detail": {
@@ -730,7 +814,7 @@
    "ok": true,
    "detail": {
     "name": "Areacc",
-    "siteId": 43,
+    "siteId": 12,
     "dbApproximate": "t"
    }
   },
@@ -765,13 +849,13 @@
      }
     ],
     "areaBtn": "BUTTON visible=true",
-    "distinct": 12025,
-    "landPx": 282609,
-    "seaPx": 211710,
+    "distinct": 12021,
+    "landPx": 277624,
+    "seaPx": 211847,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 872
+    "msToLive": 686
    }
   },
   {
@@ -797,13 +881,13 @@
    "what": "1 cats map: draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 7741,
-    "landPx": 282239,
-    "seaPx": 241400,
+    "distinct": 7738,
+    "landPx": 282317,
+    "seaPx": 237408,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 805
+    "msToLive": 1330
    }
   },
   {
@@ -844,6 +928,35 @@
   {
    "engine": "chromium",
    "width": 1280,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 111,
+     "y": 70.9375,
+     "width": 180.9375,
+     "height": 36,
+     "top": 70.9375,
+     "right": 291.9375,
+     "bottom": 106.9375,
+     "left": 111
+    },
+    "plus": {
+     "x": 1135,
+     "y": 68.9375,
+     "width": 44,
+     "height": 44,
+     "top": 68.9375,
+     "right": 1179,
+     "bottom": 112.9375,
+     "left": 1135
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
    "what": "1 cats map: markers' bounding boxes are 44x44",
    "ok": true,
    "detail": {
@@ -880,13 +993,13 @@
      "2",
      "3"
     ],
-    "distinct": 10067,
-    "landPx": 370103,
-    "seaPx": 27913,
+    "distinct": 10240,
+    "landPx": 389708,
+    "seaPx": 30379,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 708
+    "msToLive": 412
    }
   },
   {
@@ -901,7 +1014,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 347
+    "msToLive": 264
    }
   },
   {
@@ -934,7 +1047,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 254
+    "msToLive": 235
    }
   },
   {
@@ -967,7 +1080,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 264
+    "msToLive": 324
    }
   },
   {
@@ -987,8 +1100,8 @@
      "lng": "24.93"
     },
     "pre": {
-     "lat": "37.448268",
-     "lng": "24.93741"
+     "lat": "37.44827",
+     "lng": "24.937413"
     }
    }
   },
@@ -1004,7 +1117,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 225
+    "msToLive": 223
    }
   },
   {
@@ -1015,8 +1128,8 @@
    "detail": {
     "h1": "Check the spot",
     "mid": {
-     "lat": "37.448268",
-     "lng": "24.93741"
+     "lat": "37.44827",
+     "lng": "24.937413"
     }
    }
   },
@@ -1027,14 +1140,14 @@
    "ok": true,
    "detail": {
     "name": "Pincd",
-    "siteId": 44,
+    "siteId": 13,
     "pin": {
-     "lat": "37.448268",
-     "lng": "24.93741"
+     "lat": "37.44827",
+     "lng": "24.937413"
     },
     "saved": [
-     "37.448268",
-     "24.93741",
+     "37.44827",
+     "24.937413",
      "f"
     ],
     "metresApart": 0
@@ -1046,31 +1159,54 @@
    "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 8195,
-    "landPx": 80307,
+    "distinct": 8438,
+    "landPx": 80318,
     "seaPx": 78048,
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 240
+    "msToLive": 238
    }
   },
   {
    "engine": "chromium",
    "width": 1280,
    "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "centreMarkers": 0,
-    "fixedPin": false,
+    "centreMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ],
     "hiddenInputs": [
-     "lat=",
-     "lng="
+     "lat=37.4445",
+     "lng=24.942"
     ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444878",
+    "lng": "24.942714"
    }
   },
   {
@@ -1079,27 +1215,50 @@
    "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 7187,
-    "landPx": 75143,
+    "distinct": 7521,
+    "landPx": 75055,
     "seaPx": 38834,
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 337
+    "msToLive": 238
    }
   },
   {
    "engine": "chromium",
    "width": 1280,
    "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "siteMarkers": 0,
-    "fixedPin": false,
+    "siteMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44449",
+    "lng": "24.942858"
    }
   },
   {
@@ -1123,7 +1282,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 366
+    "msToLive": 371
    }
   },
   {
@@ -1140,11 +1299,8 @@
    "engine": "chromium",
    "width": 1280,
    "what": "8 no console errors",
-   "ok": false,
-   "detail": [
-    "pageerror at /api/team/colonies/1/centre: TypeError: Class constructor WF cannot be invoked without 'new' |     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:35 <-     at Array.forEach (<anonymous>) <-     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:104:59",
-    "pageerror at /api/team/sites/1/move: TypeError: Class constructor WF cannot be invoked without 'new' |     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:35 <-     at Array.forEach (<anonymous>) <-     at http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:104:59"
-   ]
+   "ok": true,
+   "detail": []
   },
   {
    "engine": "chromium",
@@ -1190,6 +1346,18 @@
   {
    "engine": "chromium",
    "width": 1280,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
    "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
    "ok": true,
    "detail": {
@@ -1216,7 +1384,7 @@
    "ok": true,
    "detail": {
     "name": "Areacf",
-    "siteId": 45,
+    "siteId": 14,
     "dbApproximate": "t"
    }
   },
@@ -1251,13 +1419,13 @@
      }
     ],
     "areaBtn": "BUTTON visible=true",
-    "distinct": 9659,
-    "landPx": 288611,
-    "seaPx": 256385,
+    "distinct": 9546,
+    "landPx": 248642,
+    "seaPx": 293382,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 424
+    "msToLive": 440
    }
   },
   {
@@ -1283,13 +1451,13 @@
    "what": "1 cats map: draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 5409,
-    "landPx": 280060,
-    "seaPx": 355201,
+    "distinct": 5364,
+    "landPx": 280105,
+    "seaPx": 348159,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 320
+    "msToLive": 318
    }
   },
   {
@@ -1325,6 +1493,35 @@
    "detail": [
     "14 cats here. Zoom in to see each one."
    ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 31,
+     "y": 29.234375,
+     "width": 24.171875,
+     "height": 36,
+     "top": 29.234375,
+     "right": 55.171875,
+     "bottom": 65.234375,
+     "left": 31
+    },
+    "plus": {
+     "x": 325,
+     "y": 27.234375,
+     "width": 44,
+     "height": 44,
+     "top": 27.234375,
+     "right": 369,
+     "bottom": 71.234375,
+     "left": 325
+    }
+   }
   },
   {
    "engine": "webkit",
@@ -1365,13 +1562,13 @@
      "2",
      "3"
     ],
-    "distinct": 6242,
-    "landPx": 216844,
-    "seaPx": 110048,
+    "distinct": 6212,
+    "landPx": 217231,
+    "seaPx": 102649,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 251
+    "msToLive": 253
    }
   },
   {
@@ -1386,7 +1583,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 271
+    "msToLive": 249
    }
   },
   {
@@ -1419,7 +1616,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 254
+    "msToLive": 233
    }
   },
   {
@@ -1452,7 +1649,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 233
+    "msToLive": 232
    }
   },
   {
@@ -1489,7 +1686,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 222
+    "msToLive": 319
    }
   },
   {
@@ -1512,7 +1709,7 @@
    "ok": true,
    "detail": {
     "name": "Pincg",
-    "siteId": 46,
+    "siteId": 15,
     "pin": {
      "lat": "37.448407",
      "lng": "24.937725"
@@ -1531,31 +1728,54 @@
    "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 8495,
-    "landPx": 152763,
-    "seaPx": 69930,
+    "distinct": 8816,
+    "landPx": 152294,
+    "seaPx": 69942,
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 339
+    "msToLive": 233
    }
   },
   {
    "engine": "webkit",
    "width": 390,
    "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "centreMarkers": 0,
-    "fixedPin": false,
+    "centreMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ],
     "hiddenInputs": [
-     "lat=",
-     "lng="
+     "lat=37.4445",
+     "lng=24.942"
     ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444841",
+    "lng": "24.942644"
    }
   },
   {
@@ -1564,27 +1784,50 @@
    "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 6732,
-    "landPx": 149334,
-    "seaPx": 48996,
+    "distinct": 7181,
+    "landPx": 148049,
+    "seaPx": 49336,
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 275
+    "msToLive": 265
    }
   },
   {
    "engine": "webkit",
    "width": 390,
    "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "siteMarkers": 0,
-    "fixedPin": false,
+    "siteMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44447",
+    "lng": "24.942822"
    }
   },
   {
@@ -1608,7 +1851,7 @@
     "total": 610064,
     "w": 728,
     "h": 838,
-    "msToLive": 339
+    "msToLive": 329
    }
   },
   {
@@ -1625,11 +1868,8 @@
    "engine": "webkit",
    "width": 390,
    "what": "8 no console errors",
-   "ok": false,
-   "detail": [
-    "pageerror at /api/team/colonies/1/centre: Unhandled Promise Rejection: TypeError: Cannot call a class constructor without |new| |     at WF (http://localhost:8752/api/team/assets/maplibre-gl.41198b23679a.mjs:818:197288) <-     at unknown (http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:41) <-     at forEach ([native code]:0:0)",
-    "pageerror at /api/team/sites/1/move: Unhandled Promise Rejection: TypeError: Cannot call a class constructor without |new| |     at WF (http://localhost:8752/api/team/assets/maplibre-gl.41198b23679a.mjs:818:197288) <-     at unknown (http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:41) <-     at forEach ([native code]:0:0)"
-   ]
+   "ok": true,
+   "detail": []
   },
   {
    "engine": "webkit",
@@ -1755,6 +1995,18 @@
   {
    "engine": "webkit",
    "width": 390,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
    "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
    "ok": true,
    "detail": {
@@ -1781,7 +2033,7 @@
    "ok": true,
    "detail": {
     "name": "Areach",
-    "siteId": 47,
+    "siteId": 16,
     "dbApproximate": "t"
    }
   },
@@ -1816,13 +2068,13 @@
      }
     ],
     "areaBtn": "BUTTON visible=true",
-    "distinct": 12030,
-    "landPx": 281435,
-    "seaPx": 211656,
+    "distinct": 12031,
+    "landPx": 276456,
+    "seaPx": 211798,
     "total": 773136,
     "w": 728,
     "h": 1062,
-    "msToLive": 381
+    "msToLive": 259
    }
   },
   {
@@ -1848,13 +2100,13 @@
    "what": "1 cats map: draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 7878,
-    "landPx": 282461,
-    "seaPx": 241338,
+    "distinct": 7872,
+    "landPx": 282488,
+    "seaPx": 237483,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 282
+    "msToLive": 259
    }
   },
   {
@@ -1895,6 +2147,35 @@
   {
    "engine": "webkit",
    "width": 1280,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 111,
+     "y": 70.9375,
+     "width": 180.9375,
+     "height": 36,
+     "top": 70.9375,
+     "right": 291.9375,
+     "bottom": 106.9375,
+     "left": 111
+    },
+    "plus": {
+     "x": 1135,
+     "y": 68.9375,
+     "width": 44,
+     "height": 44,
+     "top": 68.9375,
+     "right": 1179,
+     "bottom": 112.9375,
+     "left": 1135
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
    "what": "1 cats map: markers' bounding boxes are 44x44",
    "ok": true,
    "detail": {
@@ -1931,13 +2212,13 @@
      "2",
      "3"
     ],
-    "distinct": 10003,
-    "landPx": 370747,
-    "seaPx": 29054,
+    "distinct": 10179,
+    "landPx": 390172,
+    "seaPx": 31511,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 271
+    "msToLive": 244
    }
   },
   {
@@ -1952,7 +2233,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 362
+    "msToLive": 256
    }
   },
   {
@@ -1985,7 +2266,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 236
+    "msToLive": 257
    }
   },
   {
@@ -2018,7 +2299,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 271
+    "msToLive": 238
    }
   },
   {
@@ -2055,7 +2336,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 312
+    "msToLive": 320
    }
   },
   {
@@ -2078,7 +2359,7 @@
    "ok": true,
    "detail": {
     "name": "Pincj",
-    "siteId": 48,
+    "siteId": 17,
     "pin": {
      "lat": "37.447975",
      "lng": "24.936744"
@@ -2097,31 +2378,54 @@
    "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 8081,
-    "landPx": 80345,
+    "distinct": 8237,
+    "landPx": 80381,
     "seaPx": 78129,
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 339
+    "msToLive": 243
    }
   },
   {
    "engine": "webkit",
    "width": 1280,
    "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "centreMarkers": 0,
-    "fixedPin": false,
+    "centreMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ],
     "hiddenInputs": [
-     "lat=",
-     "lng="
+     "lat=37.4445",
+     "lng=24.942"
     ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444841",
+    "lng": "24.942644"
    }
   },
   {
@@ -2130,27 +2434,50 @@
    "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
    "ok": true,
    "detail": {
-    "distinct": 7119,
-    "landPx": 75307,
+    "distinct": 7365,
+    "landPx": 75232,
     "seaPx": 38949,
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 374
+    "msToLive": 359
    }
   },
   {
    "engine": "webkit",
    "width": 1280,
    "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
-   "ok": false,
+   "ok": true,
    "detail": {
-    "siteMarkers": 0,
-    "fixedPin": false,
+    "siteMarkers": 1,
+    "fixedPin": true,
     "revealedControls": [
-     false,
-     false
+     true,
+     true,
+     true
     ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44447",
+    "lng": "24.942822"
    }
   },
   {
@@ -2174,7 +2501,7 @@
     "total": 307546,
     "w": 734,
     "h": 419,
-    "msToLive": 428
+    "msToLive": 463
    }
   },
   {
@@ -2191,11 +2518,8 @@
    "engine": "webkit",
    "width": 1280,
    "what": "8 no console errors",
-   "ok": false,
-   "detail": [
-    "pageerror at /api/team/colonies/1/centre: Unhandled Promise Rejection: TypeError: Cannot call a class constructor without |new| |     at WF (http://localhost:8752/api/team/assets/maplibre-gl.41198b23679a.mjs:818:197288) <-     at unknown (http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:41) <-     at forEach ([native code]:0:0)",
-    "pageerror at /api/team/sites/1/move: Unhandled Promise Rejection: TypeError: Cannot call a class constructor without |new| |     at WF (http://localhost:8752/api/team/assets/maplibre-gl.41198b23679a.mjs:818:197288) <-     at unknown (http://localhost:8752/api/team/assets/dashboard-pin.78106efa76fa.js:107:41) <-     at forEach ([native code]:0:0)"
-   ]
+   "ok": true,
+   "detail": []
   },
   {
    "engine": "webkit",
@@ -2321,6 +2645,18 @@
   {
    "engine": "webkit",
    "width": 1280,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
    "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
    "ok": true,
    "detail": {
@@ -2347,7 +2683,7 @@
    "ok": true,
    "detail": {
     "name": "Areack",
-    "siteId": 49,
+    "siteId": 18,
     "dbApproximate": "t"
    }
   },
@@ -2382,13 +2718,13 @@
      }
     ],
     "areaBtn": "BUTTON visible=true",
-    "distinct": 9755,
-    "landPx": 288879,
-    "seaPx": 256378,
+    "distinct": 9632,
+    "landPx": 248890,
+    "seaPx": 293520,
     "total": 688126,
     "w": 1094,
     "h": 629,
-    "msToLive": 285
+    "msToLive": 277
    }
   },
   {
