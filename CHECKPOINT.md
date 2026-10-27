@@ -16,4 +16,5 @@ Next:
 
 Review fold-in (coordinator, after #375 opened):
 - R1 done: standing() = newest merge row per cat decides; undone -> alone (A1, A10, undo-older test).
-Next: R2 same-cat undo, R3 resolveAt (it.fails route), R4 teamMy catsMergedAway, R5 string-aware stripper, R6 probes+suite, R7 PR body.
+- R2 done: undo only by a row on the same cat (A2).
+Next: R3 resolveAt (it.fails route), R4 teamMy catsMergedAway, R5 string-aware stripper, R6 probes+suite, R7 PR body.

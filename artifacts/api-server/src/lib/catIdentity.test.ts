@@ -169,6 +169,15 @@ describe("canonicalCatOf and catsFeeding", () => {
     expect(await catsMergedAway([mimi])).toEqual(new Set());
   });
 
+  it("review A2: an undo row on another cat undoes nothing of Mimi's", async () => {
+    const mimi = await cat();
+    const agatha = await cat();
+    const m = await merge(mimi, agatha, day(2));
+    await undo(m, agatha, day(3));
+    expect(await canonical(mimi)).toBe(agatha);
+    expect(await feeding(agatha)).toEqual(sorted(agatha, mimi));
+  });
+
   it("two merges of one cat, the OLDER undone: the newer one still stands", async () => {
     const mimi = await cat();
     const agatha = await cat();

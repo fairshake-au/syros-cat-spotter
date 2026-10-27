@@ -42,7 +42,8 @@ export interface MergeReadOptions {
  * cat. Each cat's newest merge row decides (newest by `created_at`, then
  * `id`); if an undo supersedes it, the cat stands alone. An older merge it
  * overrode never comes back to life (review of #375, finding 1), and undoing
- * the older one leaves the newer standing.
+ * the older one leaves the newer standing. Only a row on the same cat undoes
+ * its merge (finding 2): an undo naming another cat undoes nothing.
  */
 function standing(asOf: Date | undefined): SQL {
   const at = asOf ?? null;
@@ -56,6 +57,7 @@ function standing(asOf: Date | undefined): SQL {
      where not exists (
        select 1 from cat_identity u
         where u.supersedes_id = newest.id
+          and u.cat_id = newest.cat_id
           and (${at}::timestamptz is null or u.created_at <= ${at}::timestamptz))`;
 }
 
