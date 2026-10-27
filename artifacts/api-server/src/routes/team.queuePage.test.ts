@@ -543,7 +543,7 @@ describe("SYC-492: Find this cat from the report's photo", () => {
       return html.slice(at, html.indexOf("</article>", at));
     };
     expect(card("nophoto")).not.toContain("Find this cat from the report");
-    const href = /href="([^"]*)">Find this cat from the report&#39;s photo</.exec(card("findme"))?.[1];
+    const href = /href="([^"]*)">Find this cat from the report's photo</.exec(card("findme"))?.[1];
     expect(href).toMatch(/^\/api\/team\/cats\/find\?area=[a-z0-9-]+&amp;tie=findme$/);
     const find = await request(app).get(href!.replace(/&amp;/g, "&")).set("Cookie", cookie);
     expect(find.status).toBe(200);

@@ -497,7 +497,7 @@ describe("queue page in-page help (SYC-739)", () => {
 describe("SYC-492: Find this cat from the report's photo", () => {
   const PHOTO = { status: "attached" as const, url: "/api/team/report-photos/p1" };
   const tieable = (q: WelfareQueue) => renderQueuePage(q, "Maria", NOW, undefined, undefined, true, undefined, true);
-  const link = (html: string) => /<a class="tap sublink" href="([^"]*)">Find this cat from the report&#39;s photo<\/a>/.exec(html)?.[1];
+  const link = (html: string) => /<a class="tap sublink" href="([^"]*)">Find this cat from the report's photo<\/a>/.exec(html)?.[1];
 
   it("links to Find from a photo with the report as tie and its area by key, never its position", () => {
     const r = report("a", { photo: PHOTO });
