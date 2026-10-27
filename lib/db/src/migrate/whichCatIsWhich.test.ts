@@ -13,18 +13,14 @@ import { defaultMigrationsFolder, migrateUp, readMigrations } from "./runner";
 const baseUrl = process.env.DATABASE_URL;
 if (!baseUrl) throw new Error("DATABASE_URL must be set to run these tests");
 
-const url = (db: string, user?: string) => {
+const url = (db: string) => {
   const u = new URL(baseUrl);
   u.pathname = `/${db}`;
-  if (user) {
-    u.username = user;
-    u.password = "";
-  }
   return u.toString();
 };
 const tag = crypto.randomBytes(4).toString("hex");
 const name = `which_cat_test_${tag}`;
-// A login role that owns nothing, for the temp-table shadow as the app would be.
+// A role that owns nothing, for the temp-table shadow as the app would be.
 const appRole = `which_cat_app_${tag}`;
 const admin = new pg.Client({ connectionString: url("postgres") });
 let c: pg.Client;
@@ -1013,36 +1009,43 @@ describe("a temporary table can't shadow a guard's lookup (review M1)", () => {
   });
 
   it("refuses the shadow for a role that owns none of the tables", async () => {
-    await admin.query(`create role "${appRole}" login`);
-    await c.query(`grant all on schema public to "${appRole}"`);
-    await c.query(`grant all on all tables in schema public to "${appRole}"`);
-    await c.query(`grant all on all sequences in schema public to "${appRole}"`);
-    const app = new pg.Client({ connectionString: url(name, appRole) });
-    await app.connect();
+    // No login and no second connection (CI's Postgres asks for a password):
+    // the attempt runs on `c` under SET LOCAL ROLE, which ends with the
+    // transaction, so it is still made by a role that owns no table.
+    await admin.query(`create role "${appRole}" nologin`);
     try {
+      await c.query(`grant "${appRole}" to current_user`);
+      await c.query(`grant usage on schema public to "${appRole}"`);
+      await c.query(`grant temporary on database "${name}" to "${appRole}"`);
+      await c.query(`grant all on all tables in schema public to "${appRole}"`);
+      await c.query(`grant all on all sequences in schema public to "${appRole}"`);
       const a = await cat();
       const b = await cat();
       const s = await resolved(a);
       await expect(
-        inTx(app, async () => {
-          await app.query(
+        inTx(c, async () => {
+          await c.query(`set local role "${appRole}"`);
+          expect((await one<{ u: string }>(c, `select current_user as u`)).u).toBe(appRole);
+          await c.query(
             `create temp table sighting_moves (id int, txid bigint, sighting_id int,
                from_cat_id int, to_cat_id int, merge_id int, reason text) on commit drop`,
           );
-          await app.query(
+          await c.query(
             `insert into sighting_moves values (999998, txid_current(), $1, $2, $3, null, 'wrong_pick')`,
             [s, a, b],
           );
-          await setMove(app, 999998);
-          await recat(app, s, b);
+          await setMove(c, 999998);
+          await recat(c, s, b);
         }),
       ).rejects.toThrow(APPEND_ONLY);
       expect((await sightingRow(s)).cat_id).toBe(a);
     } finally {
-      await app.end();
-      await c.query(`revoke all on all tables in schema public from "${appRole}"`);
-      await c.query(`revoke all on all sequences in schema public from "${appRole}"`);
-      await c.query(`revoke all on schema public from "${appRole}"`);
+      await c.query(`reset role`).catch(() => {});
+      await c.query(`revoke all on all tables in schema public from "${appRole}"`).catch(() => {});
+      await c.query(`revoke all on all sequences in schema public from "${appRole}"`).catch(() => {});
+      await c.query(`revoke all on schema public from "${appRole}"`).catch(() => {});
+      await c.query(`revoke all on database "${name}" from "${appRole}"`).catch(() => {});
+      await admin.query(`drop role if exists "${appRole}"`).catch(() => {});
     }
   });
 });
