@@ -324,6 +324,34 @@ function reportsQuery(where: SQL | undefined) {
     .where(and(isWelfare, where));
 }
 
+/** The report-photo types the team's report-photo route serves (routes/teamReports.ts IMAGE_TYPES). */
+export const REPORT_PHOTO_TYPES: ReadonlySet<string> = new Set(["image/jpeg", "image/png"]);
+
+/**
+ * SYC-492: a sent welfare report's photo, read on the server for Find from a
+ * photo's "Use the report's photo". The same rule as the Queue showing it
+ * (a welfare report, never a draft or an issue, whose photo is marked
+ * attached and is stored: toReport's `hasPhoto`) and as the team's
+ * report-photo route serving it (a JPEG or PNG). Anything else is null, so
+ * a photo the team can't see is never sent anywhere.
+ */
+export async function reportPhotoForFind(publicId: string): Promise<Buffer | null> {
+  const [row] = await db
+    .select({ bytes: welfareReportPhotosTable.bytes, mime: welfareReportPhotosTable.mime })
+    .from(welfareReportsTable)
+    .innerJoin(welfareReportPhotosTable, eq(welfareReportPhotosTable.reportId, welfareReportsTable.id))
+    .where(
+      and(
+        isWelfare,
+        eq(welfareReportsTable.publicId, publicId),
+        eq(welfareReportsTable.isDraft, false),
+        eq(welfareReportsTable.photoState, "attached"),
+      ),
+    );
+  if (!row || !REPORT_PHOTO_TYPES.has(row.mime)) return null;
+  return row.bytes;
+}
+
 /** The queue's draft rows, with the cat each was begun from (SYC-504). */
 function draftsQuery(where: SQL | undefined) {
   return db

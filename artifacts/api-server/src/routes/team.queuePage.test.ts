@@ -532,3 +532,21 @@ describe("SYC-519 D1: ?open= opens one row", () => {
     expect(html.indexOf('id="r-o-urg"')).toBeLessThan(html.indexOf('id="r-o-new"'));
   });
 });
+
+describe("SYC-492: Find this cat from the report's photo", () => {
+  it("links a report with a photo to Find from a photo, which opens with the report carried as tie", async () => {
+    await seedReport({ publicId: "findme", photo: JPEG });
+    await seedReport({ publicId: "nophoto" });
+    const html = await getPage();
+    const card = (id: string) => {
+      const at = html.indexOf(`id="r-${id}"`);
+      return html.slice(at, html.indexOf("</article>", at));
+    };
+    expect(card("nophoto")).not.toContain("Find this cat from the report");
+    const href = /href="([^"]*)">Find this cat from the report's photo</.exec(card("findme"))?.[1];
+    expect(href).toMatch(/^\/api\/team\/cats\/find\?area=[a-z0-9-]+&amp;tie=findme$/);
+    const find = await request(app).get(href!.replace(/&amp;/g, "&")).set("Cookie", cookie);
+    expect(find.status).toBe(200);
+    expect(find.text).toContain('<input type="hidden" name="tie" value="findme">');
+  });
+});
