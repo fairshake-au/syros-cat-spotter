@@ -104,7 +104,14 @@ function noMapPath(o: { pickAction: string; carry?: Record<string, string>; area
 export function renderPicker(o: {
   personName: string;
   title: string;
+  /**
+   * How to use the map ("Move the map until the pin is…"). Map-only: drawn
+   * inside the map's form, hidden until the map has started, and left out
+   * with no map (the no-map path says what to do instead).
+   */
   intro: string;
+  /** A line shown whether or not the map works (the colony an add page was opened for). */
+  lead?: string;
   back: { href: string; label: string };
   /** Where the map opens, and how close (app zoom). */
   centre: Position;
@@ -133,6 +140,7 @@ export function renderPicker(o: {
       Object.entries(o.carry ?? {})
         .map(([k, v]) => hidden(k, v))
         .join("") +
+      `<p data-mapon hidden>${esc(o.intro)}</p>` +
       `<p class="hint" data-mapon hidden>${w("pick.dragHint")}</p>` +
       renderMap({ mode: "place", lang: o.lang, formId: PICK_FORM_ID, centre: o.centre, zoom: o.zoom, markers: o.markers }) +
       `<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value="">` +
@@ -149,7 +157,7 @@ export function renderPicker(o: {
     ...(withMap ? mapPageAssets() : {}),
     beforeTitle: `<p class="back"><a href="${esc(o.back.href)}">${esc(o.back.label)}</a></p>`,
     body:
-      `<p>${esc(o.intro)}</p>` +
+      (o.lead ? `<p>${esc(o.lead)}</p>` : "") +
       (o.note ? `<p class="warn">${esc(o.note)}</p>` : "") +
       mapForm +
       (o.legend ? `<p class="hint">${esc(o.legend)}</p>` : "") +

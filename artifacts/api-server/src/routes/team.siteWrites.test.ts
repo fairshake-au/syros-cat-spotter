@@ -234,6 +234,9 @@ describe("adding a site: the map and the pick", () => {
     // The pin writes these; "Use this spot" waits, hidden, for the map to start.
     expect(form).toContain('<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value="">');
     expect(form).toMatch(/<button type="submit" class="save" data-mapon hidden>Use this spot<\/button>/);
+    // How to use the map is map-only: in its form, hidden until the map starts (no-map viewers read the no-map line).
+    expect(form).toContain("<p data-mapon hidden>Move the map until the pin is on the feeding spot.");
+    expect(res.text.replace(form, "")).not.toContain("Move the map until");
     expect(res.text).toContain("Don&#39;t copy numbers from other map apps. Ask a colleague who has been there.");
     expect(res.text).not.toContain("No such feeding site");
     // Only our own map scripts, under the wider header.
@@ -277,6 +280,8 @@ describe("adding a site: the map and the pick", () => {
     const res = await post("/api/team/sites/pick", { area: "atlantis" });
     expect(res.status).toBe(400);
     expect(res.text).toContain("That area isn&#39;t on our list");
+    // No map here, so no "Move the map" instruction either.
+    expect(res.text).not.toContain("Move the map until");
     expect(res.text).not.toMatch(/<script/i);
     expect(res.headers["content-security-policy"]).not.toContain("script-src");
     expect(fallbackIn(res.text)).toBeDefined();

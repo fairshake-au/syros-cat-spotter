@@ -515,7 +515,7 @@ details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
 .mapmove .label{margin:8px 0 6px}
 .mapmove>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-weight:700}
 form.addsite{margin:12px 0 0}
-form.addsite button,form.typedpos button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+form.addsite button,form.typedpos button,form.areapick button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
 /* "Move on the map" looks like the other actions' cards (.fixes summary). */
 form.movesite{margin:8px 0}
 .actions form.movesite button{display:flex;align-items:center;width:100%;text-align:left;font:inherit;font-weight:700;color:var(--accent-strong);background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:46px;padding:0 12px;cursor:pointer}
@@ -666,7 +666,7 @@ ${HELP_CSS}
 #island-map.tilesfailed{background:var(--accent-soft)}
 @media (scripting:none){.map[data-map],.catmap .map[data-map],.planmap .map[data-map],#island-map{height:auto;min-height:0}}
 .map[data-map].nomap,.catmap .map[data-map].nomap,.planmap .map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}
-.maplegend{position:absolute;top:8px;right:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:2px 10px;font-size:13px;line-height:1.3}
+.maplegend{position:absolute;top:8px;left:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:2px 10px;font-size:13px;line-height:1.3}
 .maplegend>summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
 .maplegend ul{list-style:none;margin:2px 0 6px;padding:0}
 .maplegend li{display:flex;align-items:center;gap:8px;margin:5px 0}

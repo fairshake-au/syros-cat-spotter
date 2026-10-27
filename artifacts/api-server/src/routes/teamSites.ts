@@ -321,9 +321,8 @@ function newPickerPage(
         lang: v.lang,
         island: v.island,
         title: t("new.title", v.lang),
-        intro: colony
-          ? `${t("new.intro", v.lang)} ${t("new.introColony", v.lang)} “${colony.name}”.`
-          : t("new.intro", v.lang),
+        intro: t("new.intro", v.lang),
+        lead: colony ? `${t("new.introColony", v.lang)} “${colony.name}”.` : undefined,
         carry: colony ? { colonyId: String(colony.id) } : undefined,
         back: { href: SITES_PATH, label: t("site.backToSites", v.lang) },
         centre: ISLAND_CENTRE,

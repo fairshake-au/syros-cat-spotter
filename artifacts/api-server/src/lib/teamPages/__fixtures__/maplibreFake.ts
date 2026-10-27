@@ -387,8 +387,21 @@ export function makeMaplibreFake(
     lib.markers.push(k);
   }
 
-  lib.Map = FakeMapCtor as any;
-  lib.Marker = FakeMarkerCtor as any;
+  // Real ES classes, as MapLibre's are: calling one without `new` throws
+  // "Class constructor … cannot be invoked without 'new'" (a page script that
+  // forgets `new` must fail here exactly as it does in a browser; SYC-705 2b.9).
+  const MapCtor = FakeMapCtor as any;
+  const MarkerCtor = FakeMarkerCtor as any;
+  lib.Map = class Map {
+    constructor(options: any) {
+      return new MapCtor(options);
+    }
+  } as any;
+  lib.Marker = class Marker {
+    constructor(options?: any) {
+      return new MarkerCtor(options);
+    }
+  } as any;
   lib.addProtocol = (name, fn) => {
     lib.calls.push(["addProtocol", name]);
     lib.protocols[name] = fn;
@@ -417,18 +430,26 @@ export interface FakePmtiles {
 
 export function makePmtilesFake(): FakePmtiles {
   const pm = { added: [] as string[], files: [] as any[] } as FakePmtiles;
-  pm.Protocol = function (this: any) {
-    this.tile = function tile() {};
-    this.add = (p: any) => pm.added.push(p.source.getKey());
+  // ES classes, as PMTiles' are: no call without `new`.
+  pm.Protocol = class Protocol {
+    tile = function tile() {};
+    add = (p: any) => pm.added.push(p.source.getKey());
   } as any;
-  pm.PMTiles = function (this: any, source: any) {
-    this.source = source;
+  pm.PMTiles = class PMTiles {
+    source: any;
+    constructor(source: any) {
+      this.source = source;
+    }
   } as any;
   // The real FileSource's key is its File's name (pmtiles 4.3.2 dist/esm/index.js).
-  pm.FileSource = function (this: any, file: any) {
-    pm.files.push(file);
-    this.file = file;
-    this.getKey = () => file.name;
+  pm.FileSource = class FileSource {
+    file: any;
+    getKey: () => string;
+    constructor(file: any) {
+      pm.files.push(file);
+      this.file = file;
+      this.getKey = () => file.name;
+    }
   } as any;
   return pm;
 }

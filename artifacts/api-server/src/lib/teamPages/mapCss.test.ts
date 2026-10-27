@@ -83,4 +83,20 @@ describe("map box CSS", () => {
     expect(css).toMatch(/\.map\[data-map\] \.placepin\{[^}]*pointer-events:none/);
     expect(css).toContain("[data-mapon][hidden]{display:none}");
   });
+  it("the cats map's Key and the zoom buttons never share a corner: Key top-left, + and − top-right (390 px and 1280 px)", () => {
+    const rule = (sel: string) => all.find((r) => r.media === null && r.selectors.includes(sel))!.body;
+    const key = rule(".maplegend");
+    const zoom = rule(".mapctl");
+    expect(key).toMatch(/(^|;)left:8px/);
+    expect(key).not.toMatch(/(^|;)right:/);
+    expect(zoom).toMatch(/(^|;)right:8px/);
+    expect(zoom).not.toMatch(/(^|;)left:/);
+    // At most 60% wide (240 px): at 390 px that leaves the 44 px stack and its 8 px gap clear.
+    expect(key).toContain("max-width:min(60%,240px)");
+  });
+
+  it("the no-map path's buttons look like the page's others: Use this area's centre as Use this position", () => {
+    const primary = all.find((r) => r.selectors.includes("form.typedpos button"))!;
+    expect(primary.selectors).toContain("form.areapick button");
+  });
 });

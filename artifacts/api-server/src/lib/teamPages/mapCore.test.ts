@@ -535,6 +535,35 @@ describe("dashboard-pin.js: placing a spot (drag the map under the pin)", () => 
     expect(d.querySelector(".placepin")).toBeNull();
   });
 
+  it("a place map with the page's own markers (the colony centre now, a site's spot now) starts: markers drawn, pin, button, form filled", async () => {
+    const html =
+      `<form id="f2">` +
+      renderMap({
+        mode: "place",
+        lang: "en",
+        formId: "f2",
+        centre: { lat: 37.4447, lng: 24.9417 },
+        zoom: 16,
+        markers: [{ lat: 37.4436, lng: 24.8889, label: "The centre now", look: "retired", href: "/api/team/colonies/4" }],
+      }) +
+      `<input type="hidden" name="lat" value=""><input type="hidden" name="lng" value=""><button type="submit" data-mapon hidden>Use</button></form>`;
+    const { d, val, map, rig } = await placeRig(html);
+    expect(rig.lib.markers).toHaveLength(1);
+    expect(rig.lib.markers[0]!.map).toBe(map);
+    // Drawn as on the server's old pins, never a link on a place map.
+    expect(rig.lib.markers[0]!.getElement().tagName).toBe("SPAN");
+    expect(rig.lib.markers[0]!.getElement().className).toBe("pin site-retired");
+    expect(d.querySelector(".placepin")).not.toBeNull();
+    expect((d.querySelector("button[data-mapon]") as any).hidden).toBe(false);
+    expect([val("lat"), val("lng")]).toEqual(["37.4447", "24.9417"]);
+  });
+
+  it("the fake is as strict as MapLibre: its classes can't be called without new", () => {
+    const lib = makeMaplibreFake();
+    expect(() => (lib.Marker as any)({})).toThrow(/without 'new'/);
+    expect(() => (lib.Map as any)({})).toThrow(/without 'new'/);
+  });
+
   it("starts on renderMap's own place output", async () => {
     const html =
       `<form id="f1">` +

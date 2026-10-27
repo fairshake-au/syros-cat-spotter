@@ -22,6 +22,7 @@ import { isOpaqueAddress } from "../test/opaqueAddress";
 import { expectMapNote } from "../test/mapNote";
 import { isOpenMapLink } from "../test/openMapLink";
 import { placeLabel } from "../lib/areas/placeLabel";
+import { guardianOn, newColony } from "../test/roleKit";
 
 // The read insert is wrapped so one test can make it fail; every other call is real.
 vi.mock("../lib/teamSites", async (importOriginal) => {
@@ -267,6 +268,19 @@ describe("the Feeding sites page: what is on it", () => {
 });
 
 describe("the map on the Feeding sites page", () => {
+  it("follows the viewer's page language: a cat guardian whose language is el gets the Greek map, even while her page's words fall back to English", async () => {
+    const colony = await newColony("sites-el");
+    const g = await guardianOn("sites-el", [colony]);
+    await pool.query("update people set language = 'el' where id = $1", [g.id]);
+    const res = await get("/api/team/sites", g.cookie);
+    expect(res.status).toBe(200);
+    const data = JSON.parse(decoded(/data-map="([^"]*)"/.exec(res.text)![1]!));
+    expect(data.lang).toBe("el");
+    // The team reads the English map.
+    const team = JSON.parse(decoded(/data-map="([^"]*)"/.exec((await get("/api/team/sites")).text)![1]!));
+    expect(team.lang).toBe("en");
+  });
+
   it("says the map is only for the team where it can be seen, and keeps the reason behind a link (22 Oct 2026)", async () => {
     expectMapNote((await get("/api/team/sites")).text);
   });
