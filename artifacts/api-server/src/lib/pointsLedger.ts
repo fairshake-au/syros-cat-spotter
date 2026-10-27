@@ -28,7 +28,8 @@ export interface Award {
  * Runs inside the resolve transaction:
  *  - a transaction advisory lock on (spotter, cat), so two resolves of the
  *    same cat by the same spotter take turns;
- *  - then the check for a points-earning row for that spotter, cat and day;
+ *  - then the check for a points-earning sighting row for that spotter, cat
+ *    and day;
  *  - the partial unique index points_ledger_once_a_day_uq is the backstop:
  *    a second points-earning row for the same day is refused outright.
  *
@@ -43,11 +44,14 @@ export async function awardPoints(tx: Tx, input: AwardInput): Promise<Award> {
     sql`select pg_advisory_xact_lock(hashtext(${"points:" + deviceId}), ${catId}::int)`,
   );
 
+  // Sighting awards only, the same scope as the index: points for finding a
+  // duplicate (which-cat-is-which.md §9.8) never make a spot a repeat.
   const earlier = await tx.execute(sql`
     select 1 from points_ledger
     where device_id = ${deviceId}
       and cat_id = ${catId}
       and athens_day = ${day}::date
+      and sighting_id is not null
       and points > 0
     limit 1
   `);

@@ -4,6 +4,7 @@ import {
   text,
   serial,
   integer,
+  bigint,
   jsonb,
   timestamp,
   index,
@@ -56,6 +57,10 @@ export const observationsTable = pgTable(
 
     supersedesId: integer("supersedes_id"),
     supersedeReason: text("supersede_reason"),
+    // Set only on a statement a move copied or withdrew (which-cat-is-which.md
+    // §9.5). No foreign key. The observations trigger allows it only with the
+    // move named by `app.sighting_move_id` in this transaction.
+    sightingMoveId: integer("sighting_move_id"),
 
     redactedAt: timestamp("redacted_at", { withTimezone: true }),
     redactionReason: text("redaction_reason"),
@@ -93,19 +98,48 @@ export const observationsTable = pgTable(
 /**
  * Which cat record is canonical for which (§10.3). A merge is a row and an
  * unmerge is another row that supersedes it, because merging cannot repoint
- * observations.catId without breaking the append-only rule.
+ * observations.catId without breaking the append-only rule. Add-only: since
+ * migration 0053 a trigger allows only redaction (by_account_id cleared,
+ * redacted_at stamped), and a check deferred to commit refuses a merge while
+ * a resolved sighting still names the merged-away cat.
  */
-export const catIdentityTable = pgTable("cat_identity", {
-  id: serial("id").primaryKey(),
-  catId: integer("cat_id").notNull(),
-  canonicalCatId: integer("canonical_cat_id").notNull(),
-  reason: text("reason"),
-  createdBy: text("created_by"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  supersedesId: integer("supersedes_id"),
-});
+export const catIdentityTable = pgTable(
+  "cat_identity",
+  {
+    id: serial("id").primaryKey(),
+    catId: integer("cat_id").notNull(),
+    canonicalCatId: integer("canonical_cat_id").notNull(),
+    reason: text("reason"),
+    // Untyped, from before merges were built. New rows use byAccountId.
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    supersedesId: integer("supersedes_id"),
+    // which-cat-is-which.md §9.2: what the merge screen records.
+    reasonText: text("reason_text"),
+    // Null only once redacted, on rows the merge route writes.
+    byAccountId: text("by_account_id"),
+    roleAtTime: text("role_at_time"),
+    // default | switched
+    survivorChosen: text("survivor_chosen"),
+    // The transaction that wrote the row (§9.4): the sightings trigger checks
+    // a merge's moves against it. Not xmin: that is another type, and
+    // differs inside a savepoint.
+    txid: bigint("txid", { mode: "number" })
+      .notNull()
+      .default(sql`txid_current()`),
+    redactedAt: timestamp("redacted_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("cat_identity_canonical_idx").on(t.canonicalCatId),
+    index("cat_identity_cat_idx").on(t.catId),
+    check(
+      "cat_identity_survivor_chosen_ck",
+      sql`${t.survivorChosen} is null or ${t.survivorChosen} in ('default', 'switched')`,
+    ),
+  ],
+);
 
 export type Observation = typeof observationsTable.$inferSelect;
 export type NewObservation = typeof observationsTable.$inferInsert;

@@ -177,11 +177,15 @@ describe("resolving a sighting and following", () => {
 
       // Connection B: the resolve starts while the unfollow is uncommitted.
       const resolving = resolve(pending, device, catId).then((r) => r);
-      // Commit only once the resolve is really queued behind the lock.
+      // Commit only once the resolve is really queued behind the lock. Since
+      // migration 0053 the sightings trigger takes the same cat row FOR SHARE
+      // inside the resolve's sighting update (no sighting is filed under a
+      // merged-away cat), so it may wait there, earlier, rather than at the
+      // route's own `from cats ... for share`.
       const deadline = Date.now() + 5000;
       for (;;) {
         const waiting = await pool.query(
-          "select 1 from pg_stat_activity where wait_event_type = 'Lock' and query like '%from cats%' and pid <> pg_backend_pid() and datname = current_database()",
+          "select 1 from pg_stat_activity where wait_event_type = 'Lock' and (query like '%from cats%' or query ilike '%update%sightings%') and pid <> pg_backend_pid() and datname = current_database()",
         );
         if (waiting.rowCount) break;
         if (Date.now() > deadline) throw new Error("the resolve never waited on the lock");

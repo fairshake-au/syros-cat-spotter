@@ -24,7 +24,8 @@ export const sightingsTable = pgTable(
     lng: doublePrecision("lng").notNull(),
     // pending | awaiting_team | resolved. A trigger in the migration allows
     // only pending -> resolved, pending -> awaiting_team, awaiting_team ->
-    // resolved, and redaction; nothing else updates or deletes a sighting.
+    // resolved, the place stamp, redaction, and (0053) a recorded move of a
+    // resolved sighting's cat; nothing else updates or deletes a sighting.
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -44,6 +45,11 @@ export const sightingsTable = pgTable(
     index("sightings_device_idx")
       .on(t.deviceId)
       .where(sql`${t.deviceId} is not null`),
+    // A merge's scan of the merged-away cat's sightings, and the deferred
+    // check that none is left on it (which-cat-is-which.md §9.2).
+    index("sightings_cat_idx")
+      .on(t.catId)
+      .where(sql`${t.catId} is not null`),
     check(
       "sightings_attribution_ck",
       sql`${t.deviceId} is not null or ${t.redactedAt} is not null`,

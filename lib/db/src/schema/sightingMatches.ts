@@ -27,6 +27,22 @@ export const MATCH_CHOICES = [
  */
 export const PICKED_FROM = ["nearby", "search", "name_prompt", "cat_page"] as const;
 
+/**
+ * What the team did, once (cat-record-data-spine.md, the match record's
+ * step 3). On a sent_to_team choice: matched | made_new_cat. On a hand pick
+ * or an unlabelled one: looks_right | different_cat | new_cat | hidden. A move
+ * from any screen fills it if it is still empty (which-cat-is-which.md §9.7,
+ * move step 8).
+ */
+export const TEAM_ACTIONS = [
+  "matched",
+  "made_new_cat",
+  "looks_right",
+  "different_cat",
+  "new_cat",
+  "hidden",
+] as const;
+
 /** Why the matcher missed a hand-picked cat (§4.6). */
 export const MISS_KINDS = [
   // Compared, but scored too low to be suggested.
@@ -78,6 +94,15 @@ export const sightingMatchesTable = pgTable(
     noCatInAnyPhoto: boolean("no_cat_in_any_photo"),
     /** SYC-415 §4.5: the matcher said the spot's photos look like more than one cat. Null before SYC-415 or when the matcher failed. */
     mixedCats: boolean("mixed_cats"),
+    // Step 3: what the team did, written once (only while teamAt is null).
+    teamAction: text("team_action"),
+    // The cat the team chose at this step.
+    teamCatId: integer("team_cat_id"),
+    teamByAccountId: text("team_by_account_id"),
+    teamAt: timestamp("team_at", { withTimezone: true }),
+    // Deleting the account that took the team step clears teamByAccountId
+    // and stamps this.
+    redactedAt: timestamp("redacted_at", { withTimezone: true }),
   },
   (t) => [
     check(
@@ -100,6 +125,23 @@ export const sightingMatchesTable = pgTable(
     check(
       "sighting_matches_rank_ck",
       sql`(${t.choice} = 'suggested') = (${t.suggestedRank} IS NOT NULL)`,
+    ),
+    check(
+      "sighting_matches_team_action_ck",
+      sql`${t.teamAction} IS NULL OR ${t.teamAction} IN (${sqlList(TEAM_ACTIONS)})`,
+    ),
+    // The step's action and time come together, with its author until the
+    // author is redacted.
+    check(
+      "sighting_matches_team_step_ck",
+      sql`(${t.teamAction} IS NULL) = (${t.teamAt} IS NULL)
+        AND (${t.teamAction} IS NOT NULL OR ${t.teamByAccountId} IS NULL)
+        AND (${t.teamAction} IS NULL OR ${t.teamByAccountId} IS NOT NULL OR ${t.redactedAt} IS NOT NULL)`,
+    ),
+    // A cat comes with the actions that choose one, and only with them.
+    check(
+      "sighting_matches_team_cat_ck",
+      sql`(${t.teamCatId} IS NOT NULL) = coalesce(${t.teamAction} IN ('matched', 'made_new_cat', 'different_cat', 'new_cat'), false)`,
     ),
   ],
 );
