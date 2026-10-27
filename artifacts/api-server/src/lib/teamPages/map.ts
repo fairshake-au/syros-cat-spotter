@@ -21,9 +21,6 @@ import type { SterilisedMark } from "../teamCatList";
 //   a record's number (a site, a sighting row), never to a position.
 // - **Trusted HTML.** Fixed text, numbers, assetUrl() addresses and
 //   escapeHtml only; the JSON is escaped into its attribute.
-//
-// The old picture map (zoom and pan buttons) is buttonMap.ts, kept only
-// for the pages that place a spot until SYC-705 Task 2b.7.
 
 export interface MapMarker extends Position {
   /** Read by screen readers and shown on hover. */

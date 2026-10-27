@@ -1,6 +1,6 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import type { Position, View } from "../mapTiles/geometry";
+import type { Position } from "../island";
 import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
 import { backLink } from "./backLink";

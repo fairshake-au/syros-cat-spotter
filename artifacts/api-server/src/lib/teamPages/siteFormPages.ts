@@ -6,7 +6,7 @@ import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { SITES_PATH, stampField } from "./sitePages";
 import { t, wordsIn, type WordKey } from "./words";
-import type { Position } from "../mapTiles/geometry";
+import type { Position } from "../island";
 import {
   SITE_DIRECTIONS_MAX,
   SITE_NAME_MAX,

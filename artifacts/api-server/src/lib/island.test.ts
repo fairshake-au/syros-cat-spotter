@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { inIsland, ISLAND_BOX, ISLAND_CENTRE } from "./island";
-import { inIsland as inIslandViaGeometry, ISLAND_BOX as BOX_VIA_GEOMETRY } from "./mapTiles/geometry";
 
 const ERMOUPOLI = { lat: 37.4447, lng: 24.9417 };
 
@@ -21,10 +20,5 @@ describe("the island box", () => {
   it("has its centre inside the box", () => {
     expect(inIsland(ISLAND_CENTRE)).toBe(true);
     expect(ISLAND_CENTRE).toEqual({ lat: 37.445, lng: 24.93 });
-  });
-
-  it("geometry.ts re-exports the same box and check", () => {
-    expect(BOX_VIA_GEOMETRY).toBe(ISLAND_BOX);
-    expect(inIslandViaGeometry).toBe(inIsland);
   });
 });

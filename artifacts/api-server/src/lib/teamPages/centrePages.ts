@@ -6,7 +6,7 @@ import { openMapLink } from "./position";
 import { confirmMap, DETAILS_FORM_ID, spotWords, type FormViewer } from "./siteFormPages";
 import { mapPageAssets } from "./map";
 import { wordsIn } from "./words";
-import type { Position } from "../mapTiles/geometry";
+import type { Position } from "../island";
 
 // The confirmation page for centres set on a map (SYC-517, decision 517-B):
 // a colony's centre and an area's centre. The same small place map as the

@@ -13,7 +13,7 @@ import {
 import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { recordMappingEvent } from "../lib/mappingEvents";
-import type { Position } from "../lib/mapTiles/geometry";
+import type { Position } from "../lib/island";
 import { guardianOn, newColony } from "../test/roleKit";
 import { makePrivateIfPublic } from "../lib/teamSiteWrites";
 import { isOpaqueAddress } from "../test/opaqueAddress";

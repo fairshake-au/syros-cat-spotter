@@ -39,7 +39,7 @@ import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { areaFor } from "../lib/areas/namedAreas";
-import { inIsland, type Position } from "../lib/mapTiles/geometry";
+import { inIsland, type Position } from "../lib/island";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
 import { CENTRE_ZOOM, ERMOUPOLI_START, readCentrePick } from "./centrePick";

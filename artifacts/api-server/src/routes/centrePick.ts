@@ -1,6 +1,6 @@
 import { areaFor } from "../lib/areas/namedAreas";
 import { t } from "../lib/teamPages/words";
-import type { Position } from "../lib/mapTiles/geometry";
+import type { Position } from "../lib/island";
 import { readPick, type Picked } from "./teamSites";
 
 // The tap (or typed position) behind "set the centre on a map" for a colony

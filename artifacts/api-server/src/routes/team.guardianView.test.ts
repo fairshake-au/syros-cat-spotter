@@ -16,8 +16,6 @@ import { addSite, changeSiteColony, colonyOptions, editSite, retireSite } from "
 import { siteView, sitesForPerson } from "../lib/teamSites";
 import { visibleColonyIds, isIslandWide } from "../lib/guardianView";
 import { endPlacements, guardianOn, seedCat, type SeededCat, type Signed } from "../test/roleKit";
-import { viewAround } from "../lib/mapTiles/geometry";
-import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
 import { renderColonyLine, renderNameTaken } from "../lib/teamPages/colonyPages";
 import { colonyLineFor } from "../lib/colonyCats";
 import { removeTestPerson } from "../test/removeTestPerson";
@@ -253,8 +251,7 @@ function post(path: string, body: Record<string, string>, cookie: string, mode: 
   return mode === "json" ? t.set("Accept", "application/json").send(body) : t.type("form").send(body);
 }
 
-const ISLAND = viewAround(ISLAND_CENTRE, START_ZOOM);
-const moveBody = { vz: String(ISLAND.z), vx: String(ISLAND.x), vy: String(ISLAND.y), go: "in" };
+const moveBody = { vz: "12", vx: "2320", vy: "1580", go: "in" };
 
 /** Every page variant a cat guardian can open (spec §7.3's table), each as a request. */
 const guardianPages = (): { label: string; send: (cookie: string, mode: Mode) => request.Test }[] => [
@@ -280,7 +277,6 @@ const guardianPages = (): { label: string; send: (cookie: string, mode: Mode) =>
   { label: "Show on our map, her cat", send: (c, m) => post("/api/team/sites/map-at-sighting", { sightingId: String(sightA) }, c, m) },
   { label: "Make a feeding site here, colony 2's cat", send: (c, m) => post("/api/team/sites/from-sighting", { sightingId: String(sightB) }, c, m) },
   { label: "Show on our map, colony 2's cat", send: (c, m) => post("/api/team/sites/map-at-sighting", { sightingId: String(sightB) }, c, m) },
-  { label: "a map picture", send: (c, m) => get("/api/team/map-tiles/not-a-token", c, m) },
 ];
 
 const ATTR = /\s(href|action|src)="([^"]*)"/g;

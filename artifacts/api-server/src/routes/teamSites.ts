@@ -9,7 +9,7 @@ import { can, type CapabilityTarget } from "../lib/capabilities";
 import { formRoute } from "./teamCorrections";
 import { useHeldTyping } from "../lib/teamAuth/heldTyping";
 import { ISLAND_CENTRE, START_ZOOM } from "../lib/teamPages/map";
-import { inIsland, type Position } from "../lib/mapTiles/geometry";
+import { inIsland, type Position } from "../lib/island";
 import { sightingSpot } from "../lib/sightingSpot";
 import { areaByKey } from "../lib/areas/namedAreas";
 import { currentColonyOf } from "../lib/colonyMembership";
