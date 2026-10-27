@@ -798,9 +798,10 @@ describe("GET /api/team/observations/review/likely", () => {
     // query (welfare reports replaced by a row on another cat), a fixed cost
     // that does not grow with the number of cats.
     //
-    // 12, not 11, since SYC-410 PR 1.2: the list asks which cat each ear-tip
-    // cat is now (one canonicalCatOf query), so a merged pair shows once.
-    // Fixed, and the same whatever the number of cats.
+    // 12 measured (the bound is "less than 13"), since SYC-410 PR 1.2: the list
+    // asks which cat each ear-tip cat is now (one canonicalCatOf query) and
+    // reads the cats through liveCats instead of a join (one more query), so a
+    // merged pair shows once. Fixed, and the same whatever the number of cats.
     expect(queryCount).toBeLessThan(13);
   });
 });
