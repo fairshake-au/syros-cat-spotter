@@ -334,7 +334,7 @@ export function compareCat(
  * months later its baseline is last night's, not months old (review of this
  * PR, finding 6).
  */
-async function catsToWalk(exec: DbOrTx): Promise<number[]> {
+export async function catsToWalk(exec: DbOrTx): Promise<number[]> {
   const rows = await exec.execute<{ cat_id: number }>(
     sql`select cat_id from (select cat_id from ${catSubscriptionsTable} union select cat_id from ${catNewsBaselineTable}) walked
         where ${inArray(sql.raw("cat_id"), liveCats({ id: catsTable.id }))} order by cat_id`,

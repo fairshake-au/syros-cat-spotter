@@ -97,7 +97,7 @@ export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
  * taken from a form or a JSON body: whoever marks a statement wrong chooses
  * nothing about where the cat goes instead.
  */
-async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
+export async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
   const replacer = alias(observationsTable, "replacer");
   // "The other statements" are those of every record that counts for the cat
   // she is now (SYC-410, spec §4.2), so the colony she goes back to matches

@@ -256,6 +256,9 @@ const ALREADY_RESOLVED = new Error("Sighting already resolved");
 // SYC-415 (spec §5.2): `photos` is every photo of the spot, in position
 // order, and the record also notes "no cat in any photo" and "may be more
 // than one cat".
+/** The cats a photo check compares against: every live cat (exported for the merge tests). */
+export const matcherPool = () => liveCats(getTableColumns(catsTable));
+
 async function computeMatchCandidates(
   req: Request,
   sightingId: number,
@@ -267,7 +270,7 @@ async function computeMatchCandidates(
   // selectCandidateCats and DECISIONS.md Part 2h.
   // A merged-away cat is part of the cat she was merged into, so she is not a
   // candidate of her own (spec §9.3).
-  const cats = await liveCats(getTableColumns(catsTable));
+  const cats = await matcherPool();
   const nearest = selectCandidateCats(cats, lat, lng);
 
   let isCatPhoto = true;
@@ -742,7 +745,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
  * best first, with the photo the catalogue shows. The model's reasoning
  * isn't stored, so it is empty.
  */
-async function storedAnswer(stored: {
+export async function storedAnswer(stored: {
   suggested: SuggestedMatch[] | null;
   noCatInAnyPhoto: boolean | null;
 }): Promise<MatchAnswer> {
