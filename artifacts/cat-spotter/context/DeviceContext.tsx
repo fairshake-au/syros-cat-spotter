@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearWaiting, readPendingMove } from '@/lib/restoreWaiting';
 import { finishPendingMove as finishMove, moveInFlight, RESUME_RETRY, type Restored } from '@/lib/pendingMove';
 import {
+  getClaimedUsername,
   getProfile,
   setDeviceMovedListener,
   setDeviceSecretGetter,
@@ -23,9 +24,16 @@ import {
   type KeepSafeOffer,
 } from '@/lib/keepSafe';
 import { clearHeldEmail, HELD_EMAIL_KEY } from '@/lib/heldEmail';
+import {
+  ID_KEY as STORAGE_KEY,
+  SECRET_KEY,
+  readIdentity,
+  readStoredId,
+  removeIdentity,
+  writeId,
+  writeSecret,
+} from '@/lib/identityStore';
 
-const STORAGE_KEY = 'cat-spotter/device-id';
-const SECRET_KEY = 'cat-spotter/device-secret';
 const USERNAME_KEY = 'cat-spotter/username';
 // SYC-506: a name chosen offline, kept on the phone until the server saves it.
 const HELD_USERNAME_KEY = 'cat-spotter/held-username';
@@ -46,7 +54,7 @@ const OWNERSHIP_SNAPSHOT_KEY = 'cat-spotter/ownership-snapshot';
  * review, finding 4).
  */
 export function readStoredDeviceId(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEY);
+  return readStoredId();
 }
 
 export const IDENTITY_KEYS = [
@@ -195,7 +203,7 @@ export { RESUME_RETRY };
  * moved the spotter onto it) and takes the spotter's id and name.
  */
 async function persistRestoredIdentity(restoredId: string, restoredName: string | null): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, restoredId);
+  await writeId(restoredId);
   if (restoredName) await AsyncStorage.setItem(USERNAME_KEY, restoredName);
   else await AsyncStorage.removeItem(USERNAME_KEY);
   // SYC-506: a name held offline was never saved; the restored one replaces it.
@@ -380,19 +388,21 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const [storedId, storedName, storedOwned, storedSecret, storedHeld, storedNote] =
-          await Promise.all([
-            AsyncStorage.getItem(STORAGE_KEY),
-            AsyncStorage.getItem(USERNAME_KEY),
-            AsyncStorage.getItem(OWNED_CATS_KEY),
-            AsyncStorage.getItem(SECRET_KEY),
-            AsyncStorage.getItem(HELD_USERNAME_KEY),
-            AsyncStorage.getItem(NAME_NOTE_KEY),
-          ]);
+        // SYC-137: id and secret come from secure storage on phone builds with
+        // the switch on (moved across once); everything else is unchanged.
+        const identity = await readIdentity();
+        const storedId = identity.id;
+        const storedSecret = identity.secret;
+        const [storedName, storedOwned, storedHeld, storedNote] = await Promise.all([
+          AsyncStorage.getItem(USERNAME_KEY),
+          AsyncStorage.getItem(OWNED_CATS_KEY),
+          AsyncStorage.getItem(HELD_USERNAME_KEY),
+          AsyncStorage.getItem(NAME_NOTE_KEY),
+        ]);
         let secret = storedSecret;
         if (!secret) {
           secret = await makeDeviceSecret();
-          await AsyncStorage.setItem(SECRET_KEY, secret);
+          await writeSecret(secret);
         }
         setDeviceSecretGetter(() => secret);
         // Before the id is visible to anything that sends requests (I1).
@@ -420,7 +430,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
           setDeviceId(storedId);
         } else {
           const id = await makeDeviceId();
-          await AsyncStorage.setItem(STORAGE_KEY, id);
+          await writeId(id);
           setDeviceId(id);
         }
         if (storedName) setUsernameState(storedName);
@@ -429,6 +439,20 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         setNameNoteState(parseNameNote(storedNote));
         setKeepSafeOfferState(await readKeepSafeOffer());
         if (!cancelled) setIsReady(true);
+        // SYC-137: the id survived a delete and reinstall (secure storage) but
+        // the saved name did not. Ask the server whose id this is, so the
+        // person isn't asked to pick a name again. Best effort, offline-safe.
+        if (storedId && identity.recoveredFromSecure && !storedName) {
+          const startedAt = generation.current;
+          getClaimedUsername(storedId)
+            .then((claimed) => {
+              if (cancelled || generation.current !== startedAt || !claimed?.username) return;
+              setUsername(claimed.username);
+            })
+            .catch(() => {
+              // Offline or refused: the person can pick a name as usual.
+            });
+        }
       } catch (error) {
         // A rejection here (most likely from getSecureRandomBytes — no
         // secure random source available, SYC-136) is NOT caught by the
@@ -541,8 +565,10 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       HELD_EMAIL_KEY,
     ]);
     await clearHeldEmail();
-    await AsyncStorage.setItem(SECRET_KEY, secret);
-    await AsyncStorage.setItem(STORAGE_KEY, id);
+    // Id first: a kill between the two leaves a new id with the old secret,
+    // which binds on first use, never the old id with a new secret (locked out).
+    await writeId(id);
+    await writeSecret(secret);
     setDeviceSecretGetter(() => secret);
     setOwnedCatIds([]);
     setKeepSafeOfferState(null);
@@ -590,11 +616,12 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     // fresh identity anyway. If it dies before, the old id gets 410 and the
     // wipe runs again (plan §6.4).
     await AsyncStorage.multiRemove([...IDENTITY_KEYS, KEEP_SAFE_OFFER_KEY]);
+    await removeIdentity();
     await clearHeldEmail();
     const secret = await makeDeviceSecret();
     const id = await makeDeviceId();
-    await AsyncStorage.setItem(SECRET_KEY, secret);
-    await AsyncStorage.setItem(STORAGE_KEY, id);
+    await writeId(id);
+    await writeSecret(secret);
     // The new secret is in place before anything can send the new id.
     setDeviceSecretGetter(() => secret);
     setUsernameState(null);
