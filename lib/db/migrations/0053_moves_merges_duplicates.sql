@@ -412,17 +412,19 @@ DROP TRIGGER "cat_identity_append_only" ON "cat_identity";--> statement-breakpoi
 DROP FUNCTION "cat_identity_append_only"();--> statement-breakpoint
 CREATE TRIGGER "cat_identity_append_only" BEFORE UPDATE OR DELETE ON "cat_identity"
   FOR EACH ROW EXECUTE FUNCTION "add_only_but_redaction"('by_account_id');--> statement-breakpoint
--- A row that supersedes another (an undo) supersedes a row for its own cat.
+-- A row that supersedes another (an undo) supersedes a merge of its own cat.
 -- Otherwise an undo row on Agatha naming Mimi's merge would undo Mimi's
--- merge, since readers treat any superseded merge as undone.
+-- merge, since readers treat any superseded merge as undone; and an undo of
+-- an undo (a row naming its own cat) isn't a merge to undo.
 CREATE FUNCTION "cat_identity_supersedes_own_cat"() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.supersedes_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM "cat_identity" m
      WHERE m.id = NEW.supersedes_id
        AND m.cat_id = NEW.cat_id
+       AND m.canonical_cat_id <> m.cat_id
   ) THEN
-    RAISE EXCEPTION 'cat_identity: a row supersedes only a row for its own cat (cat %, supersedes %)', NEW.cat_id, NEW.supersedes_id;
+    RAISE EXCEPTION 'cat_identity: a row supersedes only a merge of its own cat (cat %, supersedes %)', NEW.cat_id, NEW.supersedes_id;
   END IF;
   RETURN NEW;
 END

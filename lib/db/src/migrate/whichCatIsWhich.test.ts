@@ -414,17 +414,29 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     const mimisMerge = await merge(mimi, survivor);
     // An "undo" on Agatha naming Mimi's merge would undo Mimi's merge.
     await expect(inTx(c, () => mergeRow(c, agatha, agatha, mimisMerge))).rejects.toThrow(
-      /supersedes only a row for its own cat/,
+      /supersedes only a merge of its own cat/,
     );
     // Nor may it name a row that doesn't exist.
     await expect(inTx(c, () => mergeRow(c, mimi, mimi, 99_999_999))).rejects.toThrow(
-      /supersedes only a row for its own cat/,
+      /supersedes only a merge of its own cat/,
     );
     expect(
       (await c.query(`select 1 from cat_identity where supersedes_id = $1`, [mimisMerge])).rowCount,
     ).toBe(0);
     // Mimi's own undo is fine.
     await undo(mimisMerge);
+  });
+
+  it("refuses an undo row that supersedes a row which isn't a merge (an undo)", async () => {
+    const survivor = await cat();
+    const mimi = await cat();
+    const mimisUndo = await undo(await merge(mimi, survivor));
+    await expect(inTx(c, () => mergeRow(c, mimi, mimi, mimisUndo))).rejects.toThrow(
+      /supersedes only a merge of its own cat/,
+    );
+    expect(
+      (await c.query(`select 1 from cat_identity where supersedes_id = $1`, [mimisUndo])).rowCount,
+    ).toBe(0);
   });
 
   it("refuses a fresh merge row whose move row was written earlier (its id reserved ahead)", async () => {
