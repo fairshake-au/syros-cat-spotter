@@ -887,6 +887,37 @@ describe("statements a move writes (§9.4, §9.5)", () => {
     expect((await sightingRow(s)).cat_id).toBe(a);
   });
 
+  it("refuses a hop through a row on a third cat, or one carrying another sighting (Bugbot on #377)", async () => {
+    const a = await cat();
+    const b = await cat();
+    const bystander = await cat();
+    const s = await resolved(a);
+    const other = await resolved(a);
+    const orig = await original(a, s);
+    // A row on a bystander cat that supersedes the moved sighting's row.
+    const onBystander = await markWrong(bystander, orig);
+    // A row on the same cat that supersedes it but carries another sighting.
+    const withSighting = (
+      await one<{ id: number }>(
+        c,
+        `insert into observations (cat_id, kind, value, account_id, role_at_time, observed_at, sighting_id, supersedes_id, supersede_reason)
+         values ($1, 'ear_tip', '{"retracted": true}', 'acct-team', 'staff', now(), $2, $3, 'marked_wrong') returning id`,
+        [a, other, orig],
+      )
+    ).id;
+    const inMove = (catId: number, supersedes: number) =>
+      inTx(c, async () => {
+        const id = await moveRow(c, s, a, b);
+        await setMove(c, id);
+        await recat(c, s, b);
+        await statement(c, catId, s, { moveId: id, redacted: true, supersedes });
+      });
+    // The withdrawal would sit on the bystander, "that row's own cat".
+    await expect(inMove(bystander, onBystander)).rejects.toThrow(/moved statement/);
+    await expect(inMove(a, withSighting)).rejects.toThrow(/moved statement/);
+    expect((await sightingRow(s)).cat_id).toBe(a);
+  });
+
   it("still allows an ordinary statement and its redaction, and refuses setting a move id later", async () => {
     const a = await cat();
     const s = await resolved(a);

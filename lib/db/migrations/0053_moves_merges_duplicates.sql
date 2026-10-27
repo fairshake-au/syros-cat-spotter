@@ -363,10 +363,14 @@ BEGIN
            AND (o.sighting_id = m.sighting_id
                 -- Or the team's answer that marked such a row wrong, which
                 -- has no sighting of its own (Samuel, 27 Oct 2026: a move
-                -- takes the team's answer with it). One hop only.
-                OR EXISTS (SELECT 1 FROM "observations" p
-                            WHERE p.id = o.supersedes_id
-                              AND p.sighting_id = m.sighting_id))
+                -- takes the team's answer with it). One hop only, and that
+                -- answer has no sighting and sits on the same cat as the
+                -- row it marked wrong, so it can't carry the move elsewhere.
+                OR (o.sighting_id IS NULL
+                    AND EXISTS (SELECT 1 FROM "observations" p
+                                 WHERE p.id = o.supersedes_id
+                                   AND p.sighting_id = m.sighting_id
+                                   AND p.cat_id = o.cat_id)))
            AND NEW.cat_id IN (m.to_cat_id, o.cat_id)
       ) THEN
         RAISE EXCEPTION 'observations: a moved statement replaces a row of the moved sighting, on that row''s cat or the cat it moved to (move %)', NEW.sighting_move_id;
