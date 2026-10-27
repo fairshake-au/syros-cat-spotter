@@ -1379,6 +1379,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
   const EAR_TIP_CHECKED = { code: "EAR_TIP_CHECKED" } as const;
   const REFILED = { code: "REFILED" } as const;
+  const NOT_THEIRS = { code: "NOT_THEIRS" } as const;
   let written: Answer[] = [];
   // A move holds this lock while it files the sighting elsewhere; one that
   // lands between the read above and the lock sends us round once more, on
@@ -1386,6 +1387,13 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   // one request don't happen.
   for (let attempt = 0; ; attempt += 1) try {
     await db.transaction(async (tx) => {
+      // The spotter's badges lock first, the order a move and a deletion
+      // take theirs (badges, then the answers lock, then the sighting;
+      // which-cat-is-which.md §9.7). A deletion of this spotter either
+      // finishes first, and the re-read below sees the sighting cleared, or
+      // waits for these answers and then clears them too (review of #386,
+      // R3): an answer never keeps a deleted spotter's id.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + spotterId}))`);
       // Serialise every answer this device sends about this cat, so neither
       // "once per question per sighting" nor "ear tip once per cat" can be
       // beaten by two requests sent at once. An advisory lock, not SELECT ...
@@ -1400,9 +1408,11 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       // the row FOR UPDATE until it commits, so this waits for it and then
       // sees where it filed the sighting. The answers go there, never to the
       // cat it has just left.
-      const now = await tx.execute<{ cat_id: number | null }>(
-        sql`select cat_id from sightings where id = ${sightingId} for share`,
+      const now = await tx.execute<{ cat_id: number | null; device_id: string | null }>(
+        sql`select cat_id, device_id from sightings where id = ${sightingId} for share`,
       );
+      // Deleted while the request was on its way: no longer theirs.
+      if (now.rows[0]?.device_id !== spotterId) throw NOT_THEIRS;
       const filedUnder = now.rows[0]?.cat_id ?? null;
       if (filedUnder === null || filedUnder !== catId) {
         catId = filedUnder;
@@ -1487,9 +1497,13 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
     if (err === REFILED && catId !== null && attempt < 2) continue;
     if (err === REFILED) {
       res.status(409).json({
-        error: "This sighting hasn't been matched to a cat yet",
-        code: "NOT_RESOLVED",
+        error: "This sighting was moved a moment ago. Try again.",
+        code: "MOVED",
       });
+      return;
+    }
+    if (err === NOT_THEIRS) {
+      res.status(403).json({ error: "Not your sighting" });
       return;
     }
     if (err === ALREADY_ANSWERED) {
