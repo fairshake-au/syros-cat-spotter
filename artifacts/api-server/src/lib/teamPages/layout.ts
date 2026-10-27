@@ -34,7 +34,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { key: "home", label: "Home", href: "/api/team/home" },
   { key: "cats", label: "Cats", href: "/api/team/cats" },
-  // The Cats page's map view (SYC-396 PR 1.5). /api/team/map is the tap-check page.
+  // The Cats page's map view (SYC-396 PR 1.5). /api/team/map now redirects here (SYC-705 2b.8).
   { key: "map", label: "Map", href: "/api/team/cats?view=map" },
   { key: "queue", label: "Queue", href: "/api/team" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },

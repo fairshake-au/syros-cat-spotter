@@ -137,7 +137,7 @@
 
   /** Cats closer than this many screen pixels are drawn as one group (a marker is 44px). */
   var CELL = 44;
-  /** The closest app zoom the cats fit may go to (SYC-573, as on Leaflet), a trail's fit, and the padding round both. */
+  /** The closest app zoom the cats fit may go to (SYC-573, as on the old picture map), a trail's fit, and the padding round both. */
   var FIT_MAX_ZOOM = 16;
   var TRAIL_MAX_ZOOM = 17;
   var FIT_PADDING = 40;

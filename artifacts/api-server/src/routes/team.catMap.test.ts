@@ -228,7 +228,7 @@ describe("the island Map page", () => {
     const all = addresses(res.text);
     expect(all.length).toBeGreaterThan(10);
     for (const a of all) {
-      // A photo uuid or a picture token this server signed is opaque by
+      // A photo uuid is opaque by
       // design, and may hold a digit run by chance (SYC-425).
       if (isOpaqueAddress(a)) continue;
       expect(a, a).not.toMatch(/37\.\d|24\.\d|\d+[/-]\d+[/-]\d+/);

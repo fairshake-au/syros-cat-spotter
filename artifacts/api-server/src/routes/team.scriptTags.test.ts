@@ -130,7 +130,7 @@ describe("a page with a MapLibre map loads its files, and nothing else", () => {
 // SYC-396 PR 1.5; SYC-705 Task 2b.6: the island Map (the Cats page as a map)
 // loads MapLibre's stylesheet, then PMTiles, map-core.js and our cats map
 // script, all by hashed name from /api/team/assets/; the library and its
-// worker are named on the map box, never as script tags. No Leaflet.
+// worker are named on the map box, never as script tags. No picture-map library.
 describe("the island Map loads the MapLibre files and our map script, and nothing else", () => {
   const TAGS = [
     /^<script src="\/api\/team\/assets\/pmtiles\.[0-9a-f]{12}\.js" defer><\/script>$/,

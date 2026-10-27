@@ -25,7 +25,7 @@
 
   var DATA = "/api/team/map-data/";
   var CACHE = "syros-map";
-  // Syros (lib/island.ts ISLAND_BOX), padded so a marker at the edge is not cut off.
+  // Syros (ISLAND_BOX in src/lib/island.ts), padded so a marker at the edge is not cut off.
   var BOX = { minLat: 37.36, maxLat: 37.53, minLng: 24.85, maxLng: 25.01 };
   var PAD = 0.03;
   var CENTRE = [37.445, 24.93];

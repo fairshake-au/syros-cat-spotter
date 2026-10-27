@@ -7,7 +7,7 @@ import { catMapRig, posCat } from "./__fixtures__/catMapRig";
 // page and scripts (map-core.js, dashboard-map.js) on the fake MapLibre,
 // whose camera moves fire `movestart` the way MapLibre does, so the "was that
 // move ours?" logic is what is tested. SYC-705: fit with padding, never
-// closer than app zoom 16 (MapLibre 15), today's Leaflet cap.
+// closer than app zoom 16 (MapLibre 15), the old picture map's cap.
 
 const fits = (m: { calls: any[][] }) => m.calls.filter((c) => c[0] === "fitBounds");
 
