@@ -33,6 +33,9 @@ import { hasMetCat } from "../lib/claiming";
 import { applyHideRules, prepareHide } from "../lib/issues/hide";
 import { MOVE_WORDS } from "../lib/moveSightings";
 import { DELETED_BY_THE_PERSON, severTeamMember } from "../lib/severPerson";
+import { loadCatRecords } from "../lib/observations";
+import { resolveCoatParts } from "../lib/resolve";
+import { catsDueForReading } from "../lib/coatReading/due";
 
 // SYC-150 PR 3.2 (which-cat-is-which.md §5, §9.7 move, D6): the team's
 // "move this sighting to the right cat", through the route. Spec tests 8–12,
@@ -365,6 +368,36 @@ describe("spec test 9: the main photo", () => {
     // The photo is Agatha's now, and only hers.
     expect([...new Set(await catsOfPhoto(publicId))]).toEqual([c.agatha]);
     expect(await photoTargets(publicId)).toEqual([{ colonyId: null }]);
+  });
+});
+
+describe("what the old cat's colour shows after her main photo moves (a step beyond §9.7 step 6)", () => {
+  // The machine's reading of the moved photo is marked wrong whatever the
+  // team chose for her next photo, not only with "No photo for now": it read
+  // another cat. Until the reader reads her new main photo, she has no
+  // machine colour, and she is due for that reading.
+  it("a chosen new main photo: no colour from the moved photo, and she's due for a reading of the new one", async () => {
+    const c = await twoCats();
+    await db.update(catsTable).set({ primaryPhotoId: c.s.photoId }).where(eq(catsTable.id, c.mimi));
+    await machineReading(c.mimi, c.s.photoId);
+    expect(resolveCoatParts((await loadCatRecords([c.mimi])).get(c.mimi)!.observations).colours.value).toEqual(["ginger"]);
+
+    const res = await move({ sightingIds: [c.s.id], expectedCatId: c.mimi, toCatId: c.agatha, reason: "wrong_pick", source: "cat_page", newMainPhotoId: c.older.photoId });
+    expect(res.status).toBe(200);
+    const coat = resolveCoatParts((await loadCatRecords([c.mimi])).get(c.mimi)!.observations);
+    expect(coat.colours.value).toBeNull();
+    expect(coat.pattern.value).toBeNull();
+    expect(await catsDueForReading(Number.POSITIVE_INFINITY, db, { catIds: [c.mimi] })).toEqual([
+      expect.objectContaining({ catId: c.mimi, photoId: c.older.photoId, action: "read" }),
+    ]);
+  });
+
+  it("\"No photo for now\": no machine colour either", async () => {
+    const c = await twoCats();
+    await db.update(catsTable).set({ primaryPhotoId: c.s.photoId }).where(eq(catsTable.id, c.mimi));
+    await machineReading(c.mimi, c.s.photoId);
+    expect((await move({ sightingIds: [c.s.id], expectedCatId: c.mimi, toCatId: c.agatha, reason: "wrong_pick", source: "cat_page", newMainPhotoId: 0 })).status).toBe(200);
+    expect(resolveCoatParts((await loadCatRecords([c.mimi])).get(c.mimi)!.observations).colours.value).toBeNull();
   });
 });
 
