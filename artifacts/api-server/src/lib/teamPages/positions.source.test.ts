@@ -97,8 +97,9 @@ describe("positions print only through position.ts (D9)", () => {
   // into a string.
   it("the dashboard's scripts never print a position or name a map company", () => {
     const dir = join(SRC, "..", "assets");
-    const scripts = readdirSync(dir).filter((n) => /^dashboard-[\w-]+\.js$/.test(n));
-    expect(scripts).toContain("dashboard-map.js");
+    // SYC-705: map-core.js, which starts every map, is held to the same rules.
+    const scripts = readdirSync(dir).filter((n) => /^(?:dashboard-[\w-]+|map-core)\.js$/.test(n));
+    expect(scripts).toEqual(expect.arrayContaining(["dashboard-map.js", "dashboard-pin.js", "map-core.js"]));
     const SCRIPT_PRINT = [
       ...RAW_PRINT,
       // "c.lat + ", " + c.lng", and the like.
