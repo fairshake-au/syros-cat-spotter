@@ -140,6 +140,9 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
         left join sightings s on s.id = cu.trigger_sighting_id
         left join push_tokens pt on pt.device_id = cs.device_id
        where cu.update_type = 'sighting'
+         -- A sighting moved to another cat since is no longer this cat's
+         -- (which-cat-is-which.md §9.5): never "seen" in its round-up.
+         and (cu.trigger_sighting_id is null or s.cat_id = cu.cat_id)
          and cu.created_at >= ${windowStart.toISOString()}
          and cu.created_at < ${now.toISOString()}
          and cs.device_id not like 'deleted:%'

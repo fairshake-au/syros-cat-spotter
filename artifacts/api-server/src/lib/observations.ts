@@ -8,7 +8,7 @@
  * exists — goes through `writeObservation`. Nothing else may `insert` into
  * `observationsTable` outside a migration's backfill.
  */
-import { and, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -31,7 +31,7 @@ import {
   type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
-import { catsFeeding, observationCatIn } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -807,6 +807,29 @@ export interface WriteObservationInput {
  * nothing. The resolver ignores it, because it has no `status`. */
 export const WITHDRAWN = { withdrawn: true } as const;
 
+/**
+ * SQL: the statement whose id is `id` has been replaced by a move
+ * (which-cat-is-which.md §9.5): a row carrying `sighting_move_id` supersedes
+ * it, so it now counts for the cat its sighting moved to (a copy), or for
+ * nobody (a withdrawal). Readers that load statements without
+ * `loadCatRecords` leave such a row out.
+ */
+export function replacedByMove(id: SQLWrapper): SQL {
+  return sql`exists (select 1 from observations moved where moved.supersedes_id = ${id} and moved.sighting_move_id is not null)`;
+}
+
+/**
+ * The two cats are one cat now: the same id, or merged into the same cat
+ * (which-cat-is-which.md §9.3). A cat in a merge loop has no canonical cat
+ * and matches only itself.
+ */
+async function sameCanonicalCat(tx: DbOrTx, a: number, b: number): Promise<boolean> {
+  if (a === b) return true;
+  const canonical = await canonicalCatOf([a, b], {}, tx);
+  const ca = canonical.get(a);
+  return ca != null && ca === canonical.get(b);
+}
+
 export function isWithdrawal(kind: ObservationKind, value: unknown): boolean {
   return (
     kind === "life_status" &&
@@ -872,14 +895,15 @@ async function checkVisitLink(tx: DbOrTx, input: WriteObservationInput): Promise
     .select({ catId: observationsTable.catId, kind: observationsTable.kind })
     .from(observationsTable)
     .where(eq(observationsTable.id, visitId));
-  if (!visit || visit.kind !== "vet_visit" || visit.catId !== input.catId) {
+  if (!visit || visit.kind !== "vet_visit" || !(await sameCanonicalCat(tx, visit.catId, input.catId))) {
     refuse("INVALID_VISIT_LINK", "vetVisitId must name a vet visit of the same cat");
   }
-  // Standing by the resolver's own rule, over the cat's visits.
+  // Standing by the resolver's own rule, over the visit's own cat's visits
+  // (a supersede chain never crosses cats).
   const visits = await tx
     .select()
     .from(observationsTable)
-    .where(and(eq(observationsTable.catId, input.catId), eq(observationsTable.kind, "vet_visit")));
+    .where(and(eq(observationsTable.catId, visit.catId), eq(observationsTable.kind, "vet_visit")));
   if (!standingRows(visits, "vet_visit").some((o) => o.id === visitId)) {
     refuse("INVALID_VISIT_LINK", "vetVisitId names a vet visit that has been undone or replaced");
   }
@@ -1155,17 +1179,18 @@ export async function writeObservation(
     if (!(target && target.kind === input.kind)) {
       refuse(refusalCode, "a supersession must target an existing row of the same kind");
     }
-    // coat and markings only: the same cat. (Not other kinds: a welfare
-    // re-tie crosses cats on purpose.)
-    // TODO(SYC-59): compare canonical cats through cat_identity once merges exist; today merged cats refuse writes, so this only ever refuses.
-    if (isAppearanceKind && target.catId !== input.catId) {
+    // coat and markings only: the same cat, or a cat merged into it
+    // (which-cat-is-which.md §9.3). (Not other kinds: a welfare re-tie
+    // crosses cats on purpose.)
+    const sameCat = await sameCanonicalCat(tx, target.catId, input.catId);
+    if (isAppearanceKind && !sameCat) {
       refuse(refusalCode, "a coat or markings supersession must stay on the same cat");
     }
     // Nor for the kinds Decision G ranks (PR 2.2 review, n2): marking another
     // cat's sterilisation or life status wrong would change that cat's answer
-    // without its lock and without its news.
-    // TODO(SYC-59): compare canonical cats through cat_identity once merges exist (a put-back on a merged-in row would be refused here).
-    if (RANKED_KINDS.has(input.kind) && target.catId !== input.catId) {
+    // without its lock and without its news. A row on a cat merged into this
+    // one is this cat's (a put-back on a merged-in row).
+    if (RANKED_KINDS.has(input.kind) && !sameCat) {
       refuse(refusalCode, "a supersession of this kind must stay on the same cat");
     }
     // A vet-visit retraction, too: undoing a visit never reaches another cat. Nor a team note's.

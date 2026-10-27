@@ -10,7 +10,6 @@ import { resolveCoatParts } from "./resolve";
 
 let nextId = 7000;
 const SIGHTING = 42;
-const PICKED = new Set([SIGHTING]);
 
 function row(o: Partial<Observation> & { value: unknown }): Observation {
   const at = o.observedAt ?? new Date("2026-01-01T12:00:00Z");
@@ -53,7 +52,9 @@ const answer = (value: unknown) =>
   row({ value, deviceId: "picker", sightingId: SIGHTING, observedAt: new Date("2026-01-02T10:00:00Z") });
 
 function flags(rows: Observation[]): boolean {
-  return handPickDisagrees(rows, resolveCoatParts(rows), PICKED);
+  // The spotter's answers on the hand-picked sighting (handPickedAmong's ids).
+  const picked = new Set(rows.filter((o) => o.sightingId === SIGHTING && o.deviceId === "picker").map((o) => o.id));
+  return handPickDisagrees(rows, resolveCoatParts(rows), picked);
 }
 
 describe("handPickDisagrees (SYC-398)", () => {

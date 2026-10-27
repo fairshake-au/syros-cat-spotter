@@ -10,7 +10,7 @@ import {
   vetBatchPhotosTable,
   vetVisitPhotosTable,
 } from "@workspace/db";
-import { eq, isNotNull, and } from "drizzle-orm";
+import { eq, isNotNull, isNull, and } from "drizzle-orm";
 import type { CapabilityTarget } from "./capabilities";
 import { canonicalCatOf } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
@@ -114,10 +114,14 @@ export async function catsOfPhoto(publicId: string): Promise<number[]> {
       .from(sightingPhotosTable)
       .innerJoin(sightingsTable, eq(sightingsTable.id, sightingPhotosTable.sightingId))
       .where(and(eq(sightingPhotosTable.photoId, photo.id), isNotNull(sightingsTable.catId))),
+    // A statement about a sighting's photo belongs to the cat the sighting
+    // is filed under now, found above (which-cat-is-which.md §9.5): after a
+    // move, the original statement still names the old cat. Only a statement
+    // with no sighting (a team entry) names its photo's cat itself.
     db
       .select({ catId: observationsTable.catId })
       .from(observationsTable)
-      .where(eq(observationsTable.photoId, photo.id)),
+      .where(and(eq(observationsTable.photoId, photo.id), isNull(observationsTable.sightingId))),
     // SYC-677: a vet visit's kept photo, and a batch's staged photo (of a cat
     // already in the catalogue), belong to that cat. Both are team-only
     // (teamOnlyPhotos.ts), so a cat guardian of that cat's colony passes

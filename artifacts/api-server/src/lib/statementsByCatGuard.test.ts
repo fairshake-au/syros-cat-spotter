@@ -53,7 +53,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "newestActiveOwnerHomed: the owner's 'has a home' on this cat; the staying record keeps its owner and the other never has one (spec 4.1, 4.2)",
   ],
   "artifacts/api-server/src/lib/observations.ts": [
-    "checkVisitLink: checks a write against the visit chain on the row's own cat (the same-cat test is PR 3.1)",
+    "checkVisitLink: the visit chain on the visit's own cat, which never crosses cats (the same-cat test compares canonical cats)",
     "writeObservation retraction: checks the target still stands on its own supersede chain, which never crosses cats",
   ],
   "artifacts/api-server/src/lib/dashboard/colonyFigures.ts": [
@@ -70,7 +70,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "welfarePatterns: counts reports by area and reason, not by cat; welfare_reports readers are PR 4.1",
   ],
   "artifacts/api-server/src/lib/sightingRoundUp.ts": [
-    "sendDailyRoundUp: followed cats' care updates; moved rows and followers are PR 3.1 and PR 4.1",
+    "sendDailyRoundUp: followed cats' care updates by each update's own cat, only while its sighting is still filed there (PR 3.1); followers are PR 4.1",
   ],
   "artifacts/api-server/src/lib/welfareQueue.ts": [
     "reportsQuery: join naming the report's own cat; welfare_reports readers are PR 4.1",
@@ -81,7 +81,6 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   ],
   "artifacts/api-server/src/lib/teamCorrections.ts": [
     "lockActiveObservation: checks a write against its own supersede chain, which never crosses cats",
-    "agreeWithClip: the spotter's cat's ear_tip and sterilised rows; refusing a moved row is PR 3.1",
   ],
   "artifacts/api-server/src/lib/vetVisits.ts": [
     "undoVetVisit: rows linked to this visit by vetVisitId, written on the visit's own cat in its transaction",
@@ -91,11 +90,6 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   ],
   "artifacts/api-server/src/routes/notifications.ts": [
     "GET /notifications: join naming the update's own cat; the survivor view is PR 4.1",
-  ],
-  "artifacts/api-server/src/routes/sightings.ts": [
-    "earTipStateFor: this phone's ear_tip answer on this cat; moved rows are PR 3.1",
-    "earTipStateFor: any sterilised statement on this cat; moved rows are PR 3.1",
-    "hasAnsweredEarTip: this phone's ear_tip answer on this cat; moved rows are PR 3.1",
   ],
   "lib/db/src/photoRemoval/list.ts": [
     "listCatPhotos: deliberate raw read by one cat's id (the photo-removal tool)",

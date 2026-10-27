@@ -97,7 +97,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "recentGuardianChanges: a log; each entry names the cat its own row is on",
   ],
   "artifacts/api-server/src/lib/sightingRoundUp.ts": [
-    "sendDailyRoundUp: followed cats' updates; moved rows and followers are PR 3.1 and PR 4.1",
+    "sendDailyRoundUp: followed cats' updates, only while the sighting is still filed under the cat (PR 3.1); followers are PR 4.1",
   ],
   "artifacts/api-server/src/lib/teamCatList.ts": ["catTrail: one cat by id; the merged-away team page is PR 4.2"],
   "artifacts/api-server/src/lib/teamCatView.ts": [
