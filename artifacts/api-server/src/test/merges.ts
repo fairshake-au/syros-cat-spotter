@@ -8,8 +8,8 @@ if (!process.env["VITEST"]) {
 
 /**
  * Tests only (SYC-150 PR 2.1). Writes a merge row the way these tests did
- * before migration 0053: the merged-away cat keeps its resolved sightings.
- * Since 0053 the database refuses that at commit (cat_identity_no_sighting_left:
+ * before migration 0054: the merged-away cat keeps its resolved sightings.
+ * Since 0054 the database refuses that at commit (cat_identity_no_sighting_left:
  * a merge moves every resolved sighting to the survivor), and today's readers
  * (hasMetCat, the claim rules, asOf) are still written for this shape until
  * the plan's PR 3.1 and PR 4.1 move them and these tests onto recorded

@@ -39,7 +39,7 @@ const MOVE_ROLES = ISLAND_ROLES;
 /**
  * One row per sighting moved from one cat to another (which-cat-is-which.md
  * §9.1). A sighting's cat changes only with a row here written in the same
- * transaction: the sightings trigger in migration 0053 checks the row named
+ * transaction: the sightings trigger in migration 0054 checks the row named
  * by the transaction-local setting `app.sighting_move_id` (or, for a merge's
  * moves, `app.cat_merge_id`) has `txid = txid_current()` and matches.
  *

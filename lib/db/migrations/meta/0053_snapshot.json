@@ -1,5 +1,5 @@
 {
-  "id": "f5989c72-2168-4fae-9636-5835574d3a0b",
+  "id": "73ce6204-dc27-4472-804c-b527d5b32a55",
   "prevId": "a0148c24-ae7d-4e94-8434-83d8933b5404",
   "version": "7",
   "dialect": "postgresql",
@@ -345,22 +345,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "sightings_cat_idx": {
-          "name": "sightings_cat_idx",
-          "columns": [
-            {
-              "expression": "cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"sightings\".\"cat_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {},
@@ -637,7 +621,7 @@
       "checkConstraints": {
         "notifications_kind_ck": {
           "name": "notifications_kind_ck",
-          "value": "(\"notifications\".\"kind\" = 'cat' and \"notifications\".\"cat_update_id\" is not null)\n      or (\"notifications\".\"kind\" in ('week_result', 'merged', 'duplicate_points') and \"notifications\".\"cat_update_id\" is null and \"notifications\".\"message\" is not null)"
+          "value": "(\"notifications\".\"kind\" = 'cat' and \"notifications\".\"cat_update_id\" is not null)\n      or (\"notifications\".\"kind\" = 'week_result' and \"notifications\".\"cat_update_id\" is null and \"notifications\".\"message\" is not null)"
         }
       },
       "isRLSEnabled": false
@@ -801,87 +785,14 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
-        },
-        "reason_text": {
-          "name": "reason_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "by_account_id": {
-          "name": "by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role_at_time": {
-          "name": "role_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "survivor_chosen": {
-          "name": "survivor_chosen",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "txid": {
-          "name": "txid",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "txid_current()"
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {
-        "cat_identity_canonical_idx": {
-          "name": "cat_identity_canonical_idx",
-          "columns": [
-            {
-              "expression": "canonical_cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "cat_identity_cat_idx": {
-          "name": "cat_identity_cat_idx",
-          "columns": [
-            {
-              "expression": "cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "cat_identity_survivor_chosen_ck": {
-          "name": "cat_identity_survivor_chosen_ck",
-          "value": "\"cat_identity\".\"survivor_chosen\" is null or \"cat_identity\".\"survivor_chosen\" in ('default', 'switched')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.observations": {
@@ -997,12 +908,6 @@
         "supersede_reason": {
           "name": "supersede_reason",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sighting_move_id": {
-          "name": "sighting_move_id",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -2674,36 +2579,6 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": false
-        },
-        "team_action": {
-          "name": "team_action",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_cat_id": {
-          "name": "team_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_by_account_id": {
-          "name": "team_by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "team_at": {
-          "name": "team_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -2745,18 +2620,6 @@
         "sighting_matches_rank_ck": {
           "name": "sighting_matches_rank_ck",
           "value": "(\"sighting_matches\".\"choice\" = 'suggested') = (\"sighting_matches\".\"suggested_rank\" IS NOT NULL)"
-        },
-        "sighting_matches_team_action_ck": {
-          "name": "sighting_matches_team_action_ck",
-          "value": "\"sighting_matches\".\"team_action\" IS NULL OR \"sighting_matches\".\"team_action\" IN ('matched', 'made_new_cat', 'looks_right', 'different_cat', 'new_cat', 'hidden')"
-        },
-        "sighting_matches_team_step_ck": {
-          "name": "sighting_matches_team_step_ck",
-          "value": "(\"sighting_matches\".\"team_action\" IS NULL) = (\"sighting_matches\".\"team_at\" IS NULL)\n        AND (\"sighting_matches\".\"team_action\" IS NOT NULL OR \"sighting_matches\".\"team_by_account_id\" IS NULL)\n        AND (\"sighting_matches\".\"team_action\" IS NULL OR \"sighting_matches\".\"team_by_account_id\" IS NOT NULL OR \"sighting_matches\".\"redacted_at\" IS NOT NULL)"
-        },
-        "sighting_matches_team_cat_ck": {
-          "name": "sighting_matches_team_cat_ck",
-          "value": "(\"sighting_matches\".\"team_cat_id\" IS NOT NULL) = coalesce(\"sighting_matches\".\"team_action\" IN ('matched', 'made_new_cat', 'different_cat', 'new_cat'), false)"
         }
       },
       "isRLSEnabled": false
@@ -4181,94 +4044,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.map_tile_cache": {
-      "name": "map_tile_cache",
-      "schema": "",
-      "columns": {
-        "z": {
-          "name": "z",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "x": {
-          "name": "x",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "y": {
-          "name": "y",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "bytes": {
-          "name": "bytes",
-          "type": "bytea",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size": {
-          "name": "size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fetched_at": {
-          "name": "fetched_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "map_tile_cache_fetched_at_idx": {
-          "name": "map_tile_cache_fetched_at_idx",
-          "columns": [
-            {
-              "expression": "fetched_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "map_tile_cache_z_x_y_pk": {
-          "name": "map_tile_cache_z_x_y_pk",
-          "columns": [
-            "z",
-            "x",
-            "y"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "map_tile_cache_zoom_ck": {
-          "name": "map_tile_cache_zoom_ck",
-          "value": "\"map_tile_cache\".\"z\" between 12 and 19"
-        },
-        "map_tile_cache_tile_ck": {
-          "name": "map_tile_cache_tile_ck",
-          "value": "\"map_tile_cache\".\"x\" >= 0 and \"map_tile_cache\".\"y\" >= 0"
-        },
-        "map_tile_cache_size_ck": {
-          "name": "map_tile_cache_size_ck",
-          "value": "\"map_tile_cache\".\"size\" = octet_length(\"map_tile_cache\".\"bytes\")"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.app_settings": {
       "name": "app_settings",
       "schema": "",
@@ -4666,7 +4441,7 @@
         },
         "cat_news_changes_reason_ck": {
           "name": "cat_news_changes_reason_ck",
-          "value": "\"cat_news_changes\".\"silenced_reason\" IS NULL OR \"cat_news_changes\".\"silenced_reason\" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk', 'moved', 'merged')"
+          "value": "\"cat_news_changes\".\"silenced_reason\" IS NULL OR \"cat_news_changes\".\"silenced_reason\" IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk')"
         }
       },
       "isRLSEnabled": false
@@ -5054,19 +4829,7 @@
           "name": "sighting_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
-        },
-        "duplicate_cat_low": {
-          "name": "duplicate_cat_low",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "duplicate_cat_high": {
-          "name": "duplicate_cat_high",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "cat_id": {
           "name": "cat_id",
@@ -5130,7 +4893,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"points_ledger\".\"sighting_id\" is not null and \"points_ledger\".\"points\" > 0",
+          "where": "\"points_ledger\".\"points\" > 0",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5155,33 +4918,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "points_ledger_duplicate_pair_uq": {
-          "name": "points_ledger_duplicate_pair_uq",
-          "columns": [
-            {
-              "expression": "device_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "duplicate_cat_low",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "duplicate_cat_high",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {},
@@ -5196,12 +4932,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "points_ledger_award_ck": {
-          "name": "points_ledger_award_ck",
-          "value": "(\"points_ledger\".\"sighting_id\" is not null and \"points_ledger\".\"duplicate_cat_low\" is null and \"points_ledger\".\"duplicate_cat_high\" is null)\n        or (\"points_ledger\".\"sighting_id\" is null and \"points_ledger\".\"duplicate_cat_low\" is not null and \"points_ledger\".\"duplicate_cat_high\" is not null\n          and \"points_ledger\".\"duplicate_cat_low\" < \"points_ledger\".\"duplicate_cat_high\")"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.spotter_badges": {
@@ -5871,573 +5602,6 @@
         "map_data_files_size_ck": {
           "name": "map_data_files_size_ck",
           "value": "\"map_data_files\".\"size\" = octet_length(\"map_data_files\".\"bytes\")"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.merge_follow_changes": {
-      "name": "merge_follow_changes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "merge_id": {
-          "name": "merge_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "row_created_at": {
-          "name": "row_created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "merge_follow_changes_merge_idx": {
-          "name": "merge_follow_changes_merge_idx",
-          "columns": [
-            {
-              "expression": "merge_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "merge_follow_changes_device_idx": {
-          "name": "merge_follow_changes_device_idx",
-          "columns": [
-            {
-              "expression": "device_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "merge_follow_changes_kind_ck": {
-          "name": "merge_follow_changes_kind_ck",
-          "value": "\"merge_follow_changes\".\"kind\" in ('follow', 'unfollow')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.sighting_moves": {
-      "name": "sighting_moves",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "sighting_id": {
-          "name": "sighting_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from_cat_id": {
-          "name": "from_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to_cat_id": {
-          "name": "to_cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "made_new_cat": {
-          "name": "made_new_cat",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "let_spotters_name": {
-          "name": "let_spotters_name",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "merge_id": {
-          "name": "merge_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "batch_id": {
-          "name": "batch_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason_text": {
-          "name": "reason_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "moved_by_account_id": {
-          "name": "moved_by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role_at_time": {
-          "name": "role_at_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "txid": {
-          "name": "txid",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "txid_current()"
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "sighting_moves_sighting_idx": {
-          "name": "sighting_moves_sighting_idx",
-          "columns": [
-            {
-              "expression": "sighting_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sighting_moves_merge_idx": {
-          "name": "sighting_moves_merge_idx",
-          "columns": [
-            {
-              "expression": "merge_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "sighting_moves_cats_ck": {
-          "name": "sighting_moves_cats_ck",
-          "value": "\"sighting_moves\".\"from_cat_id\" <> \"sighting_moves\".\"to_cat_id\""
-        },
-        "sighting_moves_spotters_name_ck": {
-          "name": "sighting_moves_spotters_name_ck",
-          "value": "not \"sighting_moves\".\"let_spotters_name\" or \"sighting_moves\".\"made_new_cat\""
-        },
-        "sighting_moves_merge_ck": {
-          "name": "sighting_moves_merge_ck",
-          "value": "(\"sighting_moves\".\"reason\" in ('merged', 'merge_undone')) = (\"sighting_moves\".\"merge_id\" is not null)"
-        },
-        "sighting_moves_mover_ck": {
-          "name": "sighting_moves_mover_ck",
-          "value": "\"sighting_moves\".\"moved_by_account_id\" is not null or \"sighting_moves\".\"redacted_at\" is not null"
-        },
-        "sighting_moves_reason_ck": {
-          "name": "sighting_moves_reason_ck",
-          "value": "\"sighting_moves\".\"reason\" in ('different_markings', 'two_cats', 'wrong_pick', 'other', 'merged', 'merge_undone')"
-        },
-        "sighting_moves_source_ck": {
-          "name": "sighting_moves_source_ck",
-          "value": "\"sighting_moves\".\"source\" in ('cat_page', 'matched_by_hand', 'report', 'game', 'merge', 'undo')"
-        },
-        "sighting_moves_role_ck": {
-          "name": "sighting_moves_role_ck",
-          "value": "\"sighting_moves\".\"role_at_time\" in ('staff', 'management')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.duplicate_decisions": {
-      "name": "duplicate_decisions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "cat_low": {
-          "name": "cat_low",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cat_high": {
-          "name": "cat_high",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "decision": {
-          "name": "decision",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "merge_id": {
-          "name": "merge_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "by_account_id": {
-          "name": "by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "duplicate_decisions_pair_idx": {
-          "name": "duplicate_decisions_pair_idx",
-          "columns": [
-            {
-              "expression": "cat_low",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "cat_high",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "duplicate_decisions_pair_ck": {
-          "name": "duplicate_decisions_pair_ck",
-          "value": "\"duplicate_decisions\".\"cat_low\" < \"duplicate_decisions\".\"cat_high\""
-        },
-        "duplicate_decisions_decision_ck": {
-          "name": "duplicate_decisions_decision_ck",
-          "value": "\"duplicate_decisions\".\"decision\" in ('merged', 'different', 'not_sure', 'merge_undone')"
-        },
-        "duplicate_decisions_merge_ck": {
-          "name": "duplicate_decisions_merge_ck",
-          "value": "(\"duplicate_decisions\".\"decision\" in ('merged', 'merge_undone')) = (\"duplicate_decisions\".\"merge_id\" is not null)"
-        },
-        "duplicate_decisions_by_ck": {
-          "name": "duplicate_decisions_by_ck",
-          "value": "\"duplicate_decisions\".\"by_account_id\" is not null or \"duplicate_decisions\".\"redacted_at\" is not null"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.duplicate_reports": {
-      "name": "duplicate_reports",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "cat_low": {
-          "name": "cat_low",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cat_high": {
-          "name": "cat_high",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "says": {
-          "name": "says",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "device_id": {
-          "name": "device_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sighting_id": {
-          "name": "sighting_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "score": {
-          "name": "score",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "duplicate_reports_pair_idx": {
-          "name": "duplicate_reports_pair_idx",
-          "columns": [
-            {
-              "expression": "cat_low",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "cat_high",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "duplicate_reports_device_idx": {
-          "name": "duplicate_reports_device_idx",
-          "columns": [
-            {
-              "expression": "device_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"duplicate_reports\".\"device_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "duplicate_reports_pair_ck": {
-          "name": "duplicate_reports_pair_ck",
-          "value": "\"duplicate_reports\".\"cat_low\" < \"duplicate_reports\".\"cat_high\""
-        },
-        "duplicate_reports_source_ck": {
-          "name": "duplicate_reports_source_ck",
-          "value": "\"duplicate_reports\".\"source\" in ('spotter_question', 'new_cat_check', 'sweep', 'game', 'team')"
-        },
-        "duplicate_reports_says_ck": {
-          "name": "duplicate_reports_says_ck",
-          "value": "\"duplicate_reports\".\"says\" in ('same', 'different', 'not_sure')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.new_cat_checks": {
-      "name": "new_cat_checks",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "cat_id": {
-          "name": "cat_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "by_account_id": {
-          "name": "by_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "redacted_at": {
-          "name": "redacted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "new_cat_checks_cat_idx": {
-          "name": "new_cat_checks_cat_idx",
-          "columns": [
-            {
-              "expression": "cat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "new_cat_checks_by_ck": {
-          "name": "new_cat_checks_by_ck",
-          "value": "\"new_cat_checks\".\"by_account_id\" is not null or \"new_cat_checks\".\"redacted_at\" is not null"
         }
       },
       "isRLSEnabled": false
