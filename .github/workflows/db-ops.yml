@@ -33,6 +33,7 @@ on:
             photo-restore,
             photo-remove,
             fingerprint-accuracy,
+            calibrate-duplicate-sweep,
           ]
       people_role:
         # SYC-43: a fixed list, validated again by scripts/db-ops.sh, the

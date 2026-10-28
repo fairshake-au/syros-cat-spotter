@@ -123,6 +123,16 @@ describe("fingerprints-nightly.yml", () => {
     expect(run({}, [504, 200]).calls).toHaveLength(1);
   });
 
+  it("has a second step for the look-alike sweep (SYC-59 PR 5.3): same token and host guard, its own route, a failure fails the run", () => {
+    expect(text).toContain("/api/internal/duplicates/sweep");
+    expect(text.match(/secrets\.FINGERPRINT_JOB_TOKEN/g)).toHaveLength(2);
+    expect(text.match(/base_url must be https:\/\/apptest\.catspotters\.com or localhost/g)).toHaveLength(2);
+    expect(text).toContain("The nightly look-alike sweep failed");
+    // No second schedule or switch of its own: it rides the fingerprint job's, and the app's switch keeps it quiet.
+    expect(text.match(/cron:/g)).toHaveLength(1);
+    expect(text).toContain("duplicate_sweep");
+  });
+
   it("is switched on and off like news-nightly.yml", () => {
     const news = readFileSync(resolve(__dirname, "../../../../.github/workflows/news-nightly.yml"), "utf8");
     expect(text).toContain("vars.FINGERPRINTS_NIGHTLY_ENABLED == 'true' || github.event_name == 'workflow_dispatch'");

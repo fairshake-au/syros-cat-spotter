@@ -24,7 +24,7 @@ gh run watch
 gh run view --log
 ```
 
-`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`, `set-setting`, `list-settings`, `photo-list`, `photo-hide`, `photo-restore`, `photo-remove` (SYC-462; `docs/runbooks/photo-removal.md`), `fingerprint-accuracy` (SYC-527 piece 3: the looks-like index's read-only smoke test; prints ranks and counts only).
+`--ref main` is always given (see the plan's Part A.3 for why). `target` is `development`, `rehearsal` or `production`. `command` is one of: `fingerprint-source`, `copy-rehearsal`, `copy-cutover`, `verify`, `verify-history`, `migrate`, `migrate-rollback`, `smoke`, `carry-back-dry-run`, `carry-back-apply`, `people-add`, `people-list`, `people-set-roles`, `people-mark-left`, `people-sign-out-everywhere`, `set-setting`, `list-settings`, `photo-list`, `photo-hide`, `photo-restore`, `photo-remove` (SYC-462; `docs/runbooks/photo-removal.md`), `fingerprint-accuracy` (SYC-527 piece 3: the looks-like index's read-only smoke test; prints ranks and counts only), `calibrate-duplicate-sweep` (SYC-59 PR 5.3: read-only; scores the decided duplicate pairs and suggests `SWEEP_THRESHOLD` before the look-alike sweep is switched on).
 
 ## The match-wait switches (`set-setting`, `list-settings`)
 

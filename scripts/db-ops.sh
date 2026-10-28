@@ -506,6 +506,28 @@ run_fingerprint_accuracy() {
   return "$status"
 }
 
+# --- calibrate-duplicate-sweep (SYC-59 PR 5.3) ---------------------------------
+# Before the nightly look-alike sweep's switch is turned on (spec
+# which-cat-is-which.md section 9.6), this scores the pairs the team has
+# already decided and prints how the sweep's top 10 at each candidate
+# threshold would have done, with a suggested SWEEP_THRESHOLD. Strictly
+# read-only, the same way as fingerprint-accuracy: PGOPTIONS makes the
+# database default every session this command opens to read-only (this command
+# only), the script also sets and checks it, and it prints counts and
+# likeness scores only: never a cat, a photo or a name.
+run_calibrate_duplicate_sweep() {
+  local out="$WORKDIR/calibrate-duplicate-sweep.log"
+  local status=0
+  (cd "$ROOT" && env -u APP_DATABASE_URL -u DEV_DATABASE_URL -u REPL_ID -u NODE_ENV \
+    DATABASE_URL="$NEON_URL" \
+    PGOPTIONS="-c default_transaction_read_only=on" \
+    pnpm --silent --filter @workspace/db exec tsx "$ROOT/artifacts/api-server/src/scripts/calibrateDuplicateSweep.ts") \
+    >"$out" 2>&1 || status=$?
+  grep_no_urls "$out"
+  cat "$out"
+  return "$status"
+}
+
 # --- main -------------------------------------------------------------------
 case "$COMMAND" in
   fingerprint-source)
@@ -582,6 +604,15 @@ case "$COMMAND" in
     fi
     require_neon_url
     run_fingerprint_accuracy
+    ;;
+
+  calibrate-duplicate-sweep)
+    if [ "$TARGET" = "rehearsal" ]; then
+      echo "db-ops: $COMMAND only runs against target=development or target=production." >&2
+      exit 1
+    fi
+    require_neon_url
+    run_calibrate_duplicate_sweep
     ;;
 
   carry-back-dry-run|carry-back-apply)
