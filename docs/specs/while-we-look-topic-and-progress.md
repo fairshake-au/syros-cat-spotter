@@ -1,6 +1,6 @@
 # While we look: a topic, a count, and "your next spot brings a new fact"
 
-**Status:** Draft for Samuel's approval, 27 October 2026.
+**Status:** Draft for Samuel's approval, 27 October 2026. An independent adversarial review (Sonnet, 27 October) found 4 major and 6 minor issues. All are folded in below, and how each was handled is in §10.
 **Owner:** Samuel
 **Ticket:** SYC-772. Builds on the waiting card (SYC-48, [`starter-facts.md`](./starter-facts.md)). Works with or without editable facts (SYC-754, [`editable-starter-facts.md`](./editable-starter-facts.md)). The facts page in Profile is SYC-773, later.
 
@@ -10,10 +10,12 @@
 
 Two small changes make the cat facts feel like a set you're working through, not a loading message:
 
-1. **The waiting card** shows the fact's **topic** with a small icon (for example *Reading a cat*), and **how far through the facts you are**: a thin bar and *"Cat fact 3 of 11"*.
-2. **The thanks screen**, after a spot is confirmed, says once, under the points: *"Your next spot brings a new cat fact."* This shows only while there's still a fact this phone hasn't seen.
+1. **The waiting card** shows the fact's **topic**, with a small icon (for example *Reading a cat*), and **how far through the facts you are**: a progress bar and *"Cat fact 3 of 11"*.
+2. **The thanks screen**, after a spot is confirmed, says under the points: *"Your next spot brings a new cat fact."* It shows only when that's true.
 
-The facts, the order they come in, and when the card appears all stay exactly as they are now. There's no server change, no database change and no new setting.
+When the card appears, what it says, and the order of the facts all stay as they are, with one exception. A fact this phone has never seen now comes before a repeat (§3.5). This only makes a difference once the team adds a fact or switches one back on after a phone has seen them all.
+
+There's no server change, no database change and no new setting.
 
 ---
 
@@ -34,12 +36,12 @@ The proposal to Syros Cats (§13, 27 August) also promised a fact *"where possib
 From top to bottom:
 
 - **Eyebrow:** *While we look…* (unchanged).
-- **Topic** (new): a small icon and the topic's name, in the eyebrow's muted colour, one line.
+- **Topic** (new): a small icon and the topic's name, in the eyebrow's muted colour, on one line.
 - **The ear-tip photo**, for the ear-tip fact only (unchanged).
 - **The fact** (unchanged).
-- **Progress** (new): a thin bar using the existing `ProgressBar` component, with *"Cat fact 3 of 11"* under it (or beside it, if it fits on one line). The bar is filled to 3/11.
+- **Progress** (new): the app's usual progress bar (`ProgressBar`), with *"Cat fact 3 of 11"* under it, filled to 3/11.
 
-The rest stays the same. There are no buttons, nothing to tap, and no transition. The card still takes the map's place only while a sighting is being sent.
+There are still no buttons, nothing to tap and no transition. The card still takes the map's place only while a sighting is being sent.
 
 **The six topics.** These are the six strands from the proposal (§13), already recorded against each fact in `lib/starterFacts.ts` (`strand`):
 
@@ -52,44 +54,69 @@ The rest stays the same. There are no buttons, nothing to tap, and no transition
 | 5 | When a cat needs help | `life-buoy` |
 | 6 | You're doing science | `bar-chart-2` |
 
-The icon is decoration: screen readers skip it (§3.4).
+With today's 11 facts switched on, *Reading a cat* comes up 6 times out of 11. That's expected: strand 1 has the most facts that don't need Syros Cats' yes.
 
-**A fact with no topic** (a fact the team adds once SYC-754 is built; the originals all have one) shows no topic line. Everything else is the same.
+**A fact with no topic.** A fact the team adds once SYC-754 is built has no topic; the originals all have one. Such a fact shows no topic line. Everything else is the same.
 
 ### 3.2 How the count works
 
-- **The total** is the number of facts currently switched on. On the test site today, that's **11**: the 9 waiting for Syros Cats' yes are hidden (checked at `apptest.catspotters.com/api/app-settings`, 27 October 2026). When Syros Cats approve them, the total becomes 20 on its own. If the team adds or deletes facts (SYC-754), the total follows.
-- **The number** is how many of those switched-on facts this phone has seen, counting the one on screen. The phone already keeps this list (`everSeen`, starter-facts.md §3.4). So the first fact a phone sees reads *1 of 11*.
-- **A fact cut short** (the result arrived in under 3 seconds) isn't marked as seen, as now. The next wait shows the same fact with the same number, which is correct: it's still that fact.
-- **A fact seen and later switched off** doesn't count, either in the number or the total. A fact switched back on counts again.
-- **Once every switched-on fact has been seen**, the facts go round again, as now. The progress then reads *"All 11 cat facts seen"* with a full bar, on every wait, until a new fact is switched on or added.
-- **No progress shown at all** when:
-  - fewer than 2 facts are switched on (a count of one is meaningless);
+- **The total** is the number of facts currently switched on.
+  - On the test site today that's **11**: the 9 waiting for Syros Cats' yes are hidden. (Checked at `apptest.catspotters.com/api/app-settings`, 27 October 2026.)
+  - When Syros Cats approve the 9, the total becomes 20 without any change to the app. If the team adds or deletes facts (SYC-754), the total follows.
+- **The number** is how many of those switched-on facts this phone has ever seen, plus one if the fact on screen is one it hasn't seen. In terms of the stored record: the switched-on facts in `everSeen`, plus 1 if the shown fact isn't in `everSeen`. So a phone's first fact reads *1 of 11*. In later rounds a repeat doesn't add one.
+- **A fact cut short** (the result came back in under 3 seconds) isn't marked as seen, as now. The next wait shows the same fact with the same number. That's correct: it's still that fact.
+- **A fact seen and later switched off** counts in neither the number nor the total. If it's switched back on, it counts again.
+- **The last unseen fact** reads *"Cat fact 11 of 11"*, with a full bar.
+- **Once every switched-on fact has been seen**, the facts go round again, as now. From the next wait, the progress reads *"All 11 cat facts seen"* with a full bar, on every wait. That lasts until a fact the phone hasn't seen is switched on or added.
+- **No progress is shown at all** when:
+  - the phone has never heard from the server. Until then every fact counts as switched on, so the total would read 20 and then drop to 11;
+  - fewer than 2 facts are switched on, because a count of one means nothing;
   - the wait shows the feeding nudge, or the empty card (every fact switched off);
-  - the phone's record couldn't be read (starter-facts.md §3.4). The card shows a fact and nothing else, as now.
+  - the phone's record couldn't be read (starter-facts.md §3.4). The card then shows a fact and nothing else, as now.
 
 ### 3.3 The thanks screen
 
-This is the screen after a sighting is confirmed or a new cat is named: the tick, the cat's name, the points, then *Tell us a bit more (optional)*.
+This is the screen after a sighting is confirmed or a new cat is named: the tick, the cat's name, the points (or *"already counted today"*), any badge celebration, then *Tell us a bit more (optional)*.
 
-**New:** one line straight under the points (or under the badge celebration, if there is one), above the questions:
+**New:** one line between the points and the questions:
 
 > ✦ Your next spot brings a new cat fact.
 
 It's small: body text in the muted colour, with a sparkle icon. It's not a card or a button, and there's nothing to tap.
 
-**When it shows:** on the thanks screen, when at least one switched-on fact is one this phone has never seen. When every fact has been seen, it doesn't show, because the next fact would be a repeat. It comes back when a new fact is switched on.
+- **It appears with the questions,** once any badge celebration has finished. That way the celebration doesn't push it around.
+- **It shows whatever the points say**: points earned, already counted today, or none.
 
-**It counts the fact just shown.** It reads the phone's record **after** the wait that led here has been saved. If the fact on screen during that wait was the last unseen one, the line doesn't show.
+**It shows only when it's true.** That means all of these hold:
 
-**It doesn't show** when the phone's record can't be read, when fewer than 2 facts are switched on, or on the screens where the feeding nudge sits (matches, naming): those screens are unchanged. It shows the same way for a sighting sent earlier from the phone's queue and confirmed later.
+- the phone's record can be read, and the phone has heard from the server at least once;
+- 2 or more facts are switched on;
+- at least one switched-on fact is one this phone has never seen. Because of §3.5, that fact is the one the next wait shows;
+- the next wait won't show the feeding nudge. On a phone whose nudge hasn't been counted yet, the nudge comes first.
+
+If any of these fails, the line doesn't show. For example, it disappears after the wait that showed the last unseen fact. When the team switches on or adds a fact, it comes back.
+
+**The same rule for every thanks screen.** That covers a live send, a spot kept at send (the normal case today), and a spot saved for later and confirmed afterwards. The line always describes the phone's state when the screen opens, not one particular wait.
+
+It doesn't appear on any other screen. The matches, naming, no-cat and couldn't-check screens are unchanged.
 
 ### 3.4 Screen readers, text size, small phones
 
 - The card still announces only *"While we look, a cat fact"* when it appears. Focus stays on the spotter's button.
-- The topic is read as plain text, without the icon. The bar is read as a progress bar with *"Cat fact 3 of 11"*, and the text under it is hidden from screen readers so it isn't read twice. *"All 11 cat facts seen"* is read the same way.
-- The thanks-screen line is plain text, read in order. The icon is hidden from screen readers.
-- **Fit.** The card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. That's the existing rule. The topic adds one line above the fact; the progress sits below it, so it may scroll out of view on a long French fact, which is fine. At the largest text size the screen scrolls, as now.
+- The topic is read as plain text, without the icon.
+- The bar is read as a progress bar whose words are *"Cat fact 3 of 11"* (or *"All 11 cat facts seen"*), not as a percentage. The words under it are hidden from screen readers, so they aren't read twice.
+- The thanks-screen line is plain text, read in order. Its icon is hidden from screen readers.
+- **Fit.** The existing rule stands: the card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. The topic adds one line above the fact. The progress sits below it and may scroll out of view on a long French fact, which is fine. The tallest card is the ear-tip fact with its photo, so the plan must check that one on a real small phone in all three languages. At the largest text size the screen scrolls, as now.
+
+### 3.5 One change to the order: unseen facts first
+
+Today, when a fact is switched on or added after a phone has finished its first round, the fact goes into the round at a random place. That could be many waits away. That would make the thanks-screen line untrue: the next spot might show a repeat.
+
+**New rule:** when choosing a fact, any switched-on fact this phone has never seen comes before a repeat.
+
+- **In the first round nothing changes**, because every fact is unseen. The fixed start (nudge, ear tip, milk) and the shuffle stay as they are.
+- **What changes:** a fact switched on or added later comes up on the next wait. Today it comes up somewhere before the round ends, so with this rule it comes sooner (editable-starter-facts.md §3).
+- **The fact seen last** still never comes straight back.
 
 ---
 
@@ -109,7 +136,7 @@ Greek and French are drafts for Johnny's review (as with SYC-283 / SYC-346). `{n
 | `factProgressDone` | All {total} cat facts seen | Είδες και τα {total} γεγονότα για γάτες | Tu as vu les {total} infos chat |
 | `factNextSpot` | Your next spot brings a new cat fact. | Στην επόμενη παρατήρησή σου, ένα νέο γεγονός για γάτες. | Ta prochaine observation t’apporte une nouvelle info chat. |
 
-The Greek and French words for "spot" follow the app's own: *παρατήρηση*, *observation* (`newSpotTitle`).
+For "spot", the Greek and French follow the app's own words: *παρατήρηση* and *observation* (`newSpotTitle`). The topic keys are numbered by strand, not named after facts.
 
 **Translation files have one owner at a time** (CLAUDE.md). The build brief names the session that owns `lib/i18n.ts` for this work.
 
@@ -119,38 +146,68 @@ The Greek and French words for "spot" follow the app's own: *παρατήρησ�
 
 ### 5.1 Where things live
 
-- **Counting** goes in `lib/waitingCard.ts`, beside the schedule, as pure functions with no React, no storage and no clock:
-  - `factProgress(record, settings, shownId)` returns `{ n, total }`, `{ done: true, total }` or `null` (§3.2).
-  - `hasUnseenFact(record, settings)` returns a boolean (§3.3).
-  
-  Both use `visibleFacts(settings)` so they agree with the schedule about which facts count.
-- **The topic** comes from `factById(id)?.strand` in `lib/starterFacts.ts`. No strand means no topic line.
-- **The waiting card** (`components/WaitingCard.tsx`) gets the progress as a prop, worked out by the spot screen when it chooses the wait (`startWaitingCard` in `app/(tabs)/spot.tsx`), from the record it already loads.
-- **The thanks screen** (`app/review.tsx`, the `if (result)` branch). It reads the phone's record once, when the screen opens, with `loadExistingWaitingRecord`, and decides then. Settings come from the same place `useResultNudge` reads them.
+**Counting and choosing** go in `lib/waitingCard.ts`, as pure functions, with no React, no storage and no clock. All of them work from `visibleFacts(settings)`, never from `FACT_IDS` directly, so they keep working when facts come from the server (SYC-754).
 
-  **Order matters:** the wait's record must be saved (`settleWait`) before the thanks screen reads it. Check whether the current save can still be in flight when the screen opens. If it can, make it wait or pass the settled record across. The "fact just shown" rule (§3.3) depends on it.
+- `chooseForWait` applies §3.5. When finding the next fact, it takes the first entry in `order` that is visible and not in `everSeen`. Only if there's none does it fall back to today's rule (the first not in `seenFacts`, then a new round).
+- `factProgress(record, settings, shownId)` returns `{ n, total }`, `{ done: true, total }` or `null`, as in §3.2.
+- `nextSpotBringsNewFact(record, settings, ctx)` returns a boolean, as in §3.3. It uses the same "is the nudge due" test as `chooseForWait`. Both should share one small helper, so the two can't drift apart.
+
+**The topic** comes from `factById(id)?.strand` in `lib/starterFacts.ts`. No strand means no topic line.
+
+**The waiting card** (`components/WaitingCard.tsx`) gets the progress as a new prop. The spot screen works it out in `startWaitingCard` (`app/(tabs)/spot.tsx`), from the choice and record it already has.
+
+**The thanks screen** (`app/review.tsx`, the `if (result)` branch) gets its answer from `useResultNudge`. Don't add a second read of the phone's record.
+
+- The hook already reads the record once, when /review opens. That's after the wait has been saved, because `settleWait` is awaited before `router.push`, which was checked at `spot.tsx:1025–1035` and `:1084`.
+- The hook returns a new field, `nextSpotBringsNewFact`. It's worked out from the record the hook saves, so a nudge counted on this screen is already taken into account.
+- The hook already treats a spot kept at send as a live send. The new field needs no such distinction, because §3.3 uses one rule for every thanks screen.
+- The thanks screen stays read-only. A second read-and-save could overwrite the hook's save.
+
+**The progress bar.** Using `ProgressBar` as it is with a `label` would print the label and also "3/11", and screen readers would read a percentage. Add two optional props instead:
+
+- `hideValue`, which drops the "3/11";
+- `accessibilityText`, which sets the bar's label and `accessibilityValue.text`.
+
+Other uses of `ProgressBar` (Profile, badges, campaign card) don't pass these props, so they're unchanged.
 
 ### 5.2 What doesn't change
 
-- Which fact a wait shows, the fixed start (nudge, ear tip, milk), the shuffle, the 3-second rule, the feeding nudge and its one-liner (`starter-facts.md` §3, `feeding-nudge.md`).
-- The record's shape. `everSeen` already exists, so no new storage key and no version bump.
+- When the card appears, the fixed start, the shuffle within a round, the 3-second rule, and the feeding nudge with its one-liner (`starter-facts.md` §3, `feeding-nudge.md`). The order changes only as §3.5 says.
+- The record's shape. `everSeen` already exists, so there's no new storage key and no version bump.
 - Nothing is sent to the server.
 
 ### 5.3 Tests that must exist
 
 Pure (`lib/__tests__/waitingCard.test.ts`):
 
-- *1 of 11* on a fresh phone with the 9 sign-off facts hidden; *3 of 11* after two seen.
+- *1 of 11* on a fresh phone with the 9 sign-off facts hidden. *3 of 11* after two seen. A repeat in round 2 doesn't add one. The last unseen fact gives *11 of 11*; the next wait gives *done*.
 - A fact cut short keeps its number on the next wait.
-- A seen fact that's then hidden drops from both the number and the total; shown again, it counts again.
-- Every fact seen gives *done*; adding or showing a new fact brings the count back.
-- Fewer than 2 visible facts, the nudge, the empty card and an unreadable record (null) all give no progress.
-- `hasUnseenFact` is false when everything visible has been seen, true when one is unseen, and false for null or fewer than 2 facts.
+- A seen fact that's then hidden drops from both the number and the total. Shown again, it counts again.
+- No progress when the settings have never loaded, when fewer than 2 facts are visible, for the nudge and the empty card, and for a null record.
+- An id that isn't in `STARTER_FACTS` (a server-added fact) counts in the total and has no strand.
+- §3.5: after a full round, un-hiding a fact makes it the next wait's fact. Round 1 order is unchanged from today, so the existing schedule tests still pass. The fact seen last still never comes straight back.
+- `nextSpotBringsNewFact` is:
+  - true when an unseen fact is visible and the nudge isn't due;
+  - false when the nudge is due, when everything visible has been seen, for a null record, when settings haven't loaded, and with fewer than 2 facts;
+  - false straight after the wait that showed the last unseen fact.
 
 Component:
 
-- `WaitingCard.test.tsx`: topic name per strand; no topic line for an id with no strand; *"Cat fact 3 of 11"*; *"All 11 cat facts seen"*; no progress for the nudge and the empty card; the bar's accessible value and label; the announcement is unchanged.
-- A new `ReviewScreen.nextFact.test.tsx`: the line shows under the points when a fact is unseen; it's absent when all are seen; it's absent when the record is unreadable; it's absent on the matches and naming screens; when the fact just shown was the last unseen one, it's absent.
+- `WaitingCard.test.tsx`:
+  - a topic name per strand, and no topic line for an id with no strand;
+  - *"Cat fact 3 of 11"* and *"All 11 cat facts seen"*;
+  - no progress for the nudge or the empty card;
+  - the bar's accessible label and value text, with the visible words hidden from screen readers;
+  - the announcement is unchanged.
+- `ProgressBar`: `hideValue` drops "3/11", and `accessibilityText` sets the label and value text. Without them it renders as today.
+- A new `ReviewScreen.nextFact.test.tsx`, where the line:
+  - shows on a live send's thanks screen when an unseen fact remains;
+  - shows on a kept-at-send spot (the normal path) and on a spot saved for later;
+  - is absent when everything has been seen, and when the next wait would be the nudge;
+  - is absent when the record can't be read;
+  - is hidden during a badge celebration and appears with the questions;
+  - shows with *"already counted today"* as well as with points.
+- `useResultNudge`: the new field reflects the record after a nudge is counted.
 
 Every new string is in all three languages (the existing i18n completeness test covers this).
 
@@ -160,13 +217,14 @@ Every new string is in all three languages (the existing i18n completeness test 
 
 ### Decision 1 · What the thanks screen says
 
-**My call (Samuel asked for "simple" and didn't pick from the three; change it here if wrong):** A.
+**My call (Samuel asked for "simple" and didn't choose between these; change it here if wrong):** A.
 
 | Option | What the spotter sees | Benefits | Risks |
 |---|---|---|---|
-| **A. One fixed line** *(recommended)* | *"Your next spot brings a new cat fact."* | One new line in three languages. Gives the "spot another" pull at the right moment | The same words every time get ignored after a few spots |
-| B. Tease the actual next fact | *"Next spot: why a cat purrs when it's hurt"* | A stronger pull | A teaser per fact: 60 new lines across three languages, plus a teaser box when the team adds facts (SYC-754). Not simple |
-| C. Nothing | Only the waiting card changes | Simplest | Nothing pulls people to spot again |
+| **A. One fixed line, shown only when true** *(recommended)* | *"Your next spot brings a new cat fact."* | One new line in three languages. It gives the "spot another" pull at the right moment, and it's never false | The same words every time get ignored after a few spots. Needs the small order change in §3.5 to stay true |
+| B. Tease the actual next fact | *"Next spot: why a cat purrs when it's hurt"* | A stronger pull | A teaser for every fact: 60 new lines across three languages, plus a teaser box when the team adds facts (SYC-754). Not simple |
+| C. A looser line | *"Keep spotting to see more cat facts."* | No order change needed | Weaker, and still untrue once every fact has been seen |
+| D. Nothing | Only the waiting card changes | Simplest | Nothing pulls people to spot again |
 
 ### Decision 2 · How progress looks on the card
 
@@ -174,9 +232,9 @@ Every new string is in all three languages (the existing i18n completeness test 
 
 | Option | Looks like | Benefits | Risks |
 |---|---|---|---|
-| **A. Thin bar plus words** *(recommended)* | ▬▬▬▭▭▭▭ *Cat fact 3 of 11* | Uses the existing `ProgressBar`; easy to read at a glance | Two elements in a small card |
+| **A. Bar plus words** *(recommended)* | ▬▬▬▭▭▭▭ *Cat fact 3 of 11* | Uses the existing `ProgressBar`, with two small props added. Easy to read at a glance | Two elements in a small card |
 | B. Words only | *Cat fact 3 of 11* | Smallest | Less feeling of progress |
-| C. A dot per fact | ●●●○○○○○○○○ | Most "collectable" | Twenty dots are tight on a small phone in large text, and the number changes when facts are added |
+| C. A dot per fact | ●●●○○○○○○○○ | The most "collectable" | Twenty dots are tight on a small phone in large text, and the number of dots changes as facts are added |
 
 ### Decision 3 · When every fact has been seen
 
@@ -184,7 +242,7 @@ Every new string is in all three languages (the existing i18n completeness test 
 
 | Option | What it says | Benefits | Risks |
 |---|---|---|---|
-| **A. "All 11 cat facts seen"** *(recommended)* | A full bar and those words, on every wait from then on | A small reward for finishing; honest about repeats | The same words on every wait for heavy spotters |
+| **A. "All 11 cat facts seen"** *(recommended)* | A full bar and those words, on every wait from then on | A small reward for finishing, and honest about repeats | The same words on every wait for heavy spotters |
 | B. Hide the progress | Only the topic and the fact | Quieter | Finishing goes unmarked |
 
 ---
@@ -197,7 +255,7 @@ Nothing here changes how Syros Cats work or what the facts say, so there are no 
 
 ## 8. Dates
 
-- **Post-launch hold, 1–14 November 2026:** this is a new feature, so it's built during the hold only if Samuel says so for it. Otherwise it's built after 14 November.
+- **Post-launch hold, 1–14 November 2026.** This is a new feature, so it's built during the hold only if Samuel says so for it. Otherwise it's built after 14 November.
 - Greek and French wait for Johnny's review, as for the facts themselves.
 
 ---
@@ -207,4 +265,25 @@ Nothing here changes how Syros Cats work or what the facts say, so there are no 
 - A fact chosen to match the cat (Samuel, 27 October). It stays with SYC-61.
 - The facts page in Profile: SYC-773.
 - Teasers for individual facts (Decision 1, B).
-- Any change to which fact appears or when.
+- Any change to when the card appears, or to the order within the first round.
+
+---
+
+## 10. Review
+
+An independent adversarial review (Sonnet, read-only, 27 October 2026) checked this spec against the code. The main points were re-checked by hand. Here is how each finding was handled.
+
+| # | Finding | Severity | Handled |
+|---|---|---|---|
+| 1 | The line can be false. A fact added mid-round lands at a random place, a pending nudge comes first, and a fact cut short repeats | Major | Added the order change (§3.5), the nudge check, and the rule that the line shows only when true (§3.3). A fact cut short counts as unseen, so the next wait does bring it, as the line says |
+| 2 | A second read of the record on the thanks screen could race with, or overwrite, the feeding nudge's save | Major | The answer comes from `useResultNudge`'s single read, and the screen is read-only (§5.1). Timing checked by hand: the wait is saved before /review opens |
+| 3 | Queued and kept-at-send spots: "the fact just shown" doesn't apply, and most live sends carry a local id | Major | One rule for every thanks screen, based on the phone's state when it opens (§3.3). Tests cover kept-at-send and saved-for-later spots |
+| 4 | Count rules: unloaded settings read "of 20"; the formula for the number wasn't stated; "11 of 11" then "done" | Major | No progress until the settings have loaded. Formula stated (§3.2). "11 of 11", then "All 11 seen", chosen |
+| 5 | `ProgressBar` prints "3/11" next to its label, and its screen-reader text was wrong | Minor | Two optional props (§5.1); other uses unchanged |
+| 6 | Screen readers would read the bar as a percentage | Minor | `accessibilityValue.text` set (§3.4, §5.1) |
+| 7 | Placement: the celebration would move the line; there's no points line on a "repeat today" | Minor | The line appears with the questions, under the points or the repeat message (§3.3) |
+| 8 | The ear-tip card is the tallest and wasn't checked on a small phone | Minor | Real small-phone check required in the plan (§3.4) |
+| 9 | Facts from the server (SYC-754) have no topic; counting must not read `FACT_IDS` directly | Minor | All functions work from `visibleFacts`; a test uses an id not in `STARTER_FACTS` (§5.1, §5.3) |
+| 10 | "Unchanged" claims: the hook and the card gain new fields; some planned tests were trivially true | Minor | Stated in §5.1. Tests replaced with ones that can fail (§5.3) |
+
+The builder questions the review raised are all answered above, except for two. The owner of the translation file is named in the build brief. Whether to build during the hold is Samuel's call (§8).
