@@ -45,7 +45,14 @@ describe('while-we-look drawings', () => {
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) expect(svg, `id ${id}`).toContain(`id="${id}"`);
 
-    const body = svg.replace(/<!--[\s\S]*?-->/g, '');
+    // Strip comments until none are left, then refuse an unclosed one, so a
+    // tag can't hide inside a half-written comment.
+    let body = svg;
+    for (let prev = ''; body !== prev; ) {
+      prev = body;
+      body = body.replace(/<!--[\s\S]*?-->/g, '');
+    }
+    expect(body, 'unclosed comment').not.toContain('<!--');
     const tags = [...body.matchAll(/<([a-zA-Z][a-zA-Z0-9]*)/g)].map((m) => m[1]);
     for (const tag of tags) expect(ALLOWED.has(tag), `tag <${tag}>`).toBe(true);
   });
