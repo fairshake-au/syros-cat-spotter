@@ -272,7 +272,8 @@ describe("the bell (plan C5; D4, D10)", () => {
       read: false,
       createdAt: expect.any(String),
     });
-    expect(news).toMatchObject({ kind: "cat" });
+    // Cat news is byte-for-byte what it was (publicPayload.p6): no kind on it.
+    expect(news).not.toHaveProperty("kind");
     // The oldest app's own schema reads every row.
     const parsed = ListNotificationsResponse.safeParse(res.body);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);

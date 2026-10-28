@@ -7,7 +7,7 @@
  */
 
 /**
- * What the entry is. Added with merging two records of the same cat (SYC-59); an older server omits it, so the app treats a missing kind as cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don't know them show message, as for a weekly result.
+ * What the entry is, sent only on the kinds that have no cat of their own: merged and duplicate_points (SYC-59). Cat news and weekly results leave it out, so a missing kind is cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don't know them show message, as for a weekly result.
  */
 export type AppNotificationKind = typeof AppNotificationKind[keyof typeof AppNotificationKind];
 
