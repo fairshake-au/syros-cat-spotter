@@ -10,7 +10,7 @@ vi.mock("../lib/push", () => ({ sendPushNotification: vi.fn().mockResolvedValue(
 
 import app from "../app";
 import { daysAgo, moveKit, tag } from "../test/moveKit";
-import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
+import { guardianOn, newColony, putInColony, signedPerson, type Signed } from "../test/roleKit";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { escapeHtml as esc } from "../lib/teamPages/escape";
 import { teamCatView } from "../lib/teamCatView";
@@ -129,6 +129,35 @@ describe("Mimi's own page once she is part of Agatha", () => {
     const c = await pair();
     await merge(c.mimi, c.agatha);
     expect((await get(`/api/team/cats/${c.mimi}`, guardian.cookie)).status).toBe(403);
+  });
+
+  it("a cat guardian of the colony holding the cats gets 403 on both pages and on every merge and undo screen and form", async () => {
+    const c = await pair();
+    const colony = await newColony("awhold");
+    await putInColony(c.agatha, colony);
+    await putInColony(c.mimi, colony);
+    const holder = await guardianOn(`awholder${tag()}`, [colony]);
+    const m = await merge(c.mimi, c.agatha);
+    expect(m.status).toBe(200);
+    try {
+      for (const url of [
+        `/api/team/cats/${c.agatha}`,
+        `/api/team/cats/${c.mimi}`,
+        `/api/team/cats/merge?a=${c.agatha}&b=${c.mimi}`,
+        `/api/team/cats/merge?a=${c.agatha}`,
+        `/api/team/cats/merge/${m.body.mergeId}/undo`,
+      ]) {
+        expect((await get(url, holder.cookie)).status, url).toBe(403);
+      }
+      const form = (path: string, body: Record<string, string>) =>
+        request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", holder.cookie).type("form").send(body);
+      expect((await form("/api/team/cats/merge/form", { a: String(c.agatha), b: String(c.mimi), survivor: String(c.agatha), n0: "1", n1: "0", reasonText: "x" })).status).toBe(403);
+      expect((await form(`/api/team/cats/merge/${m.body.mergeId}/undo/form`, { reasonText: "x" })).status).toBe(403);
+      // Nothing changed: Mimi is still part of Agatha.
+      expect((await get(`/api/team/cats/${c.mimi}`)).text).toContain("was merged into");
+    } finally {
+      await markLeft(holder.email, "cli:vitest");
+    }
   });
 
   it("Agatha's page is still Agatha's, with the sightings and the forms", async () => {
