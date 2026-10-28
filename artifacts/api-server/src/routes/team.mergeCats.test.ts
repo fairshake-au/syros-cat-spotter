@@ -177,7 +177,12 @@ describe("spec test 14: the survivor equals one cat holding both records", () =>
     const body = (await request(app).get(`/api/cats/${catId}`)).body;
     const { sightingsCount, lastSeenAt, lifeStatus, notSeenSince, sterilised, hasHome } = body.cat;
     const derived = (await deriveCatStatuses([{ id: catId, ownerDeviceId: null }])).get(catId)!;
-    return { sightingsCount, lastSeenAt, lifeStatus, notSeenSince, sterilised, hasHome, derivedSterilised: derived.sterilised, derivedLife: derived.lifeStatus };
+    // How many statements of each kind stand behind the record: a merge that
+    // copied statements would count each of Mimi's twice.
+    const records = (await loadCatRecords([catId])).get(catId)!.observations.filter((o) => !("elsewhere" in o && o.elsewhere));
+    const statements: Record<string, number> = {};
+    for (const o of records) statements[o.kind] = (statements[o.kind] ?? 0) + 1;
+    return { sightingsCount, lastSeenAt, lifeStatus, notSeenSince, sterilised, hasHome, derivedSterilised: derived.sterilised, derivedLife: derived.lifeStatus, statements };
   };
 
   it("sterilised, life status, last seen and sightings match; Mimi is gone from the list, the pool and the count; her page opens Agatha", async () => {
