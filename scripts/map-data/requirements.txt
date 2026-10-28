@@ -1,2 +1,5 @@
 pytest==9.1.1
 osmium==4.3.2
+shapely==2.2.0
+mapbox-vector-tile==2.2.0
+pmtiles==3.8.1

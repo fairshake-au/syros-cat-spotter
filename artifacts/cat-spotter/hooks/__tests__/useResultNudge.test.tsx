@@ -29,6 +29,7 @@ vi.mock('@/context/AppSettingsContext', () => ({
 import { useResultNudge } from '../useResultNudge';
 import { emptyRecord, type WaitingRecord } from '@/lib/waitingCard';
 import { waitingCardKey } from '@/lib/waitingCardStore';
+import { FACT_IDS } from '@/lib/starterFacts';
 
 const KEY = waitingCardKey('dev-a');
 const record = (): WaitingRecord => JSON.parse(h.storage.get(KEY)!);
@@ -151,5 +152,68 @@ describe('useResultNudge', () => {
     expect(result.current.show).toBeNull();
     expect(record().tapped).toBe(false);
     expect(h.openURL).not.toHaveBeenCalled();
+  });
+
+  // SYC-772 spec §3.3 / §5.1: the thanks-screen line, from the same single read.
+  describe('nextSpotBringsNewFact', () => {
+    const counted = { nudgeCounted: true, nudgeCountedDay: '2026-01-01' };
+
+    it('starts false', () => {
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: null, screen: 'matches' }));
+      expect(result.current.nextSpotBringsNewFact).toBe(false);
+    });
+
+    it('is true when a fact is still unseen', async () => {
+      put({ ...emptyRecord(), ...counted, everSeen: [FACT_IDS[0]!] });
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      await waitFor(() => expect(result.current.nextSpotBringsNewFact).toBe(true));
+    });
+
+    it('reflects the record after the nudge is counted (was due, now is not)', async () => {
+      put({ ...emptyRecord(), pendingResult: { sightingId: 5, nudge: 'link', countable: true } });
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      await waitFor(() => expect(result.current.nextSpotBringsNewFact).toBe(true));
+      expect(record().nudgeCounted).toBe(true);
+    });
+
+    it('is false when the next wait would be the nudge', async () => {
+      // Nothing pending, nudge never counted: the nudge is still due.
+      put({ ...emptyRecord() });
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      await new Promise((res) => setTimeout(res, 20));
+      expect(result.current.nextSpotBringsNewFact).toBe(false);
+    });
+
+    it('is false when everything has been seen', async () => {
+      put({ ...emptyRecord(), ...counted, everSeen: [...FACT_IDS] });
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      await new Promise((res) => setTimeout(res, 20));
+      expect(result.current.show).toBeNull();
+      expect(result.current.nextSpotBringsNewFact).toBe(false);
+    });
+
+    it('is false when the record can\'t be read', async () => {
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      await new Promise((res) => setTimeout(res, 20));
+      expect(result.current.nextSpotBringsNewFact).toBe(false);
+    });
+
+    it('gives the same answer for a spot kept at send and one saved for later as for a live send', async () => {
+      put({ ...emptyRecord(), ...counted, everSeen: [FACT_IDS[0]!] });
+      const live = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, screen: 'matches' }));
+      const kept = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, localId: 'q1', keptAtSend: true, screen: 'matches' }));
+      const later = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, localId: 'q2', screen: 'matches' }));
+      await waitFor(() => expect(live.result.current.nextSpotBringsNewFact).toBe(true));
+      await waitFor(() => expect(kept.result.current.nextSpotBringsNewFact).toBe(true));
+      await waitFor(() => expect(later.result.current.nextSpotBringsNewFact).toBe(true));
+    });
+
+    it('reads the record once and saves nothing extra', async () => {
+      const r = { ...emptyRecord(), ...counted, everSeen: [FACT_IDS[0]!] };
+      put(r);
+      const { result } = renderHook(() => useResultNudge({ deviceId: 'dev-a', sightingId: 5, localId: 'q2', screen: 'matches' }));
+      await waitFor(() => expect(result.current.nextSpotBringsNewFact).toBe(true));
+      expect(record()).toEqual(r);
+    });
   });
 });
