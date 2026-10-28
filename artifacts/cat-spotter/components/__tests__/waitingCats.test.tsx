@@ -32,7 +32,7 @@ const pictures: Array<[string, string, () => React.ReactElement]> = [
 
 /** Every layer element of a rendered picture, with its parsed style. */
 const layers = (root: HTMLElement) =>
-  [...root.querySelectorAll('[data-style]')].map((el) => ({ el, style: readStyle(el) }));
+  Array.from(root.querySelectorAll("[data-style]")).map((el) => ({ el, style: readStyle(el) }));
 
 beforeEach(() => {
   motion.reduced = false;
