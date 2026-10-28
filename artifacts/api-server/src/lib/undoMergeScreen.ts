@@ -97,9 +97,6 @@ export async function loadUndoScreen(_person: CapabilityHolder, mergeId: number)
     };
   }
 
-  const detail = await db.execute<{ created_at: Date | string; reason_text: string | null }>(sql`
-    select created_at, reason_text from cat_identity where id = ${mergeId}`);
-
   // Mimi's sightings still where the merge put them: they go back.
   const own = await ownMoves(db, merge);
 
@@ -189,7 +186,7 @@ export async function loadUndoScreen(_person: CapabilityHolder, mergeId: number)
       mergeId,
       mimi,
       agatha,
-      merged: { at: new Date(detail.rows[0]?.created_at ?? merge.createdAt).toISOString(), reasonText: detail.rows[0]?.reason_text ?? null },
+      merged: { at: merge.createdAt.toISOString(), reasonText: merge.reasonText },
       goesBack,
       tickable: tickable.slice(0, TICKABLE_SHOWN),
       willDo,

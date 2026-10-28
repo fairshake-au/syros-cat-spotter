@@ -15,8 +15,8 @@ import {
   type Observation,
   type SightingPhotoRole,
 } from "@workspace/db";
-import { and, asc, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
-import { alsoKnownAs, liveCats } from "./catIdentity";
+import { and, asc, desc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
+import { alsoKnownAs, liveCats, mergeEventRows } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -972,38 +972,18 @@ async function sightingMovesOf(catId: number): Promise<TeamSightingMove[]> {
   });
 }
 
+
 /**
  * The merges this cat is part of, as the survivor or the cat merged away, and
- * their undos, oldest first (which-cat-is-which.md §4.3; SYC-59 PR 4.2). One
- * query for the rows, one for the cats' names, one for who did them. An undo
- * row names no other cat of its own, so it is read through the merge it
- * supersedes.
+ * their undos, oldest first (which-cat-is-which.md §4.3; SYC-59 PR 4.2). The
+ * rows are lib/catIdentity.ts's (`mergeEventRows`, the one reader of merges);
+ * here they get the other cat's name and who did them.
  */
 export async function mergeEventsOf(catId: number): Promise<TeamMergeEvent[]> {
-  const r = await db.execute<{
-    id: number;
-    created_at: Date | string;
-    reason_text: string | null;
-    by_account_id: string | null;
-    supersedes_id: number | null;
-    mimi: number;
-    agatha: number;
-    n: number;
-    undone: boolean;
-  }>(sql`
-    select ci.id, ci.created_at, ci.reason_text, ci.by_account_id, ci.supersedes_id,
-           coalesce(sup.cat_id, ci.cat_id) as mimi,
-           coalesce(sup.canonical_cat_id, ci.canonical_cat_id) as agatha,
-           (select count(*)::int from sighting_moves m where m.merge_id = ci.id) as n,
-           exists (select 1 from cat_identity u where u.supersedes_id = ci.id and u.cat_id = ci.cat_id) as undone
-      from cat_identity ci
-      left join cat_identity sup on sup.id = ci.supersedes_id
-     where coalesce(sup.canonical_cat_id, ci.canonical_cat_id) <> coalesce(sup.cat_id, ci.cat_id)
-       and (coalesce(sup.cat_id, ci.cat_id) = ${catId} or coalesce(sup.canonical_cat_id, ci.canonical_cat_id) = ${catId})
-     order by ci.id`);
-  if (r.rows.length === 0) return [];
-  const otherIds = [...new Set(r.rows.map((row) => (Number(row.mimi) === catId ? Number(row.agatha) : Number(row.mimi))))];
-  const byIds = [...new Set(r.rows.map((row) => row.by_account_id).filter((a): a is string => a !== null && isPersonId(a)))];
+  const rows = await mergeEventRows(catId);
+  if (rows.length === 0) return [];
+  const otherIds = [...new Set(rows.map((row) => (row.mergedCatId === catId ? row.survivorCatId : row.mergedCatId)))];
+  const byIds = [...new Set(rows.map((row) => row.byAccountId).filter((a): a is string => a !== null && isPersonId(a)))];
   const [others, people] = await Promise.all([
     db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, otherIds)),
     byIds.length === 0
@@ -1012,21 +992,21 @@ export async function mergeEventsOf(catId: number): Promise<TeamMergeEvent[]> {
   ]);
   const nameOf = new Map(others.map((c) => [c.id, c.name]));
   const personOf = new Map(people.map((p) => [p.id, { name: p.name, left: p.leftAt !== null }]));
-  return r.rows.map((row) => {
-    const role = Number(row.mimi) === catId ? ("merged" as const) : ("survivor" as const);
-    const otherId = role === "merged" ? Number(row.agatha) : Number(row.mimi);
-    const isUndo = row.supersedes_id !== null;
+  return rows.map((row) => {
+    const role = row.mergedCatId === catId ? ("merged" as const) : ("survivor" as const);
+    const otherId = role === "merged" ? row.survivorCatId : row.mergedCatId;
+    const isUndo = row.supersedesId !== null;
     return {
-      id: Number(row.id),
+      id: row.id,
       kind: isUndo ? ("undone" as const) : ("merged" as const),
-      mergeId: isUndo ? Number(row.supersedes_id) : Number(row.id),
-      at: new Date(row.created_at).toISOString(),
+      mergeId: isUndo ? row.supersedesId! : row.id,
+      at: row.createdAt.toISOString(),
       role,
       otherCat: { id: otherId, syr: syrNumber(otherId), name: nameOf.get(otherId) ?? syrNumber(otherId) },
-      by: row.by_account_id ? (personOf.get(row.by_account_id) ?? null) : null,
-      reasonText: row.reason_text,
+      by: row.byAccountId ? (personOf.get(row.byAccountId) ?? null) : null,
+      reasonText: row.reasonText,
       standing: !isUndo && !row.undone,
-      sightings: Number(row.n),
+      sightings: row.moved,
     } satisfies TeamMergeEvent;
   });
 }

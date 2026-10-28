@@ -129,7 +129,14 @@ describe("who may open the screen and merge (D5)", () => {
 
 describe("the screen: choosing the other cat (\"Same cat as…\")", () => {
   it("opened from one cat it asks which cat it is the same as, nearest first, never the cat itself, with numbers-only links", async () => {
-    const c = await pair();
+    // Every test's cats sit at one spot, and the list shows the eight nearest, so these two are set far from all of them.
+    const far = { lat: 37.5301, lng: 24.8301 };
+    const c = { agatha: await kit.cat(daysAgo(60)), mimi: await kit.cat(daysAgo(40)) };
+    await db.update(catsTable).set({ lat: far.lat + 0.001, lng: far.lng }).where(eq(catsTable.id, c.agatha));
+    await db.insert(sightingsTable).values([
+      { catId: c.mimi, deviceId: kit.device(), photoId: await kit.photo(), ...far, status: "resolved", createdAt: daysAgo(20) },
+      { catId: c.mimi, deviceId: kit.device(), photoId: await kit.photo(), ...far, status: "resolved", createdAt: daysAgo(4) },
+    ]);
     const res = await get(screen(c.mimi));
     expect(res.status).toBe(200);
     const m = await catRow(c.mimi);

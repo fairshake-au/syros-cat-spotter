@@ -911,9 +911,15 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
       const html = (await page(a.id)).text;
       expect(html).not.toContain("owner deleted their data");
       expect(html).not.toContain(`/api/team/cats/${a.id}/remove-owner"`);
-      // The merged-in cat's own page is where the claim is ended.
+      // The merged-in cat's own view still holds the claim…
       expect((await teamCatView(b.id, new Date(), staff))!.owner.orphanedHome).toBe(true);
-      expect((await page(b.id)).text).toContain(`/api/team/cats/${b.id}/remove-owner"`);
+      // …and its own page (SYC-59 PR 4.2) says it was merged into A. It draws no write form: every
+      // team correction acts on the cat a cat is part of now (`catOf`), so Remove owner posted from
+      // here would look for the owner on A and find none. (A claim on a merged-away cat is data from
+      // before the merge route refused it, OWNER_MUST_STAY; it is ended by undoing the merge.)
+      const merged = (await page(b.id)).text;
+      expect(merged).toContain("was merged into");
+      expect(merged).not.toContain(`/api/team/cats/${b.id}/remove-owner"`);
     } finally {
       // cat_identity is append-only: undo the merge (a row that supersedes it, and its moves back).
       await recordedUndo(mergeId);
