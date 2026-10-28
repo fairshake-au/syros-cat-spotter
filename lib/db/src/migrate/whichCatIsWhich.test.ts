@@ -3,7 +3,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { defaultMigrationsFolder, migrateUp, readMigrations } from "./runner";
 
-// SYC-150 PR 2.1 (migration 0053; which-cat-is-which.md §9.1, §9.2, §9.4,
+// SYC-150 PR 2.1 (migration 0054; which-cat-is-which.md §9.1, §9.2, §9.4,
 // §9.6, §9.8; spec test 1 and the database half of 16a). A sighting's cat
 // changes only with a move or a merge recorded in the same transaction and
 // named by its transaction-local setting. No resolved sighting is ever filed
