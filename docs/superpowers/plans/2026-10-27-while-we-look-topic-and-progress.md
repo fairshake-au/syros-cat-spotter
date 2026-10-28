@@ -107,29 +107,82 @@ Rule for `nextSpotBringsNewFact`: true only when all of these hold:
 
 - [ ] **Step 1: Write the failing tests.** Use a `settings(hidden = SIGN_OFF_9)` helper that returns `{ loaded: true, linkOn: true, hiddenFacts: hidden, extraPhotosOn: false }`. `SIGN_OFF_9` is the 9 ids from `lib/db/src/appSettings/shape.ts` `SIGN_OFF_FACT_IDS`, copied into the test.
 
+`VISIBLE_11` is the 11 ids left when `SIGN_OFF_9` is hidden. `rec(everSeen)` is `{ ...emptyRecord(), everSeen }`. `fact(id)` is `{ kind: 'fact', id }`.
+
 ```ts
 describe('factProgress', () => {
   it('first fact on a fresh phone reads 1 of 11 and walks from 0', () => {
-    expect(factProgress(emptyRecord(), settings(), { kind: 'fact', id: 'fact.milk' }))
+    expect(factProgress(emptyRecord(), settings(), fact('fact.milk')))
       .toEqual({ kind: 'count', n: 1, total: 11, walkFrom: 0 });
   });
-  it('3 of 11 after two seen', () => { /* everSeen: milk, litters; shown: hiss → n 3, walkFrom 2 */ });
-  it('the last unseen fact reads 11 of 11; with all seen, a repeat reads done', () => { /* … */ });
-  it('a seen fact that is now hidden counts in neither number nor total', () => { /* everSeen has fact.earTip (hidden) → total 11, not counted */ });
-  it('the total is always visibleFacts(settings).length', () => { /* with 0, 9 and 18 hidden */ });
-  it('null for: record null, settings not loaded, nudge, empty, fewer than 2 visible', () => { /* five expects */ });
+  it('3 of 11 after two seen', () => {
+    expect(factProgress(rec(['fact.milk', 'fact.litters']), settings(), fact('fact.hiss')))
+      .toEqual({ kind: 'count', n: 3, total: 11, walkFrom: 2 });
+  });
+  it('a fact cut short (not in everSeen) keeps its number next wait', () => {
+    const r = rec(['fact.milk', 'fact.litters']);
+    expect(factProgress(r, settings(), fact('fact.hiss'))).toEqual(factProgress(r, settings(), fact('fact.hiss')));
+  });
+  it('the last unseen fact reads 11 of 11', () => {
+    const tenSeen = VISIBLE_11.filter((id) => id !== 'fact.purr');
+    expect(factProgress(rec(tenSeen), settings(), fact('fact.purr')))
+      .toEqual({ kind: 'count', n: 11, total: 11, walkFrom: 10 });
+  });
+  it('with all seen, a round-2 repeat reads done and adds nothing', () => {
+    expect(factProgress(rec(VISIBLE_11), settings(), fact('fact.milk'))).toEqual({ kind: 'done', total: 11 });
+  });
+  it('a seen fact that is now hidden counts in neither number nor total', () => {
+    expect(factProgress(rec(['fact.earTip', 'fact.milk']), settings(), fact('fact.hiss')))
+      .toEqual({ kind: 'count', n: 2, total: 11, walkFrom: 1 });
+  });
+  it('a hidden seen fact shown again counts again', () => {
+    expect(factProgress(rec(['fact.earTip', 'fact.milk']), settings(SIGN_OFF_9.filter((i) => i !== 'fact.earTip')), fact('fact.hiss')))
+      .toEqual({ kind: 'count', n: 3, total: 12, walkFrom: 2 });
+  });
+  it('the total is always visibleFacts(settings).length', () => {
+    for (const hidden of [[], SIGN_OFF_9, FACT_IDS.slice(0, 18)]) {
+      const p = factProgress(emptyRecord(), settings(hidden), fact(visibleFacts(settings(hidden))[0]!));
+      expect(p && p.total).toBe(visibleFacts(settings(hidden)).length);
+    }
+  });
+  it('null for: record null, settings not loaded, nudge, empty, fewer than 2 visible', () => {
+    expect(factProgress(null, settings(), fact('fact.milk'))).toBeNull();
+    expect(factProgress(emptyRecord(), { ...settings(), loaded: false }, fact('fact.milk'))).toBeNull();
+    expect(factProgress(emptyRecord(), settings(), { kind: 'nudge', form: 'link', countable: true })).toBeNull();
+    expect(factProgress(emptyRecord(), settings(), { kind: 'empty' })).toBeNull();
+    expect(factProgress(emptyRecord(), settings(FACT_IDS.slice(1)), fact(FACT_IDS[0]!))).toBeNull();
+  });
 });
+const CTX = { nudgeEnabled: true, signedInRole: null } as const;
+const counted = (everSeen: string[]) => ({ ...rec(everSeen), nudgeCounted: true });
 describe('nextSpotBringsNewFact', () => {
-  it('true with an unseen visible fact and the nudge counted', () => {});
-  it('false when the nudge is due', () => {});
-  it('false when everything visible is in everSeen', () => {});
-  it('false for null record, settings not loaded, fewer than 2 visible', () => {});
-  it('false right after settleWait marks the last unseen fact seen', () => {});
+  it('true with an unseen visible fact and the nudge counted', () => {
+    expect(nextSpotBringsNewFact(counted(['fact.milk']), settings(), CTX)).toBe(true);
+  });
+  it('false when the nudge is due', () => {
+    expect(nextSpotBringsNewFact(rec(['fact.milk']), settings(), CTX)).toBe(false);
+  });
+  it('false when everything visible is in everSeen', () => {
+    expect(nextSpotBringsNewFact(counted(VISIBLE_11), settings(), CTX)).toBe(false);
+  });
+  it('false for null record, settings not loaded, fewer than 2 visible', () => {
+    expect(nextSpotBringsNewFact(null, settings(), CTX)).toBe(false);
+    expect(nextSpotBringsNewFact(counted([]), { ...settings(), loaded: false }, CTX)).toBe(false);
+    expect(nextSpotBringsNewFact(counted([]), settings(FACT_IDS.slice(1)), CTX)).toBe(false);
+  });
+  it('false right after settleWait marks the last unseen fact seen', () => {
+    const before = counted(VISIBLE_11.filter((id) => id !== 'fact.purr'));
+    const after = settleWait(before, fact('fact.purr'), { kind: 'result', sightingId: 7 }, 3000);
+    expect(nextSpotBringsNewFact(after, settings(), CTX)).toBe(false);
+  });
 });
 describe('chooseForWait: unseen first', () => {
-  it('after a full round, un-hiding a fact makes it the next wait\'s fact', () => {});
-  it('round 1 order is unchanged (existing schedule tests still pass)', () => {});
-  it('never repeats lastFactId first in a new round', () => {});
+  it('after a full round, un-hiding a fact makes it the next wait\'s fact', () => {
+    // all 11 seen and a round in progress (seenFacts partial); then fact.colonyFemales is un-hidden
+    // → choice.id === 'fact.colonyFemales'
+  });
+  it('round 1 order is unchanged: the existing schedule tests pass untouched', () => {});
+  it('never puts lastFactId first in a new round', () => {});
 });
 ```
 
@@ -191,7 +244,7 @@ expect(catPosition(3, 0, 330, 36)).toBe(0);
   - with `accessibilityText="Cat fact 3 of 11"`, the progressbar element has that label, and its value text is that string.
 - [ ] **Step 2:** Run it. Expected: the two new cases FAIL.
 - [ ] **Step 3:** Implement the two props.
-- [ ] **Step 4:** Run `ProgressBar.test.tsx` and `components/__tests__/ProfileScreen.test.tsx` (which already uses the bar). Expected: PASS.
+- [ ] **Step 4:** Run `ProgressBar.test.tsx`, plus the full components folder (`pnpm exec vitest run components`), to catch any real user of the bar. `ProfileScreen.test.tsx` mocks `ProgressBar`, so it proves nothing on its own. Expected: PASS.
 - [ ] **Step 5: Commit** with the message "SYC-772: ProgressBar hideValue and accessibilityText".
 
 ---
@@ -202,8 +255,8 @@ expect(catPosition(3, 0, 330, 36)).toBe(0);
 - Modify: `artifacts/cat-spotter/lib/i18n.ts` (en, el and fr blocks, next to `waitingFactA11yLabel`)
 - Test: the existing `artifacts/cat-spotter/lib/__tests__/i18n.test.ts` (completeness)
 
-- [ ] **Step 1:** Add the 9 keys from spec §4 in all three languages, verbatim, with a comment: `// SYC-772: topic names, progress and the next-fact line. Greek and French are drafts for Johnny.`
-- [ ] **Step 2:** Run `pnpm exec vitest run lib/__tests__/i18n.test.ts`. Expected: PASS (every key in all three languages).
+- [ ] **Step 1:** Add the 9 keys to the `en` block only. Run `pnpm exec vitest run lib/__tests__/i18n.test.ts`. Expected: FAIL (the keys are missing in el and fr). This proves the completeness test sees them.
+- [ ] **Step 2:** Add the `el` and `fr` keys from spec §4, verbatim, with a comment: `// SYC-772: topic names, progress and the next-fact line. Greek and French are drafts for Johnny.` Run it again. Expected: PASS.
 - [ ] **Step 3: Commit** with the message "SYC-772: words for topics, progress and the next-fact line".
 
 ---
@@ -222,22 +275,32 @@ expect(catPosition(3, 0, 330, 36)).toBe(0);
 **Interfaces:**
 - Produces:
   - `motion.ts`: `export function pivot(px: number, py: number, op: string): string`, which returns `translate(px py) ${op} translate(-px -py)`. This applies if Task 1 chose A; if it chose B, use the equivalent style transform.
-  - `motion.ts`: `export function useLoop(periodMs: number, opts?: { stopAfterMs?: number }): SharedValue<number>`. It runs 0→1→0 repeatedly with easing and stops at 0 after `stopAfterMs` (default **5000**). It never starts under `useReducedMotion()`, and calls `cancelAnimation` on unmount.
+  - `motion.ts`: `export function useLoop(periodMs: number, opts?: { stopAfterMs?: number }): SharedValue<number>`.
+    - It runs 0→1→0 repeatedly with easing (`withRepeat`).
+    - After `stopAfterMs` (default **5000**, timed with a JS `setTimeout`, so fake timers drive it), it calls `cancelAnimation`, then `withTiming(0, { duration: 300 })`, so the part settles in its resting pose instead of freezing mid-swing.
+    - It never starts under `useReducedMotion()`.
+    - On unmount it clears the timer and calls `cancelAnimation`.
   - `export function TopicCat(props: { strand: 1 | 2 | 3 | 4 | 5 | 6; size?: number }): JSX.Element`. Default size 48. It draws the matching cat on the light plate and is hidden from screen readers (Global Constraints). Each topic component takes `{ size: number }`.
   - `export function WalkingCat(props: { height?: number }): JSX.Element`, default height 24.
   - `export function SleepingCat(props: { height?: number }): JSX.Element`, default height 24.
   - `export const WALKING_CAT_ASPECT = 48 / 35` (from the viewBox `0 -3 48 35`).
+  - `export const SLEEPING_CAT_ASPECT = 48 / 32` (from the viewBox `0 0 48 32`).
 
 - [ ] **Step 1: Write the failing drawings check.** For each `.svg` in the folder:
   - parse the `viewBox`; it must equal `0 0 160 160` for `topic-*`, `0 -3 48 35` for `progress-walking-cat`, and `0 0 48 32` for `progress-sleeping-cat`;
-  - read the ids before each `:` in the comment's `Moving parts:` line (split on `|` and `,`) and assert each one exists as `id="…"`;
+  - take the text after `Moving parts:` up to the end of that line. Split it on `|`. In each piece, take the text before the first `:`, split that on `,`, and trim; those are the ids. Assert each one exists as `id="…"`. For example, `legs-a, legs-b: skewX…` gives `legs-a` and `legs-b`. This rule was checked against all eight current files and finds every id;
   - every tag name is in the allowed list.
 - [ ] **Step 2:** Run it. Expected: PASS against the current files. Then prove it can fail: temporarily change one file's `id="tail"`, see it FAIL, and revert the change.
-- [ ] **Step 3: Write the failing component tests.** Mock `react-native-svg` and `react-native-reanimated` as `BadgeCelebration.test.tsx` does, adding `useSharedValue`, `withRepeat`, `withTiming`, `cancelAnimation` and `useAnimatedProps` mocks.
+- [ ] **Step 3: Write the failing component tests.** Mock `react-native-svg` and `react-native-reanimated` in the style of `BadgeCelebration.test.tsx`, but with more in each.
+  - **svg mock:** `default` (Svg), `G`, `Path`, `Ellipse`, `Circle`, `Rect`, `Polygon`, `Line`, each rendering a `span` that passes on `testID` and `aria-hidden`.
+  - **reanimated mock:** `default` with `createAnimatedComponent: (C) => C` and `View`; plus `useReducedMotion`, `useSharedValue` (returns `{ value }`), `withRepeat`, `withTiming`, `withSequence`, `withDelay`, `cancelAnimation`, `useAnimatedProps`, `useAnimatedStyle` and `Easing` (`{ inOut: (f) => f, ease: (t) => t, linear: (t) => t }`).
+
+  Put the mocks in one shared helper, `components/__tests__/helpers/waitingCatsMocks.ts`, so Tasks 7–8 reuse it.
   - `TopicCat` renders a distinct `testID` for each strand 1–6 (`topic-cat-1` … `topic-cat-6`);
   - it's hidden from screen readers (`aria-hidden` / `accessibilityElementsHidden`);
   - with reduced motion, `withRepeat` is never called;
-  - with fake timers, `cancelAnimation` is called after 5100 ms, and again on unmount (Review Focus 1 and 4).
+  - with fake timers, after 5100 ms `cancelAnimation` has been called, and the last `withTiming` call targeted 0, so the part returns to rest (Review Focus 1);
+  - unmounting before 5000 ms clears the timer and calls `cancelAnimation` (Review Focus 4).
 - [ ] **Step 4:** Run it. Expected: FAIL (the modules are missing).
 - [ ] **Step 5:** Implement `motion.ts` and the eight components. Port each SVG shape for shape, keep its ids as component names or comments, and apply the motion and pivots from the file's `Moving parts` comment, using Task 1's method.
 - [ ] **Step 6:** Run both test files. Expected: PASS.
@@ -256,19 +319,22 @@ expect(catPosition(3, 0, 330, 36)).toBe(0);
 - Produces: `export function FactProgressBar(props: { progress: FactProgress; t: (key: string) => string }): JSX.Element`.
 
 Behaviour:
+- **The words:** `t('factProgress').replace('{n}', String(n)).replace('{total}', String(total))`, or `t('factProgressDone').replace('{total}', …)` for `done`. This is the same substitution style `review.tsx` uses for `{name}`.
 - A `View` with `onLayout` measures the bar's width. It renders:
-  - `ProgressBar` with `value = kind === 'done' ? total : n`, `max = total`, `hideValue`, and `accessibilityText` set to the progress words;
+  - `ProgressBar` with `max = total`, `hideValue`, no `label`, and `accessibilityText` set to the words;
   - the visible words under it, hidden from screen readers.
+- **Before the width is known,** `ProgressBar`'s `value` is `walkFrom` (or `total` for `done`), so there's no flash of the end state. After layout it becomes `n`.
 - **The walk:**
-  - an absolutely placed cover over the fill, in the bar's track colour (read it from `ProgressBar.tsx`), runs from the `walkFrom` position to the `n` position and shrinks to zero width over **1000 ms**;
-  - at the same time, `WalkingCat` moves from `catPosition(walkFrom, …)` to `catPosition(n, …)`;
+  - an absolutely placed cover hides the fill between the `walkFrom` and `n` positions and shrinks to zero width over **1000 ms**. It uses the bar's track colour (`colors.muted`), the track's height and pill radius (`radii.pill`), and `top: 0`. Those match `ProgressBar`'s track only because no `label` is passed;
+  - at the same time, `WalkingCat` moves from `catPosition(walkFrom, …)` to `catPosition(n, …)`, with `catWidth = 24 * WALKING_CAT_ASPECT`;
   - with reduced motion there's no cover, and the cat is placed straight at `n`.
-- **`done`:** a `SleepingCat` at `catPosition(total, …)` and no walking cat.
+- **`done`:** a `SleepingCat` at `catPosition(total, total, width, 24 * SLEEPING_CAT_ASPECT)`, and no walking cat.
 
 - [ ] **Step 1: Write the failing tests:**
   - "Cat fact 3 of 11" visible, and the bar's accessible label equals it;
   - "All 11 cat facts seen" plus `testID="sleeping-cat"`, and no walking cat, for `done`;
-  - after a layout event of width 330, the walking cat's final `left` equals `catPosition(3, 11, 330, 24 * WALKING_CAT_ASPECT)`;
+  - after a layout event of width 330, the first `withTiming` targets for the cat start at `catPosition(2, 11, 330, 24 * WALKING_CAT_ASPECT)` and end at `catPosition(3, 11, …)`, and the cover goes from the 2/11 width to 0. jsdom doesn't fire `onLayout` by itself, so stub `ResizeObserver` as `components/__tests__/BannerStack.test.tsx` (around line 82) does, or call the `onLayout` prop directly;
+  - before layout, `ProgressBar` gets `value` 2 (the walk's start), not 3;
   - with reduced motion, no `withTiming` is called for the walk;
   - unmount during the walk calls `cancelAnimation` (Review Focus 4).
 - [ ] **Step 2:** Run it. Expected: FAIL.
@@ -293,9 +359,14 @@ Behaviour:
 - **Fact choice:**
   - between the eyebrow and the photo, a topic row: `TopicCat` with `factById(id)?.strand`, then `t('factTopic' + strand)` with `flex: 1` and wrapping. No row when there's no strand;
   - after the fact's words, `FactProgressBar` when `progress` is set.
-- **If a picture fails to draw** (spec §3.1), the card still shows. Wrap `TopicCat` and `FactProgressBar` each in a small error boundary that renders `null` on error. Use the existing `components/ErrorBoundary.tsx` if it takes a fallback; otherwise write a 10-line local one. The topic name and the fact always show.
+- **If a picture fails to draw** (spec §3.1), the card still shows. Wrap `TopicCat` and `FactProgressBar` each in the existing `components/ErrorBoundary.tsx` with `FallbackComponent={() => null}`. The topic name and the fact always show.
 - The nudge and empty choices are unchanged.
-- **`spot.tsx`:** keep the progress in state next to `waitChoice`, worked out once in `startWaitingCard` as `factProgress(stored, matchWaitSettings, choice)`, from the record as read (before `chooseForWait`'s repair; same `everSeen`). Pass it as `progress`. It doesn't change if settings load later during the wait.
+- **`spot.tsx`:**
+  - keep the progress in state next to `waitChoice`. Work it out once in `startWaitingCard` as `factProgress(stored, matchWaitSettings, choice)`, from the record as read (the repair only touches `order`, so the answer is the same);
+  - set it in the same tick as `setWaitChoice(choice)`, so the card never renders with a choice and no progress;
+  - clear it with `setWaitChoice(null)` in the same `finally` block (about line 1138);
+  - pass it as `progress`. It doesn't change if settings load later during the wait;
+  - keep `<WaitingCard choice={waitChoice}` as the start of the element, because `spotWaitingCard.test.ts` finds the card by that text.
 
 - [ ] **Step 1: Write the failing tests** in `WaitingCard.test.tsx`:
   - a topic name for each strand (`fact.tortie` → "Reading a cat", `fact.litters` → "Why sterilisation works", and so on, one per strand);
@@ -306,7 +377,12 @@ Behaviour:
   - Greek strand 4's name renders (Review Focus 5);
   - a `TopicCat` mocked to throw still leaves the topic name and the fact on screen.
 
-  In `spotWaitingCard.test.ts`: progress is worked out at wait start and stays the same when settings change afterwards (Review Focus 2).
+  `WaitingCard.test.tsx` now renders `TopicCat` and `FactProgressBar`, so add the shared mocks from `components/__tests__/helpers/waitingCatsMocks.ts` (Task 6) to it. Its existing tests must still pass.
+
+  `spotWaitingCard.test.ts` reads `spot.tsx` as source text, because vitest doesn't render `app/`. Add source checks in its existing style, which is the only way to cover Review Focus 2 here:
+  - `factProgress(` is called inside `startWaitingCard`, and nowhere that re-runs when settings change (not in an effect that depends on `matchWaitSettings`);
+  - the progress state is cleared next to `setWaitChoice(null)`;
+  - `progress=` is passed to `<WaitingCard choice={waitChoice}`.
 - [ ] **Step 2:** Run both files. Expected: FAIL.
 - [ ] **Step 3:** Implement it.
 - [ ] **Step 4:** Run both files, plus `lib/__tests__/waitingCard.test.ts`. Expected: PASS.
@@ -329,7 +405,7 @@ Behaviour:
   - If the record is null, it stays false.
   - There's no second read and no extra save.
 
-Behaviour in `review.tsx`: when `resultNudge.nextSpotBringsNewFact`, render `<Text testID="next-fact-line">` with a sparkle icon (Feather `star`, hidden from screen readers) and `t('factNextSpot')`, in the muted colour at body size. It goes inside the questions block, so it appears after a celebration ends, whatever the points line says.
+Behaviour in `review.tsx`: when `resultNudge.nextSpotBringsNewFact`, render `<Text testID="next-fact-line">` with a sparkle icon. Feather has no sparkle, so use Feather `star` as a deliberate swap, hidden from screen readers. Then `t('factNextSpot')`, in the muted colour at body size. It goes inside the questions block, so it appears after a celebration ends, whatever the points line says.
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -338,12 +414,16 @@ Behaviour in `review.tsx`: when `resultNudge.nextSpotBringsNewFact`, render `<Te
   - reflects the record after a nudge is counted (the nudge was due, and now isn't, so it's true);
   - is false for a null record (Review Focus 3).
 
-  In `ReviewScreen.nextFact.test.tsx`, the line:
-  - shows on a live send's thanks screen;
-  - shows for a kept-at-send item, and for a saved-for-later item (`localId` without `keptAtSend`);
-  - is absent when everything has been seen, when the nudge is due, and for a null record;
+  Also in `useResultNudge.test.tsx`, since this is the hook's logic:
+  - false when everything has been seen;
+  - the same answer for a kept-at-send item and for a saved-for-later item (`localId` without `keptAtSend`) as for a live send.
+
+  In `ReviewScreen.nextFact.test.tsx`, mock `useResultNudge` to return the boolean, as the existing review tests mock it. Then only the screen's own behaviour is tested. The line:
+  - shows when the hook says true, and is absent when it says false;
   - is hidden while `celebrationPlaying`, and shows after;
-  - shows with `pointsReason: 'repeat_today'`.
+  - shows with `pointsReason: 'repeat_today'`, as well as with points.
+
+  Existing review tests mock the hook without the new field, so it reads `undefined`, which hides the line, and they stay green.
 - [ ] **Step 2:** Run both files. Expected: FAIL.
 - [ ] **Step 3:** Implement it.
 - [ ] **Step 4:** Run both files plus `hooks/__tests__/useResultNudge.test.tsx`, `lib/__tests__/reviewFeedNudge.test.ts` and `components/__tests__/ReviewScreen.celebration.test.tsx`. Expected: PASS.

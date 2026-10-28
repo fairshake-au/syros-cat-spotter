@@ -112,7 +112,7 @@ This is the screen after a sighting is confirmed or a new cat is named: the tick
 
 > ✦ Your next spot brings a new cat fact.
 
-It's small: body text in the muted colour, with a sparkle icon. It's not a card or a button, and there's nothing to tap.
+It's small: body text in the muted colour, with a sparkle icon (Feather `star`, since Feather has no sparkle). It's not a card or a button, and there's nothing to tap.
 
 - **It appears with the questions,** once any badge celebration has finished. That way the celebration doesn't push it around.
 - **It shows whatever the points say**: points earned, already counted today, or none.
@@ -179,7 +179,7 @@ For "spot", the Greek and French follow the app's own words: *παρατήρησ
 **Counting and choosing** go in `lib/waitingCard.ts`, as pure functions, with no React, no storage and no clock. All of them work from `visibleFacts(settings)`, never from `FACT_IDS` directly, so they keep working when facts come from the server (SYC-754).
 
 - `chooseForWait` applies §3.5. When finding the next fact, it takes the first entry in `order` that is visible and not in `everSeen`. Only if there's none does it fall back to today's rule (the first not in `seenFacts`, then a new round).
-- `factProgress(record, settings, shownId)` returns `{ n, total }`, `{ done: true, total }` or `null`, as in §3.2.
+- `factProgress(record, settings, choice)` returns `{ kind: 'count', n, total, walkFrom }`, `{ kind: 'done', total }` or `null`, as in §3.2. `walkFrom` is where the walking cat starts. (The plan fixes these exact shapes.)
 - `nextSpotBringsNewFact(record, settings, ctx)` returns a boolean, as in §3.3. It uses the same "is the nudge due" test as `chooseForWait`. Both should share one small helper, so the two can't drift apart.
 
 **The topic** comes from `factById(id)?.strand` in `lib/starterFacts.ts`. No strand means no topic row.
@@ -228,7 +228,7 @@ Pure (`lib/__tests__/waitingCard.test.ts`):
 - A fact cut short keeps its number on the next wait.
 - A seen fact that's then hidden drops from both the number and the total. Shown again, it counts again.
 - No progress when the settings have never loaded, when fewer than 2 facts are visible, for the nudge and the empty card, and for a null record.
-- An id that isn't in `STARTER_FACTS` (a server-added fact) counts in the total and has no strand.
+- The total always equals `visibleFacts(settings).length`. A server-added fact (an id not in `STARTER_FACTS`) can't exist until SYC-754, because `visibleFacts` reads the built-in list. This rule keeps the count right once it does. A strand-less id is tested on the card.
 - §3.5: after a full round, un-hiding a fact makes it the next wait's fact. Round 1 order is unchanged from today, so the existing schedule tests still pass. The fact seen last still never comes straight back.
 - `nextSpotBringsNewFact` is:
   - true when an unseen fact is visible and the nudge isn't due;

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" aria-hidden="true">
 <!-- Cat Spotters, While we look (SYC-772). First draft for refinement.
-     Moving parts: aid: scale 1..1.12 about 132,40, 1.8s loop | ear-left (viewer's left): rotate 0..-10deg about 62,40, a twitch every 3s
+     Moving parts: aid: scale 1..1.12 about 132,40, 1.8s loop | ear-left: rotate 0..-10deg about 62,40, a twitch every 3s (the viewer's left ear)
      Keep: the viewBox, every id listed under Moving parts, and each pivot (the app moves these parts by id).
      Free to change: shapes, colours, details. Allowed: g, path, ellipse, circle, rect, polygon, line; flat fills only.
      Not allowed: text, gradients, filters, masks, clip paths, images. Outline #3b3934. -->
