@@ -357,6 +357,25 @@ describe("the screen: What happens (§4.1)", () => {
     await markLeft(g.email, "cli:vitest");
   });
 
+  it("the staying record marked \"in no colony\" keeps that: the preview and the merge agree on the colony and on who sees the cat", async () => {
+    const c = await pair();
+    await putInColony(c.agatha, null);
+    await putInColony(c.mimi, colonyB);
+    const label = `nonecol${tag()}`;
+    const g = await guardianOn(label, [colonyB]);
+    const res = await get(screen(c.mimi, c.agatha));
+    const [m, a] = [await catRow(c.mimi), await catRow(c.agatha)];
+    const colB = (await teamCatView(c.mimi))!.colony!.name;
+    expect(res.text).toContain(esc(`Colony: none. ${m.name} was in ${colB}; change it after merging if that's wrong.`));
+    expect(res.text).not.toContain("had none)");
+    expect(res.text).not.toContain("is in a colony (");
+    expect(res.text).not.toContain(esc(`will see ${a.name}'s record`));
+    expect(res.text).toContain(esc(`Cat guardian Vt ${label} (${colB}) will no longer see this cat`));
+    await libMerge(c.mimi, c.agatha);
+    expect((await teamCatView(c.agatha))!.colony).toBeNull();
+    await markLeft(g.email, "cli:vitest");
+  });
+
   it("colour: the staying record's own is kept, and the other's is named so the team can change it", async () => {
     const c = await pair();
     const coat = (catId: number, colours: string[]) =>

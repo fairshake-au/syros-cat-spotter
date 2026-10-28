@@ -1,6 +1,7 @@
 import { db, photosTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { canonicalCatOf, liveCats } from "./catIdentity";
+import { colonyAfterMerge } from "./colonyMembership";
 import { haversineKm } from "./catHelpers";
 import type { CapabilityHolder } from "./capabilities";
 import { countingPhones } from "./countingPhone";
@@ -351,11 +352,20 @@ export async function loadMergeScreen(person: CapabilityHolder, ask: MergeAsk, n
   // Colony: the staying record's own wins, else the other's (spec §4.1 table, lib/colonyMembership).
   const sc = sv.colony;
   const gc = gv.colony;
-  if (sc && gc && sc.id !== gc.id) {
-    lines.push(`Colony: ${sc.name}. ${goes.name} was in ${gc.name}; change it after merging if that's wrong.`);
-  } else if (sc) lines.push(`Colony: ${sc.name}.`);
-  else if (gc) lines.push(`Colony: ${gc.name}, from ${goes.name} (${stays.name} had none).`);
-  else lines.push("Colony: none.");
+  // The colony after the merge comes from the merge's own rule (colonyAfterMerge): the staying
+  // record's statement wins even when it says "in no colony"; the other's counts only if it has none.
+  const postId = await colonyAfterMerge(stays.id, goes.id);
+  const colonyName = (id: number) => (sc?.id === id ? sc.name : gc?.id === id ? gc.name : "");
+  const postName = postId === null ? null : colonyName(postId);
+  if (postId === null) {
+    lines.push(gc ? `Colony: none. ${goes.name} was in ${gc.name}; change it after merging if that's wrong.` : "Colony: none.");
+  } else if (sc && postId === sc.id) {
+    lines.push(
+      gc && gc.id !== sc.id
+        ? `Colony: ${sc.name}. ${goes.name} was in ${gc.name}; change it after merging if that's wrong.`
+        : `Colony: ${sc.name}.`,
+    );
+  } else lines.push(`Colony: ${postName}, from ${goes.name} (${stays.name} had none).`);
 
   // Colour and markings are the staying record's own.
   const sColour = coatPhraseOf(sv);
@@ -378,18 +388,16 @@ export async function loadMergeScreen(person: CapabilityHolder, ask: MergeAsk, n
 
   // Cat guardians who gain or lose sight of the cat (a guardian sees a cat by its colony).
   const guards = await guardiansOf([...new Set([sc?.id, gc?.id].filter((x): x is number => x !== undefined))]);
-  const post = sc ?? gc;
-  const colonyName = (id: number) => (sc?.id === id ? sc.name : (gc?.name ?? ""));
-  if (gc && post && gc.id !== post.id) {
+  if (gc && postId !== gc.id) {
     const losing = guards.filter((g) => g.colonyId === gc.id);
-    const keeping = guards.filter((g) => g.colonyId === post.id);
+    const keeping = postId === null ? [] : guards.filter((g) => g.colonyId === postId);
     if (losing.length > 0) {
       lines.push(
         `${losing.map((g) => `Cat guardian ${g.name} (${colonyName(g.colonyId)})`).join(", ")} will no longer see this cat` +
           (keeping.length > 0 ? `; ${keeping.map((g) => `${g.name}'s colony (${colonyName(g.colonyId)})`).join(", ")} keeps it.` : "."),
       );
     }
-  } else if (!sc && gc) {
+  } else if (gc && postId === gc.id && sc?.id !== gc.id) {
     const gaining = guards.filter((g) => g.colonyId === gc.id);
     if (gaining.length > 0) {
       lines.push(`${gaining.map((g) => `Cat guardian ${g.name} (${colonyName(g.colonyId)})`).join(", ")} will see ${stays.name}'s record.`);
@@ -427,7 +435,7 @@ export async function loadMergeScreen(person: CapabilityHolder, ask: MergeAsk, n
       );
     }
   }
-  if (!sc && gc) warnings.push(`Only ${goes.name} is in a colony (${gc.name}). After merging, ${stays.name} will be in ${gc.name}.`);
+  if (gc && postId === gc.id && sc?.id !== gc.id) warnings.push(`Only ${goes.name} is in a colony (${gc.name}). After merging, ${stays.name} will be in ${gc.name}.`);
 
   return {
     kind: "ok",

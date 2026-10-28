@@ -1,5 +1,5 @@
 import { catsTable, db, observationsTable } from "@workspace/db";
-import { and, asc, desc, eq, isNull, lte, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { canonicalCatOf, catsFeeding, liveCats, observationCatIn, type Feeding } from "./catIdentity";
 
@@ -157,4 +157,43 @@ export async function catsByColony(): Promise<Map<number, number[]>> {
     else out.set(colonyId, [catId]);
   }
   return out;
+}
+
+/**
+ * The colony a cat WOULD be in if `mergedId` were merged into `survivorId`
+ * (the merge screen's preview, SYC-59 PR 4.2), by the same rule the merge
+ * then follows: {@link pickColonyRow} over the two cats' own newest standing
+ * colony statements. The staying record's own statement wins, "in no colony"
+ * included; the other's counts only when the staying record has none at all.
+ * Null: in no colony.
+ */
+export async function colonyAfterMerge(survivorId: number, mergedId: number): Promise<number | null> {
+  const replacer = alias(observationsTable, "replacer");
+  const rows = await db
+    .selectDistinctOn([observationsTable.catId], {
+      id: observationsTable.id,
+      catId: observationsTable.catId,
+      observedAt: observationsTable.observedAt,
+      value: observationsTable.value,
+    })
+    .from(observationsTable)
+    .where(
+      and(
+        eq(observationsTable.kind, "colony"),
+        isNull(observationsTable.redactedAt),
+        inArray(observationsTable.catId, [survivorId, mergedId]),
+        notExists(db.select({ one: sql`1` }).from(replacer).where(eq(replacer.supersedesId, observationsTable.id))),
+      ),
+    )
+    .orderBy(asc(observationsTable.catId), desc(observationsTable.observedAt), desc(observationsTable.id));
+  const feeding: Feeding = {
+    catId: survivorId,
+    ids: [survivorId, mergedId],
+    since: new Map(),
+    hops: new Map([[mergedId, 1]]),
+    counts: () => true,
+  };
+  const row = pickColonyRow(feeding, new Map(rows.map((r) => [r.catId, r])));
+  const colonyId = (row?.value as { colonyId?: unknown } | null | undefined)?.colonyId;
+  return typeof colonyId === "number" ? colonyId : null;
 }
