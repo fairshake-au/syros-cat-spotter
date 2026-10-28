@@ -24,7 +24,7 @@ export const sightingsTable = pgTable(
     lng: doublePrecision("lng").notNull(),
     // pending | awaiting_team | resolved. A trigger in the migration allows
     // only pending -> resolved, pending -> awaiting_team, awaiting_team ->
-    // resolved, the place stamp, redaction, and (0053) a recorded move of a
+    // resolved, the place stamp, redaction, and (0054) a recorded move of a
     // resolved sighting's cat; nothing else updates or deletes a sighting.
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true })

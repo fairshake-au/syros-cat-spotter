@@ -178,7 +178,7 @@ describe("resolving a sighting and following", () => {
       // Connection B: the resolve starts while the unfollow is uncommitted.
       const resolving = resolve(pending, device, catId).then((r) => r);
       // Commit only once the resolve is really queued behind the lock. Since
-      // migration 0053 the sightings trigger takes the same cat row FOR SHARE
+      // migration 0054 the sightings trigger takes the same cat row FOR SHARE
       // inside the resolve's sighting update (no sighting is filed under a
       // merged-away cat), so it may wait there, earlier, rather than at the
       // route's own `from cats ... for share`.

@@ -99,7 +99,7 @@ export const observationsTable = pgTable(
  * Which cat record is canonical for which (§10.3). A merge is a row and an
  * unmerge is another row that supersedes it, because merging cannot repoint
  * observations.catId without breaking the append-only rule. Add-only: since
- * migration 0053 a trigger allows only redaction (by_account_id cleared,
+ * migration 0054 a trigger allows only redaction (by_account_id cleared,
  * redacted_at stamped), and a check deferred to commit refuses a merge while
  * a resolved sighting still names the merged-away cat.
  */

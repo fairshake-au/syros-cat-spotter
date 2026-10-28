@@ -15,7 +15,6 @@ export * from "./mappingEvents";
 export * from "./namedAreas";
 export * from "./personEvents";
 export * from "./rateLimits";
-export * from "./mapTiles";
 export * from "./matchWait";
 export * from "./photoVariants";
 export * from "./sightingPhotos";
