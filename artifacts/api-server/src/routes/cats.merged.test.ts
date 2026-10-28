@@ -32,6 +32,7 @@ import { signedPerson, type Signed } from "../test/roleKit";
 import { seedReport, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { issueStripFor } from "../lib/issues/queue";
 import { syrNumber, searchTeamCats } from "../lib/teamCatView";
+import { listTeamCats } from "../lib/teamCatList";
 import { loadMoveScreen } from "../lib/moveScreen";
 import { runNightlyNewsCheck, seedNewsBaseline } from "../lib/news/nightly";
 import { MERGE_WORDS } from "../lib/mergeCats";
@@ -205,6 +206,21 @@ describe("spec test 21: also known as", () => {
     expect(load.kind).toBe("ok");
     const cats = load.kind === "ok" ? (load.screen.results?.cats ?? []) : [];
     expect(cats).toEqual([expect.objectContaining({ id: c.agatha, name: `${c.mimiName} (now part of ${c.agathaName})` })]);
+  });
+
+  it("the team cat list's name box finds Agatha by Mimi's name and SYR number, and the card says 'Mimi (now part of Agatha)' (§4.3)", async () => {
+    const c = await merged();
+    await libMerge(c.mimi, c.agatha);
+    const byName = await listTeamCats({ q: c.mimiName });
+    expect(byName.items.map((i) => i.id)).toEqual([c.agatha]);
+    expect(byName.items[0]).toMatchObject({ name: c.agathaName, alsoKnownAs: c.mimiName });
+    expect((await listTeamCats({ q: syrNumber(c.mimi) })).items.map((i) => i.id)).toEqual([c.agatha]);
+    expect((await listTeamCats({ q: c.agathaName })).items[0]!.alsoKnownAs).toBeUndefined();
+    const page = await request(app).get(`/api/team/cats?q=${encodeURIComponent(c.mimiName)}`).set("Cookie", staff.cookie);
+    expect(page.status).toBe(200);
+    expect(page.text).toContain(`/api/team/cats/${c.agatha}"`);
+    expect(page.text).toContain(`${c.mimiName} (now part of ${c.agathaName})`);
+    expect(page.text).not.toContain(`/api/team/cats/${c.mimi}"`);
   });
 
   it("the name-taken prompt names Agatha, and nobody can give a new cat Mimi's name", async () => {
