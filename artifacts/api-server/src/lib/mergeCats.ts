@@ -33,7 +33,7 @@ import { athensDay, weekStartAthens } from "./weeks";
  *
  * **One transaction each, READ COMMITTED** (the database default, never
  * raised): the deferred "no sighting left" check on `cat_identity` (migration
- * 0053) takes the merged-away cat FOR UPDATE at commit and must see a resolve
+ * 0054) takes the merged-away cat FOR UPDATE at commit and must see a resolve
  * that committed meanwhile, which a snapshot taken at the start would hide.
  *
  * **Locks, in this order** (§9.7), the order deleting a person and moving a
