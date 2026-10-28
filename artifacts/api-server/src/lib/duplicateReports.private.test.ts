@@ -27,6 +27,7 @@ const MAY_NAME_THE_TABLES: Record<string, string> = {
   "lib/db/src/schema/duplicates.ts": "the definitions",
   "artifacts/api-server/src/lib/duplicateList.ts": "the list's reads (team)",
   "artifacts/api-server/src/lib/duplicateDecide.ts": "the team's two answers (team)",
+  "artifacts/api-server/src/lib/duplicateSweep.ts": "the nightly sweep: reads decisions and recent sweep reports, writes sweep reports (internal job, behind its switch)",
   "artifacts/api-server/src/lib/newCatCheck.ts": "the resolve's write of new_cat_check reports (write only)",
   "artifacts/api-server/src/lib/mergeCats.ts": "the merge's `merged` decision and its points (team)",
   "artifacts/api-server/src/lib/matcherHealth.ts": "New cats to check leaves out cats marked checked (team)",

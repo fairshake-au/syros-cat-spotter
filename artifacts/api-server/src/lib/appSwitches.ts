@@ -3,7 +3,8 @@ import { inArray, sql } from "drizzle-orm";
 import { clearAppSettingsCache, settingsFromRows } from "./appSettings";
 
 // The App switches page (SYC-383; match-wait Decision 1 = B): the donation
-// button's address, the extra photo boxes' On / Off (SYC-415's switch) and the
+// button's address, the extra photo boxes' On / Off (SYC-415's switch), the look-alike sweep's
+// On / Off (SYC-59 PR 5.3) and the
 // starter facts' Shown / Hidden, changed by the team
 // instead of with `db-ops set-setting`. Reads and writes the same
 // `app_settings` rows the app's reader uses, so a value written here is read
@@ -16,6 +17,7 @@ import { clearAppSettingsCache, settingsFromRows } from "./appSettings";
 const URL_KEY = "feed_nudge_donate_url";
 const FACTS_KEY = "starter_facts_hidden";
 const EXTRA_PHOTOS_KEY = "extra_photos_on";
+const DUPLICATE_SWEEP_KEY = "duplicate_sweep";
 const KNOWN = new Set<string>(STARTER_FACT_IDS);
 
 /** The address the page offers when the button is off and none is stored. */
@@ -52,13 +54,13 @@ export function donateAddressProblem(raw: string): { url: string } | { problem: 
 }
 
 /** What the page shows, read past the cache; throws if the database can't be read. */
-export async function switchesNow(): Promise<{ donateUrl: string | null; hidden: Set<string>; extraPhotosOn: boolean }> {
+export async function switchesNow(): Promise<{ donateUrl: string | null; hidden: Set<string>; extraPhotosOn: boolean; duplicateSweepOn: boolean }> {
   const rows = await db
     .select({ key: appSettingsTable.key, value: appSettingsTable.value })
     .from(appSettingsTable)
-    .where(inArray(appSettingsTable.key, [URL_KEY, FACTS_KEY, EXTRA_PHOTOS_KEY]));
+    .where(inArray(appSettingsTable.key, [URL_KEY, FACTS_KEY, EXTRA_PHOTOS_KEY, DUPLICATE_SWEEP_KEY]));
   const s = settingsFromRows(rows);
-  return { donateUrl: s.donateUrl, hidden: new Set(s.hiddenFacts), extraPhotosOn: s.extraPhotosOn };
+  return { donateUrl: s.donateUrl, hidden: new Set(s.hiddenFacts), extraPhotosOn: s.extraPhotosOn, duplicateSweepOn: s.duplicateSweepOn };
 }
 
 async function put(tx: Pick<typeof db, "insert">, key: string, value: unknown) {
@@ -87,6 +89,21 @@ export async function switchDonationOff(): Promise<void> {
 export async function setExtraPhotos(on: boolean): Promise<void> {
   await db.transaction((tx) => put(tx, EXTRA_PHOTOS_KEY, on));
   clearAppSettingsCache();
+}
+
+/** Turns the nightly look-alike sweep on or off (SYC-59 PR 5.3). */
+export async function setDuplicateSweep(on: boolean): Promise<void> {
+  await db.transaction((tx) => put(tx, DUPLICATE_SWEEP_KEY, on));
+  clearAppSettingsCache();
+}
+
+/** Whether the sweep is on, read past the cache so a switch-off takes hold at once. */
+export async function duplicateSweepIsOn(): Promise<boolean> {
+  const rows = await db
+    .select({ key: appSettingsTable.key, value: appSettingsTable.value })
+    .from(appSettingsTable)
+    .where(inArray(appSettingsTable.key, [DUPLICATE_SWEEP_KEY]));
+  return settingsFromRows(rows).duplicateSweepOn;
 }
 
 /** Shows or hides one starter fact, leaving every other fact as it is. */

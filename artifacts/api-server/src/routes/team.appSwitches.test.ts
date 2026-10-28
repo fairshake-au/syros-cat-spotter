@@ -220,7 +220,7 @@ describe("the App switches page", () => {
   it("answers JSON too", async () => {
     const res = await request(app).get(PATH).set("Cookie", team.cookie).set("Accept", "application/json");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"], extraPhotosOn: false });
+    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"], extraPhotosOn: false, duplicateSweepOn: false });
   });
 
   it("is reachable: Settings links it", async () => {

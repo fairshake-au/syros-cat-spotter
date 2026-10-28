@@ -23,6 +23,7 @@ export { SIGN_OFF_FACT_IDS, STARTER_FACT_IDS, settingShapeProblem };
  *  - the nine facts that need Syros Cats' yes hidden (plan small call 3);
  *  - taps counted;
  *  - the extra-photo boxes hidden (SYC-415 plan Decision P1);
+ *  - the nightly look-alike sweep off (SYC-59 PR 5.3, which-cat-is-which.md D11);
  *  - a standard sterilisation price of €60 (SYC-396 PR 2.3; Syros Cats' €50–60).
  */
 
@@ -36,6 +37,9 @@ export interface AppSettings {
   /** SYC-415: whether the app shows the extra-photo boxes. The upload takes
    * extra photos either way; this only hides the boxes. */
   extraPhotosOn: boolean;
+  /** SYC-59 PR 5.3: whether the nightly look-alike sweep writes duplicate
+   * reports. Team-only: never sent to the app. Off until calibrated. */
+  duplicateSweepOn: boolean;
   /** SYC-396 PR 2.3: the standard sterilisation price, in whole euros, for the
    * trapping planner's estimate and the vet-visit form. Team-only: never sent
    * to the app. */
@@ -82,13 +86,15 @@ export function settingsFromRows(
 
   const extraPhotosOn = read<boolean>("extra_photos_on", false, (v) => v as boolean);
 
+  const duplicateSweepOn = read<boolean>("duplicate_sweep", false, (v) => v as boolean);
+
   const sterilisationPriceEur = read<number>(
     "standard_sterilisation_price_eur",
     DEFAULT_STERILISATION_PRICE_EUR,
     (v) => v as number,
   );
 
-  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn, sterilisationPriceEur };
+  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn, duplicateSweepOn, sterilisationPriceEur };
 }
 
 /** One answer per server for this long. A change reaches every server within
