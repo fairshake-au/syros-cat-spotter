@@ -60,6 +60,33 @@ describe("the source (spec test 24)", () => {
   });
 });
 
+/**
+ * Files that may import the team-side readers (duplicateList, duplicateCards,
+ * duplicateDecide, newCatsNearby). A wrapper module that a public route used
+ * to reach them would have to import them too, so it turns this red.
+ */
+const MAY_IMPORT_THE_READERS: Record<string, string> = {
+  "artifacts/api-server/src/lib/duplicateCards.ts": "builds a row from the list (team)",
+  "artifacts/api-server/src/lib/newCatsNearby.ts": "uses the cards' distance words (team)",
+  "artifacts/api-server/src/lib/teamPages/duplicatesPage.ts": "draws the list (team)",
+  "artifacts/api-server/src/lib/teamPages/newCatsPage.ts": "draws New cats to check (team)",
+  "artifacts/api-server/src/routes/teamDuplicates.ts": "the list's routes (review_duplicates)",
+  "artifacts/api-server/src/routes/teamHome.ts": "Home's count and the nearby cats (team)",
+  "artifacts/api-server/src/routes/teamCats.ts": "the not-sure notes on the team cat page (review_duplicates)",
+};
+const IMPORTS_A_READER = /from\s+["'][^"']*\/(duplicateList|duplicateCards|duplicateDecide|newCatsNearby)["']/;
+
+describe("the importers (spec test 24)", () => {
+  it("only the listed team-side files import the list, its cards, the answers or the nearby cats", () => {
+    const hits = sourceFiles()
+      .filter((f) => IMPORTS_A_READER.test(f.code))
+      .map((f) => f.rel);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.filter((rel) => !(rel in MAY_IMPORT_THE_READERS))).toEqual([]);
+    for (const rel of Object.keys(MAY_IMPORT_THE_READERS)) expect(hits, `${rel} should still import a reader`).toContain(rel);
+  });
+});
+
 describe("the payloads (spec test 24)", () => {
   it("a report, a decision, a note and a 'checked' row about a cat never reach the public routes", async () => {
     const a = await kit.cat();
