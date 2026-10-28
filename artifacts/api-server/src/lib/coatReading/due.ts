@@ -1,5 +1,6 @@
-import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { catIdentityTable, catsTable, db, photosTable, sightingsTable, type Observation } from "@workspace/db";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { catsTable, db, photosTable, sightingsTable, type Observation } from "@workspace/db";
+import { catsMergedAway } from "../catIdentity";
 import { loadCatRecords, type DbOrTx } from "../observations";
 import { catDisplayPhotoIds, hiddenPhotoIds } from "../photoVisibility";
 import { appearanceAuthorityLevel, resolveCoatParts } from "../resolve";
@@ -125,21 +126,13 @@ export async function catsDueForReading(
   if (cats.length === 0) return [];
 
   // A cat folded into another by a merge (SYC-59) is read as part of the cat
-  // it now belongs to, never on its own. Today no merge exists, and merged
-  // cats refuse writes anyway.
-  const folded = new Set(
-    (
-      await q
-        .select({ catId: catIdentityTable.catId })
-        .from(catIdentityTable)
-        .where(
-          and(
-            inArray(catIdentityTable.catId, cats.map((c) => c.id)),
-            ne(catIdentityTable.catId, catIdentityTable.canonicalCatId),
-            isNull(catIdentityTable.supersedesId),
-          ),
-        )
-    ).map((r) => r.catId),
+  // it now belongs to, never on its own; an undone merge counts for nothing
+  // (lib/catIdentity.ts, the one reader of merges). Today no merge exists,
+  // and merged cats refuse writes anyway.
+  const folded = await catsMergedAway(
+    cats.map((c) => c.id),
+    {},
+    q,
   );
   const live = cats.filter((c) => !folded.has(c.id));
 

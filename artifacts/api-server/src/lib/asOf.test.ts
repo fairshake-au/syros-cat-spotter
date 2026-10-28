@@ -282,6 +282,13 @@ describe("resolveAt", () => {
     // C's own rows count once, before and after its undone merge.
     expect((await loadCatRecords([c.id])).get(c.id)!.observations).toHaveLength(1);
     expect(await sterilisedAsOf(c.id, day(6))).toBe(true);
+    // D takes in C's sterilisation only while the merge stood (SYC-410: an
+    // undone merge no longer folds in today, and as of a moment it counts
+    // only if the undo hadn't been entered yet).
+    expect(await sterilisedAsOf(d.id, day(4))).toBeNull();
+    expect(await sterilisedAsOf(d.id, day(6))).toBe(true);
+    expect(await sterilisedAsOf(d.id, day(9))).toBeNull();
+    expect((await loadCatRecords([d.id])).get(d.id)!.observations).toHaveLength(0);
   });
 
   it("refuses records loaded without history", async () => {

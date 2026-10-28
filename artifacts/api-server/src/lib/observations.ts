@@ -13,7 +13,6 @@ import { alias } from "drizzle-orm/pg-core";
 import {
   db,
   catsTable,
-  catIdentityTable,
   observationsTable,
   sightingsTable,
   type Observation,
@@ -32,6 +31,7 @@ import {
   type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
+import { catsFeeding } from "./catIdentity";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -1300,7 +1300,14 @@ export interface CatRecords {
 export interface CatHistory {
   /** The cat's own `created_at`. */
   createdAt: Date;
-  /** Every cat merged into this one, with when (`cat_identity.created_at`, the earliest). */
+  /**
+   * Every cat merged into this one, with when it started counting for it
+   * (`catsFeeding`'s `since`: the newest merge on its way here). Only merges
+   * standing when the records were loaded: a merge undone since then is not
+   * here, so `resolveAt` inside its window leaves it out, where
+   * `loadCatRecords(…, { asOf })` folds it in, as spec §9.10 requires. A known
+   * gap, fixed in PR 3.1 (see {@link resolveAt}).
+   */
   mergedAt: ReadonlyMap<number, Date>;
   /** `created_at` of each cat that feeds this one (itself and the merged ones). */
   feedingCreatedAt: ReadonlyMap<number, Date>;
@@ -1391,10 +1398,11 @@ const earliestOf = (dates: Iterable<Date>): Date | null => {
  * The batched loader every reader uses (§2.3: never one query per cat).
  * Issues a fixed number of queries whatever `catIds.length` is:
  *
- * 1. `cat_identity` — empty today (no merge exists, SYC-59), but reading
- *    through it means a future merge needs no change here: a cat's
- *    observations may have been written against an id that has since been
- *    folded into the one being asked for.
+ * 1. The merges, through `catsFeeding` (lib/catIdentity.ts, two queries):
+ *    a cat's observations may have been written against an id that has
+ *    since been folded into the one being asked for, directly or through a
+ *    chain. A merge since undone feeds nothing. Empty today (no merge
+ *    exists, SYC-59).
  * 2. Every observation for every id that feeds any requested cat, in one
  *    `IN (...)`.
  * 3. The welfare reports replaced by a row on any cat.
@@ -1428,37 +1436,17 @@ export async function loadCatRecords(
   if (uniqueIds.length === 0) return result;
   const asOf = opts.asOf;
 
-  const identityRows = await exec
-    .select({
-      catId: catIdentityTable.catId,
-      canonicalCatId: catIdentityTable.canonicalCatId,
-      createdAt: catIdentityTable.createdAt,
-    })
-    .from(catIdentityTable)
-    .where(
-      and(
-        inArray(catIdentityTable.canonicalCatId, uniqueIds),
-        asOf ? lte(catIdentityTable.createdAt, asOf) : undefined,
-      ),
-    );
-
+  // Every cat merged into each one, through chains, as of `asOf`: the one
+  // reader of merges (SYC-410). An undone merge feeds nothing.
+  const feeding = await catsFeeding(uniqueIds, { asOf }, exec);
   const idsForCanonical = new Map<number, number[]>();
-  for (const id of uniqueIds) idsForCanonical.set(id, [id]);
-  const mergedAtByCanonical = new Map<number, Map<number, Date>>();
-  for (const row of identityRows) {
-    // A cat's own row (B → B) is what undoing a merge writes: it feeds
-    // nothing new into B, and isn't a merge (review of PR 3.0, F4; the rest
-    // of undone merges is SYC-410).
-    if (row.catId === row.canonicalCatId) continue;
-    idsForCanonical.get(row.canonicalCatId)?.push(row.catId);
-    const merged = mergedAtByCanonical.get(row.canonicalCatId) ?? new Map<number, Date>();
-    const was = merged.get(row.catId);
-    if (!was || row.createdAt.getTime() < was.getTime()) merged.set(row.catId, row.createdAt);
-    mergedAtByCanonical.set(row.canonicalCatId, merged);
+  const mergedAtByCanonical = new Map<number, ReadonlyMap<number, Date>>();
+  for (const id of uniqueIds) {
+    const f = feeding.get(id);
+    idsForCanonical.set(id, f?.ids ?? [id]);
+    mergedAtByCanonical.set(id, f?.since ?? new Map());
   }
-  const allCatIds = [
-    ...new Set([...uniqueIds, ...identityRows.map((r) => r.catId)]),
-  ];
+  const allCatIds = [...new Set([...idsForCanonical.values()].flat())];
 
   const obsRows = await exec
     .select()
@@ -1579,8 +1567,14 @@ export async function loadCatRecords(
  * had not been created yet. Pure: a report with many points loads the
  * island once and calls this per point.
  *
- * `resolveAt(records, T, now)` is exactly `loadCatRecords(…, { asOf: T })`
- * then `resolveCat(…, now)`, as long as `records` was loaded at or after T.
+ * `resolveAt(records, T, now)` equals `loadCatRecords(…, { asOf: T })` then
+ * `resolveCat(…, now)`, as long as `records` was loaded at or after T, with
+ * one known exception: a merge undone between T and the load. `records`
+ * only knows the merges standing when it was loaded, so inside an undone
+ * merge's window the merged-in cat is left out here, where `asOf` folds it
+ * in (spec §9.10 says it should be folded in). Not reachable today: no
+ * merge exists (SYC-59). PR 3.1 builds the merge and move timeline that
+ * fixes it (catIdentity.attack.test.ts A11, marked `it.fails` until then).
  */
 export function resolveAt(records: CatRecords, at: Date, now: Date): CatSnapshot | null {
   const h = records.history;

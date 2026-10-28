@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type CapabilityHolder } from "./capabilities";
-import { canonicalCats, catTarget } from "./capabilityTargets";
+import { catTarget } from "./capabilityTargets";
+import { canonicalCatOf } from "./catIdentity";
 import { commitStatement, inStatementTransaction, type Tx } from "./commitStatement";
 import { loadCatRecords, ObservationRefused } from "./observations";
 import { resolveLifeStatus, supersedeChains, type LifeStatusValue } from "./resolve";
@@ -59,7 +60,7 @@ async function authorityFor(
   capability: "set_sterilisation" | "set_life_status",
   catId: number,
 ): Promise<Authority> {
-  const canonical = (await canonicalCats([catId], tx)).get(catId) ?? null;
+  const canonical = (await canonicalCatOf([catId], {}, tx)).get(catId) ?? null;
   if (canonical === null) throw notAuthorised();
   const locked = await tx.execute<{ id: number }>(
     sql`select id from cats where id = ${canonical} for update`,

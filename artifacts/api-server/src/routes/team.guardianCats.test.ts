@@ -425,6 +425,11 @@ describe("SYC-333: a merged cat is judged as the cat it was merged into", () => 
       { catId: y.id, canonicalCatId: x.id, reason: "vt-gcats loop" },
     ]);
     expect(await catTarget(x.id)).toEqual({ colonyId: null });
+    // SYC-410 review 4: listed on her colony page, as on the team's cat list
+    // (no other cat reads their records, so hiding them would lose them).
+    const page = await asEleni(`/api/team/my/colonies/${colonyA}`);
+    const listed = (page.body.cats as { id: number }[]).map((c) => c.id);
+    expect(listed).toEqual(expect.arrayContaining([x.id, y.id]));
   });
 });
 
