@@ -8,6 +8,7 @@ import {
   NUDGE_ENABLED,
   chooseForResult,
   markTapped,
+  nextSpotBringsNewFact as nextSpotBringsNewFactFor,
   type NudgeForm,
   type ResultScreen,
 } from '@/lib/waitingCard';
@@ -37,9 +38,11 @@ export function useResultNudge(input: {
   /** SYC-186: the item was kept when sent live, so it is not "a spot saved for later". */
   keptAtSend?: boolean;
   screen: ResultScreen;
-}): { show: ResultNudge; dismiss: () => void; help: () => void } {
+}): { show: ResultNudge; dismiss: () => void; help: () => void; nextSpotBringsNewFact: boolean } {
   const { settings, signals } = useAppSettings();
   const [show, setShow] = useState<ResultNudge>(null);
+  // SYC-772 spec §3.3: whether the next wait would show a fact this phone hasn't seen.
+  const [nextFact, setNextFact] = useState(false);
   const decided = useRef(false);
   // The latest values, read when the decision is made (once).
   const latest = useRef({ ...input, settings, signals });
@@ -70,6 +73,10 @@ export function useResultNudge(input: {
       );
       if (out.record && out.record !== record) await saveWaitingRecord(AsyncStorage, deviceId, out.record);
       setShow(out.show);
+      // From the same read, after any save: no second read, no extra save (spec §5.1).
+      setNextFact(
+        nextSpotBringsNewFactFor(out.record ?? record, s, { nudgeEnabled: NUDGE_ENABLED, signedInRole: null }),
+      );
     })().catch(() => undefined);
   }, [deviceId, sightingId]);
 
@@ -89,5 +96,5 @@ export function useResultNudge(input: {
       .catch(() => undefined);
   }, []);
 
-  return { show, dismiss, help };
+  return { show, dismiss, help, nextSpotBringsNewFact: nextFact };
 }

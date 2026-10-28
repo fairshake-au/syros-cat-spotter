@@ -645,6 +645,15 @@ export default function ReviewScreen() {
         ) : null}
         {!questionsHidden ? (
         <View style={styles.questions}>
+          {resultNudge.nextSpotBringsNewFact ? (
+            // SYC-772 spec §3.3: Feather has no sparkle, so a star stands in.
+            <View style={styles.nextFact} testID="next-fact-line">
+              <Feather name="star" size={14} color={colors.mutedForeground} {...decorative} />
+              <Text style={[styles.nextFactText, { color: colors.mutedForeground }]}>
+                {t("factNextSpot")}
+              </Text>
+            </View>
+          ) : null}
           <Text style={[styles.questionsHeading, { color: colors.foreground }]}>
             {t("questionsHeading")}
           </Text>
@@ -1490,6 +1499,8 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   questions: { width: "100%", gap: spacing[2], marginTop: spacing[2] },
+  nextFact: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing[1] },
+  nextFactText: { fontSize: fontSizes.md, fontFamily: fonts.body },
   questionsHeading: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
   header: {
     flexDirection: "row",

@@ -102,6 +102,17 @@ export type WaitChoice =
   /** Every fact is switched off: the card shows only "While we look…". */
   | { kind: 'empty' };
 
+/**
+ * Whether the next wait shows the full feeding nudge (starter-facts.md §3.2,
+ * step 1). Shared by `chooseForWait` and `nextSpotBringsNewFact`.
+ */
+export function isNudgeDue(
+  record: WaitingRecord,
+  ctx: Pick<ScheduleContext, 'nudgeEnabled' | 'signedInRole'>,
+): boolean {
+  return ctx.nudgeEnabled && !record.nudgeCounted && ctx.signedInRole === null;
+}
+
 /** Facts this phone may show. Before the switches have ever loaded, nothing
  * is hidden (starter-facts.md §9; Samuel, plan Decision 4). */
 export function visibleFacts(settings: SettingsView): string[] {
@@ -150,7 +161,7 @@ export function chooseForWait(
     return { choice: id ? { kind: 'fact', id } : { kind: 'empty' }, record: null };
   }
 
-  if (ctx.nudgeEnabled && !record.nudgeCounted && ctx.signedInRole === null) {
+  if (isNudgeDue(record, ctx)) {
     return {
       choice: {
         kind: 'nudge',
@@ -171,8 +182,12 @@ export function chooseForWait(
   }
 
   let next = withRepairedOrder(record, visible, ctx.random);
+  // SYC-772 (spec §3.5): a fact this phone has never seen comes before any
+  // repeat, even when it was added or switched back on mid-round. Round 1 is
+  // unchanged, since there everSeen and seenFacts agree.
+  let id = next.order.find((f) => !next.everSeen.includes(f));
   const seen = new Set(next.seenFacts);
-  let id = next.order.find((f) => !seen.has(f));
+  if (id === undefined) id = next.order.find((f) => !seen.has(f));
   if (id === undefined) {
     // Every shown fact has been seen: a new round, never starting with the
     // fact seen last (unless it's the only one).
@@ -184,6 +199,54 @@ export function chooseForWait(
     id = order[0]!;
   }
   return { choice: { kind: 'fact', id }, record: next };
+}
+
+/** The count on the waiting card (SYC-772, spec §3.2). `walkFrom` is how many
+ * facts were already seen when the wait began, where the walking cat starts. */
+export type FactProgress =
+  | { kind: 'count'; n: number; total: number; walkFrom: number }
+  | { kind: 'done'; total: number };
+
+/**
+ * "Fact n of total" for the fact this wait shows (spec §3.2). Counts only
+ * switched-on facts, so a seen-then-hidden fact is in neither number. Null
+ * when no count is shown: no readable record, switches not loaded, not a
+ * fact, or fewer than two facts on. Nothing is marked seen here; a fact cut
+ * short keeps its number next wait because `everSeen` hasn't changed.
+ * The total follows `visibleFacts`, so it stays right when SYC-754 adds facts.
+ */
+export function factProgress(
+  record: WaitingRecord | null,
+  settings: SettingsView,
+  choice: WaitChoice,
+): FactProgress | null {
+  if (record === null || !settings.loaded || choice.kind !== 'fact') return null;
+  const visible = visibleFacts(settings);
+  if (visible.length < 2) return null;
+  const total = visible.length;
+  const seen = visible.filter((id) => record.everSeen.includes(id)).length;
+  if (!record.everSeen.includes(choice.id)) {
+    return { kind: 'count', n: seen + 1, total, walkFrom: seen };
+  }
+  if (seen === total) return { kind: 'done', total };
+  // Settings changed during the wait: the fact was seen, others aren't.
+  return { kind: 'count', n: seen, total, walkFrom: seen };
+}
+
+/**
+ * Whether the next wait will show a fact this phone has never seen (spec §3.3,
+ * for the thanks-screen line). By §3.5 that fact is the one the next wait
+ * shows, provided the nudge isn't due first.
+ */
+export function nextSpotBringsNewFact(
+  record: WaitingRecord | null,
+  settings: SettingsView,
+  ctx: Pick<ScheduleContext, 'nudgeEnabled' | 'signedInRole'>,
+): boolean {
+  if (record === null || !settings.loaded) return false;
+  const visible = visibleFacts(settings);
+  if (visible.length < 2 || isNudgeDue(record, ctx)) return false;
+  return visible.some((id) => !record.everSeen.includes(id));
 }
 
 export type WaitOutcome =
