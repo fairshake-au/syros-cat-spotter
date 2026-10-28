@@ -75,6 +75,9 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/welfareQueue.ts": [
     "reportsQuery: join naming the report's own cat; welfare_reports readers are PR 4.1",
   ],
+  "artifacts/api-server/src/lib/colonyMembership.ts": [
+    "colonyAfterMerge: the merge screen's preview asks for exactly two cats' own colony statements, to apply pickColonyRow as the merge will (SYC-59 PR 4.2)",
+  ],
   "artifacts/api-server/src/lib/teamCatView.ts": [
     "crossCatLinks: join naming the replacing row's own cat; rows are chosen by supersedes_id, not by cat",
     "crossCatLinks: join naming the replaced row's own cat; rows are chosen by supersedes_id, not by cat",
