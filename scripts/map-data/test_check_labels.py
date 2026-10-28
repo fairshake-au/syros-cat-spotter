@@ -66,6 +66,21 @@ def test_a_water_label_on_land_fails(tmp_path):
     assert "m inland" in found[0]
 
 
+def test_inland_water_like_lakes_and_pools_is_not_judged(tmp_path):
+    # A named lake or hotel pool is inland by nature and must not stop a build.
+    _, found = run(tmp_path, {"water": [(INLAND, {"kind": k, "name": k}) for k in
+                                        ("lake", "reservoir", "basin", "pond", "swimming_pool", "river")]})
+    assert found == []
+
+
+def test_two_places_with_the_same_name_are_both_judged(tmp_path):
+    # Greek village names repeat; one at sea must not hide behind one on land, in either order.
+    for order in ((INLAND, AT_SEA), (AT_SEA, INLAND)):
+        labels, found = run(tmp_path, {"places": [(g, {"kind": "locality", "name": "Αγία Μαρίνα"}) for g in order]})
+        assert len(labels) == 2
+        assert len(found) == 1 and "out to sea" in found[0]
+
+
 def test_a_town_label_in_the_sea_fails(tmp_path):
     _, found = run(tmp_path, {"places": [(AT_SEA, {"kind": "locality", "name": "Ερμούπολη"})]})
     assert len(found) == 1

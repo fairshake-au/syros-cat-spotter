@@ -4,7 +4,8 @@ Usage: python check_labels.py syros.pmtiles [--list]
 
 Reads every tile, takes the land shape from the `earth` layer at LAND_ZOOM, and checks
 each named label point:
-  * a `water` label (sea, bay, lake, ...) must not be on land;
+  * a sea-side `water` label (bay, strait, ...) must not be on land; lakes, ponds,
+    reservoirs and pools are inland by nature and are not judged;
   * a town or village label (`places`, kind locality or neighbourhood) must be on land.
   * no `water` label of kind sea or ocean at all: this one-island map has no sea big
     enough to place one (the bbox extract cuts the Aegean Sea to the box and its label
@@ -32,6 +33,7 @@ M_PER_DEG_LON = 111_320 * math.cos(math.radians(37.445))
 M_PER_DEG_LAT = 110_540
 LAND_PLACE_KINDS = {"locality", "neighbourhood"}
 NO_LABEL_WATER_KINDS = {"sea", "ocean"}
+SEA_WATER_KINDS = {"bay", "strait", "fjord", "sound"}
 
 
 def tile_to_lonlat(z, x, y, extent):
@@ -73,8 +75,9 @@ def read(path):
                     if layer_name not in ("water", "places", "pois", "earth"):
                         continue
                     lon, lat = to_ll([geom["coordinates"]])[0]
-                    key = (layer_name, props.get("kind"), props.get("name"))
                     # The same label repeats in every tile and zoom; keep the deepest (most exact) copy.
+                    # The rounded position keeps two places that share a name apart (~100 m).
+                    key = (layer_name, props.get("kind"), props.get("name"), round(lon, 3), round(lat, 3))
                     if key not in labels or z > labels[key]["z"]:
                         labels[key] = {
                             "layer": layer_name, "kind": props.get("kind"), "name": props.get("name"),
@@ -103,7 +106,7 @@ def problems(land, labels):
         inside = metres_inside(land, lab["lon"], lab["lat"])
         if lab["layer"] == "water" and lab["kind"] in NO_LABEL_WATER_KINDS:
             out.append(f"{where}: sea and ocean labels are not wanted on this map")
-        elif lab["layer"] == "water" and inside > SHORE_M:
+        elif lab["layer"] == "water" and lab["kind"] in SEA_WATER_KINDS and inside > SHORE_M:
             out.append(f"{where}: water label is {inside:.0f} m inland")
         elif lab["layer"] == "places" and lab["kind"] in LAND_PLACE_KINDS and inside < -SHORE_M:
             out.append(f"{where}: place label is {-inside:.0f} m out to sea")
