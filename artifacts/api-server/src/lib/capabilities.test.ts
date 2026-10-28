@@ -60,6 +60,26 @@ describe("the catalogue (roles spec §6.2)", () => {
   });
 });
 
+describe("SYC-150 (D5): moving and merging cats, and reviewing possible duplicates, are the team's", () => {
+  const SYC150 = ["move_sighting", "merge_cats", "review_duplicates"] as const;
+
+  it("a cat guardian is refused each of the three, with or without a colony of her own", () => {
+    for (const c of SYC150) {
+      expect(can(guardian, c), c).toBe(false);
+      expect(can(guardian, c, { colonyId: 3 }), `${c} on her own colony`).toBe(false);
+      expect(canSomewhere(guardian, c), c).toBe(false);
+    }
+  });
+
+  it("a team member holds each of the three, island-wide", () => {
+    for (const c of SYC150) {
+      expect(can(staff, c), c).toBe(true);
+      expect(can(staff, c, { colonyId: 3 }), c).toBe(true);
+      expect(can(management, c), c).toBe(true);
+    }
+  });
+});
+
 describe("T15 (part): manage_people and action_deletion_request are management's", () => {
   it("a team-only member holds neither; a management member holds both", () => {
     for (const c of ["manage_people", "action_deletion_request"] as const) {
