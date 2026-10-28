@@ -149,10 +149,12 @@ const DONE: Record<string, string> = {
   note: "Saved. The note is in the history below.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
   moved: "Saved. The move is in the history below, with where it went. Nobody was told.",
+  merged: "Saved. The two records are one cat now. The merge is in the history below, with Undo merge. Followers see one quiet line in the app; no push was sent.",
+  undone: "Saved. The merge is undone: the sightings are back where they were. It is in the history below.",
 };
 
 /** The messages that sit at the top of the page, not in "Update this cat". */
-const TOP_DONE = new Set(["died", "diedAlready", "moved"]);
+const TOP_DONE = new Set(["died", "diedAlready", "moved", "merged", "undone"]);
 
 /** The messages that sit at the top of History, where the vet visits are. */
 const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);

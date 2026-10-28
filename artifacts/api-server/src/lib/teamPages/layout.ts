@@ -350,6 +350,27 @@ form.movebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 1
 form.movebar .hint{flex:1 0 100%;margin:0}
 form.movebar button,form.movesearch button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
 form.moveform .whatmoves p,form.moveform .warn,.notice,ul.movelist .meta,p.chosen,a.catlink{overflow-wrap:anywhere}
+.mergecols{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:0 0 12px}
+@media(min-width:720px){.mergecols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mergecol{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0;overflow-wrap:anywhere}
+.mergecol.stays{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.mergecol h3{margin:0 0 2px;font-size:18px}
+.mergecol .photos{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.mergecol .photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.mergecol dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;margin:6px 0 0;font-size:15px}
+.mergecol dt{color:var(--muted)}
+.mergecol dd{margin:0}
+ul.happens{margin:0 0 12px;padding-left:20px}
+ul.happens li{margin:6px 0;overflow-wrap:anywhere}
+form.mergeform .whatmoves{background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin:0 0 12px}
+form.mergeform .whatmoves h2{font-size:16px;margin:8px 0 4px}
+ul.undolist{list-style:none;margin:0 0 12px;padding:0}
+ul.undolist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+ul.undolist li:first-child{border-top:0}
+ul.undolist label.tick{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:15px}
+ul.undolist label.tick input{width:22px;height:22px;margin:0}
+ul.undolist .compare{margin:4px 0 0}
+.tag.from{background:var(--accent-soft);color:var(--accent-strong)}
 li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
 li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
 li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}

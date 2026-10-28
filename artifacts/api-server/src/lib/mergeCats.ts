@@ -172,7 +172,7 @@ async function resolvedSightings(tx: DbOrTx, catId: number) {
 }
 
 /** Phones with a "same cat" answer about this pair, from "Are these the same cat?", dated before `before`. */
-async function reportersOf(tx: DbOrTx, pair: { low: number; high: number }, before: Date | null): Promise<string[]> {
+export async function reportersOf(tx: DbOrTx, pair: { low: number; high: number }, before: Date | null): Promise<string[]> {
   const r = await tx.execute<{ device_id: string }>(sql`
     select distinct device_id from duplicate_reports
      where cat_low = ${pair.low} and cat_high = ${pair.high}
@@ -191,7 +191,7 @@ async function hasOwner(tx: DbOrTx, cat: { id: number; ownerDeviceId: string | n
  * D7: the record that stays by default is the earlier one, unless its name
  * is still pending and the other's isn't, in which case the named one.
  */
-function defaultSurvivor(
+export function defaultSurvivor(
   a: { id: number; createdAt: Date; namePending: boolean },
   b: { id: number; createdAt: Date; namePending: boolean },
 ): number {
@@ -609,7 +609,7 @@ export async function undoMergeIn(tx: Tx, person: Person, mergeId: number, input
  * §4.5). A sighting the team moved since, even back again, is not: it is
  * listed for ticking instead.
  */
-async function ownMoves(tx: DbOrTx, merge: MergeRecord): Promise<number[]> {
+export async function ownMoves(tx: DbOrTx, merge: MergeRecord): Promise<number[]> {
   const r = await tx.execute<{ sighting_id: number }>(sql`
     select m.sighting_id from sighting_moves m
       join sightings s on s.id = m.sighting_id
@@ -662,7 +662,7 @@ export async function filedUnderSurvivorSinceMerge(exec: DbOrTx, merge: Pick<Mer
 }
 
 /** Which of these sightings this merge moved (and something moved again since). */
-async function movedByThisMerge(tx: DbOrTx, mergeId: number, sightingIds: readonly number[]): Promise<number[]> {
+export async function movedByThisMerge(tx: DbOrTx, mergeId: number, sightingIds: readonly number[]): Promise<number[]> {
   if (sightingIds.length === 0) return [];
   const rows = await tx
     .select({ sightingId: sightingMovesTable.sightingId })
