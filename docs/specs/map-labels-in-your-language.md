@@ -71,6 +71,7 @@ We use the **adjusted style** Samuel saw on 24 Oct 2026. It starts from Protomap
 - Hill tops with a ▲, their name and height (Βούλιας 263 m).
 - Churches marked †, with their names when zoomed in close.
 - Beach names in italics.
+- No label is written all in capitals. Greek in capitals drops its accent marks (ΝΗΣΑΚΙ), and the map can't do that, so capitals would show wrong spellings (ΝΗΣΆΚΙ).
 - To add: footpaths and hiking trails as dotted lines, like today's map.
 - Kept calm on purpose: only a few landmarks in town (theatre, post office, supermarket), not every shop and café, so the cat markers stand out.
 
@@ -111,6 +112,7 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
 1. **Cut out Syros.**
    - Download Geofabrik's Greece extract.
    - Cut out a box with `osmium extract`. The box is `SYROS_RECT` padded by 0.03° (about 3 km) on every side.
+   - Drop the names of seas and oceans. The box cuts the Aegean Sea down to a square, and its name would land in the middle of the square, on the island. A one-island map needs no sea name.
 2. **Fill in names** (Decision B).
    - A small script adds `name:en` to every feature that has a Greek name but no English one.
    - The spelling follows the standard Greek-to-Latin system used on Greek road signs.
@@ -122,6 +124,7 @@ A script in the repo (`scripts/map-data/`) is run by a manual GitHub Action call
    - The builder also downloads Natural Earth and OpenStreetMap's water outlines for the sea and coast. Their versions are pinned too, and they are credited.
    - Run Protomaps' open-source map builder (`protomaps/basemaps`, built on Planetiler) over the extract.
    - That gives `syros.pmtiles`, with detail down to zoom 15. Closer zooms are drawn from the same data, so the map stays sharp.
+   - **Check the labels.** The build stops before upload if any sea or ocean name is left, if a water name (a bay, a harbour) sits on land, or if a town or village name sits out at sea (`check_labels.py`).
 4. **Fonts and symbols.** The map's fonts (Noto Sans, which includes Greek) and symbols are built from Protomaps' published assets, pinned to a version and hosted with the file. Nothing is fetched from Protomaps' own site at run time.
 5. **Record it.** A `manifest.json` lists the data date, every tool version, the file size and the number of names added in step 2.
 

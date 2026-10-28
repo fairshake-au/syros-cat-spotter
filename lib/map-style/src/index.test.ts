@@ -57,6 +57,13 @@ describe('map style', () => {
     expect(textField(buildStyle(EL), 'pois')).toEqual(['coalesce', ['get', 'name:el'], ['get', 'name']]);
   });
 
+  it.each(['en', 'el'] as const)('writes no label in capitals, so Greek keeps correct accents (%s)', (lang) => {
+    const upper = buildStyle({ ...EN, lang }).layers
+      .filter((l) => ((l.layout ?? {}) as Record<string, unknown>)['text-transform'] === 'uppercase')
+      .map((l) => l.id);
+    expect(upper).toEqual([]);
+  });
+
   it('labelFieldsFor swaps only label layers', () => {
     const ids = labelFieldsFor('el').map((f) => f.layerId);
     expect(ids).toContain('roads_labels_minor');
