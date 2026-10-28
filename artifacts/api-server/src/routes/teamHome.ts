@@ -6,6 +6,7 @@ import { renderHomePage } from "../lib/teamPages/homePage";
 import { visibleColonyIds } from "../lib/guardianView";
 import { newCatsAfterFailedCheck } from "../lib/matcherHealth";
 import { renderNewCatsPage } from "../lib/teamPages/newCatsPage";
+import { nearbyCatsOf } from "../lib/newCatsNearby";
 import { can } from "../lib/capabilities";
 import { listDuplicates } from "../lib/duplicateList";
 
@@ -45,7 +46,8 @@ router.get(
     setTeamHeaders(res);
     const cats = await newCatsAfterFailedCheck();
     if (req.accepts(["html", "json"]) === "json") return void res.json({ cats });
-    res.type("html").send(renderNewCatsPage(cats, person.name));
+    const nearby = await nearbyCatsOf(cats.map((c) => c.catId));
+    res.type("html").send(renderNewCatsPage(cats, person.name, nearby));
   },
 );
 

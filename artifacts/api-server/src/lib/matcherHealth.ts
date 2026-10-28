@@ -158,7 +158,8 @@ export interface NewCatToCheck {
 /**
  * New cats whose spot's check failed and whose spotter then chose "It's a new
  * cat" (`matcher_failed` with `choice = new_cat`): the likeliest duplicates.
- * Newest first, the last {@link NEW_CATS_DAYS} days.
+ * Newest first, the last {@link NEW_CATS_DAYS} days. A cat the team marked
+ * "Checked, it's new" is off the list.
  */
 export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<NewCatToCheck[]> {
   // A cat merged into another is no longer a new cat to check (spec §9.3).
@@ -177,6 +178,8 @@ export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<N
         isNull(sightingsTable.redactedAt),
         gt(sightingMatchesTable.chosenAt, new Date(now.getTime() - NEW_CATS_DAYS * 86_400_000)),
         lte(sightingMatchesTable.chosenAt, now),
+        // "Checked, it's new" (SYC-59 PR 5.1): once the team has said so, the cat is off the list.
+        sql`not exists (select 1 from new_cat_checks nc where nc.cat_id = ${catsTable.id})`,
       ),
     },
   )
