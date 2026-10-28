@@ -131,6 +131,9 @@ describe("fingerprints-nightly.yml", () => {
     // No second schedule or switch of its own: it rides the fingerprint job's, and the app's switch keeps it quiet.
     expect(text.match(/cron:/g)).toHaveLength(1);
     expect(text).toContain("duplicate_sweep");
+    // A failing sweep step (the live build lacking the route) never reddens the fill, and the job has time for both steps.
+    expect(text).toMatch(/Look for look-alike cats[^\n]*\n\s+continue-on-error: true/);
+    expect(text).toContain("timeout-minutes: 10");
   });
 
   it("is switched on and off like news-nightly.yml", () => {

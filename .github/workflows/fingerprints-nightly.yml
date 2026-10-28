@@ -34,7 +34,7 @@ jobs:
     environment: production
     # The app works for at most 90 seconds (plus the photo in hand); curl waits
     # up to 150 seconds for the answer.
-    timeout-minutes: 6
+    timeout-minutes: 10
     steps:
       - name: Fill tonight's missing fingerprints
         env:
@@ -97,7 +97,10 @@ jobs:
       # {"ran":false,...} while the App switches key `duplicate_sweep` is off
       # (the default), so this step is harmless until the team turns it on.
       # At most 10 pairs a night, onto the team's Possible duplicates list.
+      # continue-on-error: before the live build has the route it answers 401
+      # or 404, and that must not turn the fingerprint fill red.
       - name: Look for look-alike cats (does nothing while its switch is off)
+        continue-on-error: true
         env:
           FINGERPRINT_JOB_TOKEN: ${{ secrets.FINGERPRINT_JOB_TOKEN }}
           BASE_URL: ${{ inputs.base_url || vars.MAIL_DRAIN_BASE_URL || 'https://apptest.catspotters.com' }}
