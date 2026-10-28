@@ -388,10 +388,13 @@ describe("spec test 18: owners, names, claim waits, colour and markings", () => 
 });
 
 describe("spec test 19: duplicate-finder points", () => {
-  /** A phone with resolved spots on `days` different Athens days (3 makes it count). */
+  /** A phone with resolved spots on `days` different Athens days (3 makes it count), two spots a day. */
   async function phoneWith(days: number, catId: number) {
     const d = kit.device();
-    for (let i = 0; i < days; i++) await kit.sighting(catId, d, daysAgo(70 + i * 2));
+    for (let i = 0; i < days; i++) {
+      await kit.sighting(catId, d, daysAgo(70 + i * 2));
+      await kit.sighting(catId, d, new Date(daysAgo(70 + i * 2).getTime() + 60_000));
+    }
     return d;
   }
   const report = (a: number, b: number, deviceId: string, says: "same" | "different" = "same", createdAt = daysAgo(1)) =>
