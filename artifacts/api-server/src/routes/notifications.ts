@@ -10,13 +10,17 @@ import {
   notificationsTable,
   pushTokensTable,
 } from "@workspace/db";
-import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { requireDeviceAuth } from "../lib/deviceAuth";
 import { insertCatUpdate, fanOutNotifications } from "../lib/notificationFanout";
 import { writeObservation } from "../lib/observations";
 import { catDisplayPhotos } from "../lib/photoVisibility";
+import { survivorsOf } from "../lib/survivor";
 
 const router: IRouter = Router();
+
+/** The bell's entries with no cat: their words are in `message` (never pushed, except the week's result). */
+const MESSAGE_KINDS = ["week_result", "merged", "duplicate_points"];
 
 router.post("/cats/:catId/updates", async (req, res) => {
   const ownerSecret = process.env["OWNER_SECRET"];
@@ -141,11 +145,27 @@ router.get("/notifications/:deviceId", async (req, res) => {
         eq(notificationsTable.deviceId, deviceId),
         or(
           and(eq(notificationsTable.kind, "cat"), isNotNull(catsTable.id)),
-          eq(notificationsTable.kind, "week_result"),
+          // which-cat-is-which.md D4, D10 (plan C5): a followed cat merged
+          // into another, and points for finding a duplicate, are shaped
+          // like a weekly result: no cat, their words in the message.
+          inArray(notificationsTable.kind, MESSAGE_KINDS),
         ),
       ),
     )
     .orderBy(desc(notificationsTable.createdAt), desc(notificationsTable.id));
+
+  // News about a cat since merged into another shows under the cat it is
+  // part of now (which-cat-is-which.md §9.3): its name, photo and page.
+  // One lookup for all of them.
+  const survivors = await survivorsOf(rows.flatMap((r) => (r.kind === "cat" && r.catId !== null ? [r.catId] : [])));
+  for (const r of rows) {
+    const s = r.catId === null ? undefined : survivors.get(r.catId);
+    if (s) {
+      r.catId = s.id;
+      r.catName = s.name;
+      r.catPrimaryPhotoId = s.primaryPhotoId;
+    }
+  }
 
   // Each cat's photo as the catalogue shows it, in one batch (SYC-98 Fable
   // review, finding 7: never one lookup per notification). A main photo the
@@ -161,7 +181,7 @@ router.get("/notifications/:deviceId", async (req, res) => {
   ]);
   res.json(
     rows.map((r) =>
-      r.kind === "week_result"
+      r.kind !== "cat"
         ? {
             // No cat: the app opens the celebration, not a cat page.
             id: r.id,

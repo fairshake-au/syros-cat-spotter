@@ -16,7 +16,7 @@ import {
   type SightingPhotoRole,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
-import { liveCats } from "./catIdentity";
+import { alsoKnownAs, liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -1375,6 +1375,8 @@ export interface TeamCatSearchResult {
   id: number;
   syr: string;
   name: string;
+  /** Found by the name of a cat merged into this one ("Mimi", now part of Agatha). */
+  alsoKnownAs?: string;
   thumbnailUrl: string | null;
   status: DerivedCatStatus;
 }
@@ -1400,35 +1402,47 @@ export async function searchTeamCats(rawQuery: string): Promise<TeamCatSearchRes
   const syr = SYR_RE.exec(q);
   const syrId = syr ? Number(syr[1]) : null;
 
-  // A merged-away cat is not a cat of her own in the search ("also known as"
-  // is PR 4.1).
+  // A merged-away cat is not a cat of her own in the search: her name and
+  // SYR number find the cat she is part of now, "also known as"
+  // (which-cat-is-which.md §4.2, §9.3).
   const all = await liveCats({
     id: catsTable.id,
     name: catsTable.name,
     ownerDeviceId: catsTable.ownerDeviceId,
     photoPublicId: photosTable.publicId,
   }).leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId));
+  const aka = await alsoKnownAs();
 
-  const rank = (c: (typeof all)[number]): number => {
-    if (c.id === syrId) return 0;
-    const name = foldName(c.name);
-    if (name === q) return 1;
-    if (name.startsWith(q)) return 2;
-    if (name.includes(q)) return 3;
+  const rankName = (id: number, name: string): number => {
+    if (id === syrId) return 0;
+    const folded = foldName(name);
+    if (folded === q) return 1;
+    if (folded.startsWith(q)) return 2;
+    if (folded.includes(q)) return 3;
     return -1;
   };
+  // Each cat's best match: its own name or number, or a merged-in cat's.
+  const rank = (c: (typeof all)[number]): { r: number; via: string | null } => {
+    let best = { r: rankName(c.id, c.name), via: null as string | null };
+    for (const a of aka) {
+      if (a.survivorId !== c.id) continue;
+      const r = rankName(a.id, a.name);
+      if (r >= 0 && (best.r < 0 || r < best.r)) best = { r, via: a.name };
+    }
+    return best;
+  };
   const found = all
-    .map((c) => ({ c, r: rank(c) }))
+    .map((c) => ({ c, ...rank(c) }))
     .filter((x) => x.r >= 0)
     .sort((a, b) => a.r - b.r || a.c.name.localeCompare(b.c.name, "el") || a.c.id - b.c.id)
-    .slice(0, SEARCH_LIMIT)
-    .map((x) => x.c);
+    .slice(0, SEARCH_LIMIT);
 
-  const statuses = await deriveCatStatuses(found);
-  return found.map((c) => ({
+  const statuses = await deriveCatStatuses(found.map((x) => x.c));
+  return found.map(({ c, via }) => ({
     id: c.id,
     syr: syrNumber(c.id),
     name: c.name,
+    ...(via === null ? {} : { alsoKnownAs: via }),
     // The small version (SYC-396 PR 1.2): lists never load the full photo.
     thumbnailUrl: c.photoPublicId ? `${teamPhotoUrl(c.photoPublicId)}/small` : null,
     status: statuses.get(c.id)!,

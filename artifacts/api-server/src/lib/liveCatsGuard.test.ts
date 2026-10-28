@@ -86,7 +86,10 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "undoMergeIn: the cats of an undo, locked by id (§9.7 lock 4)",
     "undoMergeIn: the names for UNDO_LATER_MERGE_FIRST's words, by id",
   ],
-  "artifacts/api-server/src/lib/catNames.ts": ["catNamed: name taken; a merged-away cat's name stays taken (spec 4.2)"],
+  "artifacts/api-server/src/lib/catNames.ts": [
+    "catNamed: name taken; a merged-away cat's name stays taken (spec 4.2)",
+    "nameHolder: the survivor of a merged-away name holder, by id (spec 9.3)",
+  ],
   "artifacts/api-server/src/lib/claiming.ts": [
     "claimEligibility: one cat by id; a merged-away cat is already refused through canonicalCatOf",
     "hasMetCat: the canonical cat's name_pending, one cat by id (D3's naming exception)",
@@ -109,7 +112,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/observations.ts": [
     "loadCatRecords: created_at of every feeder, merged-away ones on purpose (they fold into the survivor's)",
   ],
-  "artifacts/api-server/src/lib/publicCat.ts": ["publicCatView: one cat by id; the survivor page is PR 4.1"],
+  "artifacts/api-server/src/lib/publicCat.ts": ["publicCatView: one cat by id (callers pass the survivor)"],
   "artifacts/api-server/src/lib/recentGuardianChanges.ts": [
     "recentGuardianChanges: a log; each entry names the cat its own row is on",
   ],
@@ -152,18 +155,15 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/welfareTie.ts": ["tieReportToCat: the cat exists, checked before a write"],
   "artifacts/api-server/src/routes/cats.ts": [
     "name-suggestions: every name in use, merged-away ones included (spec 4.2)",
-    "GET /cats/:catId: one cat by id; the survivor page with mergedFrom is PR 4.1",
-    "claim: one cat by id; the MERGED refusal is PR 4.1",
+    "claim: one cat by id, after the MERGED refusal",
     "claim: lock by id before a write",
     "claim: the cat again after the claim, for the response",
-    "let-go: lock by id before a write",
-    "let-go: the locked cat's owner",
+    "let-go: the survivor's owner, locked by lockSurvivor",
     "let-go: the cat again, for the response",
-    "follow: lock by id before a write",
-    "follow: the locked cat's owner; acting on the survivor is PR 4.1",
+    "follow: the survivor's owner, locked by lockSurvivor",
     "name: lock by id before a write",
     "name: a cat holding the folded name; a merged-away name stays taken (spec 4.2)",
-    "PATCH /cats/:catId: one cat by id before a write",
+    "PATCH /cats/:catId: the survivor by id before a write",
   ],
   "artifacts/api-server/src/routes/issues.ts": ["POST /issues: the reported cat by id, checked before a write"],
   "artifacts/api-server/src/routes/notifications.ts": [
@@ -172,8 +172,15 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   ],
   "artifacts/api-server/src/routes/reports.ts": ["knownCatId: the cat exists, checked before a write"],
   "artifacts/api-server/src/routes/sightings.ts": [
-    "resolve: the chosen cat by id before a write; filing under the survivor is PR 4.1",
+    "resolve: the chosen cat by id before a write",
+    "resolve: the survivor by id, once lockSurvivor found the chosen cat merged away",
     "resolve: lock by id before a write (the auto-follow)",
+  ],
+  "artifacts/api-server/src/lib/survivor.ts": [
+    "survivorOf: the cat asked about and its survivor, by id",
+    "lockSurvivor: lock by id before a write (update)",
+    "lockSurvivor: lock by id before a resolve files a sighting (share)",
+    "survivorsOf: the survivors' names and photos, by id, for the bell",
   ],
   "artifacts/api-server/src/routes/teamNews.ts": [
     "news-changes: a log; each change names its own cat by id",

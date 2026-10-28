@@ -47,6 +47,7 @@ import { can, type Capability, type CapabilityTarget } from "../lib/capabilities
 import { catTarget } from "../lib/capabilityTargets";
 import { SYR_SHAPED_NAME } from "../lib/catNames";
 import { athensToday } from "../lib/athensTime";
+import { survivorIdOf } from "../lib/survivor";
 
 // The corrections (SYC-43 part 2 plan, PR 4): forms on the team cat page and
 // the Probably sterilised list. Every POST checks Origin first, then the
@@ -211,6 +212,16 @@ function catIdOf(req: Request): number | null {
   return CAT_ID_RE.test(raw) ? Number(raw) : null;
 }
 
+/**
+ * The cat a team correction acts on: the one in the address, or, for a
+ * merged-away cat, the cat it is part of now (which-cat-is-which.md §9.3).
+ * A page open since before a merge writes on the cat that counts.
+ */
+async function catOf(req: Request): Promise<number | null> {
+  const id = catIdOf(req);
+  return id === null ? null : survivorIdOf(id);
+}
+
 function notFound(req: Request, res: Response) {
   formProblem(req, res, 404, {
     message: "That cat or change doesn't exist.",
@@ -263,7 +274,7 @@ router.post(
   "/team/cats/:id/life-status",
   ...formRoute("set_life_status"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = LifeStatusForm.safeParse(req.body ?? {});
@@ -363,7 +374,7 @@ router.get(
   async (req: Request, res: Response) => {
     const person = teamPerson(res);
     setTeamHeaders(res);
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     const view = catId === null ? null : await teamCatView(catId, new Date(), person);
     if (!view) return void res.status(404).type("html").send(renderNoSuchCat(person.name));
     if (isRecordedDead(view)) return void res.redirect(303, catPage(view.cat.id, "diedAlready", undefined, true));
@@ -384,7 +395,7 @@ router.post(
   "/team/cats/:id/died",
   ...formRoute("set_life_status"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const person = teamPerson(res);
     const form = isFormPost(req);
@@ -482,7 +493,7 @@ router.post(
       req.log.info({ reason: "missing_capability" }, "correction refused");
       return refuseSignedIn(req, res);
     }
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = RemoveOwnerForm.safeParse(req.body ?? {});
@@ -591,7 +602,7 @@ router.post(
   "/team/cats/:id/sterilisation",
   ...formRoute("set_sterilisation"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = SterilisationForm.safeParse(req.body ?? {});
@@ -786,7 +797,7 @@ router.post(
   "/team/cats/:id/note",
   ...formRoute("add_team_note"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = NoteForm.safeParse(req.body ?? {});
@@ -819,7 +830,7 @@ router.post(
   "/team/cats/:id/name",
   ...formRoute("rename_cat"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = RenameForm.safeParse(req.body ?? {});
@@ -902,7 +913,7 @@ router.post(
  */
 async function colonyChangeTarget(req: Request): Promise<CapabilityTarget> {
   const parsed = ColonyForm.safeParse(req.body ?? {});
-  const catId = catIdOf(req);
+  const catId = await catOf(req);
   if (!parsed.success || catId === null) return { colonyId: null };
   if (parsed.data.colonyId !== "none") return { colonyId: Number(parsed.data.colonyId) };
   return catTarget(catId);
@@ -934,7 +945,7 @@ router.post(
   "/team/cats/:id/colony",
   ...formRoute("assign_cat_to_colony", { target: colonyChangeTarget }),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = catPage(catId);
     const parsed = ColonyForm.safeParse(req.body ?? {});
@@ -1132,7 +1143,7 @@ router.post(
   "/team/cats/:id/appearance/confirm",
   ...formRoute("set_appearance"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = appearancePage(catId);
     const parsed = ConfirmForm.safeParse(req.body ?? {});
@@ -1177,7 +1188,7 @@ router.post(
   "/team/cats/:id/appearance/correct",
   ...formRoute("set_appearance"),
   async (req: Request, res: Response) => {
-    const catId = catIdOf(req);
+    const catId = await catOf(req);
     if (catId === null) return notFound(req, res);
     const back = appearancePage(catId);
     const parsed = CorrectForm.safeParse(req.body ?? {});

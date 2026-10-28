@@ -76,6 +76,16 @@ import {
   SYR_SHAPED_NAME_BODY,
 } from "../lib/catNames";
 import { warmSalts } from "../lib/limits";
+import { lockSurvivor, survivorIdOf, survivorOf } from "../lib/survivor";
+
+/**
+ * A name or claim action on a merged-away cat is refused (which-cat-is-which.md
+ * §9.3): the phone is out of date, and is told the cat it is part of now, so
+ * it can open that cat and try there.
+ */
+function mergedBody(survivorId: number) {
+  return { error: "This cat is now part of another cat's record.", code: "MERGED" as const, catId: survivorId };
+}
 
 const router: IRouter = Router();
 
@@ -206,19 +216,22 @@ router.get("/cats/:catId", async (req, res) => {
   // The answer depends on X-Device-Id (and its secret), never on the URL alone.
   res.setHeader("Vary", "X-Device-Id, X-Device-Secret");
   if (req.headers["x-device-id"] !== undefined) res.setHeader("Cache-Control", PER_PHONE);
-  const catId = Number(req.params.catId);
-  if (!Number.isInteger(catId)) {
+  const requested = Number(req.params.catId);
+  if (!Number.isInteger(requested)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const [cat] = await db
-    .select()
-    .from(catsTable)
-    .where(eq(catsTable.id, catId));
-  if (!cat) {
+  // A merged-away cat (an old link, a notification, a phone that hasn't
+  // refreshed) opens the cat it is part of now, with `mergedFrom` so the app
+  // can say "Mimi is now part of Agatha's record" (which-cat-is-which.md
+  // §4.2, §9.3). An older app ignores the extra field.
+  const survivor = await survivorOf(requested);
+  if (survivor === null) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  const { cat, mergedFrom } = survivor;
+  const catId = cat.id;
   // SYC-98 Fable review, finding 7: photosTable is joined here rather than
   // looking each sighting's photo up on its own (an N+1 — one round trip to
   // Neon per row, serialised 5 at a time behind the pool's default max: 10)
@@ -313,6 +326,7 @@ router.get("/cats/:catId", async (req, res) => {
   logRouteDuration(req, "GET /cats/:id", startedAt, { catId });
   res.json({
     cat: catBody,
+    ...(mergedFrom ? { mergedFrom } : {}),
     fansCount: fans,
     spottersCount: fans,
     followersCount: followers,
@@ -433,6 +447,14 @@ router.post("/cats/:catId/claim", async (req, res) => {
   // ever given to the device itself.
   const deviceId = await verifyDeviceSecret(req, res, body.deviceId);
   if (!deviceId) return;
+  // A merged-away cat is claimed as the cat it is part of, from that cat's
+  // page (§9.3). Inside the transaction, claimEligibility refuses a merge
+  // that lands meanwhile.
+  const survivorId = await survivorIdOf(catId);
+  if (survivorId !== catId) {
+    res.status(409).json(mergedBody(survivorId));
+    return;
+  }
   const [cat] = await db.select().from(catsTable).where(eq(catsTable.id, catId));
   // §3 rule 4: this proven phone already owns the cat. A retry succeeds
   // quietly, writes nothing, and never spends an attempt (critic L1).
@@ -571,8 +593,8 @@ router.post("/cats/:catId/claim", async (req, res) => {
  */
 router.post("/cats/:catId/let-go", async (req, res) => {
   res.setHeader("Cache-Control", PER_PHONE);
-  const catId = Number(req.params.catId);
-  if (!Number.isInteger(catId)) {
+  const requested = Number(req.params.catId);
+  if (!Number.isInteger(requested)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
@@ -584,8 +606,11 @@ router.post("/cats/:catId/let-go", async (req, res) => {
   const deviceId = await verifyDeviceSecret(req, res, parsed.data.deviceId);
   if (!deviceId) return;
 
+  // A merged-away cat's let-go acts on the cat it is part of (§9.3): the
+  // owner always stays with the survivor (§4.1).
+  let catId = requested;
   const done = await db.transaction(async (tx) => {
-    await tx.execute(sql`select id from cats where id = ${catId} for update`);
+    catId = await lockSurvivor(tx, requested);
     const [cat] = await tx
       .select({ ownerDeviceId: catsTable.ownerDeviceId })
       .from(catsTable)
@@ -635,8 +660,8 @@ router.post("/cats/:catId/let-go", async (req, res) => {
 function followHandler(action: "follow" | "unfollow") {
   return async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", PER_PHONE);
-    const catId = Number(req.params["catId"]);
-    if (!Number.isInteger(catId)) {
+    const requested = Number(req.params["catId"]);
+    if (!Number.isInteger(requested)) {
       res.status(404).json({ error: "Not found" });
       return;
     }
@@ -664,7 +689,8 @@ function followHandler(action: "follow" | "unfollow") {
     }
 
     const result = await db.transaction(async (tx) => {
-      await tx.execute(sql`select id from cats where id = ${catId} for update`);
+      // Following a merged-away cat follows the cat it is part of (§9.3).
+      const catId = await lockSurvivor(tx, requested);
       const [cat] = await tx
         .select({ ownerDeviceId: catsTable.ownerDeviceId })
         .from(catsTable)
@@ -768,9 +794,18 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
     return;
   }
 
+  // A merged-away cat isn't named on its own (§9.3): the phone is told the
+  // cat it is part of. Read again under the lock below.
+  const survivorBefore = await survivorIdOf(catId);
+  if (survivorBefore !== catId) {
+    res.status(409).json(mergedBody(survivorBefore));
+    return;
+  }
+
   type Outcome =
     | { ok: true }
     | { ok: false; why: "NOT_FOUND" | "ALREADY_NAMED" | "NEEDS_SIGHTING" }
+    | { ok: false; why: "MERGED"; survivorId: number }
     | { ok: false; why: "NAME_TAKEN"; holderId: number };
   let outcome: Outcome | null;
   try {
@@ -788,6 +823,9 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
       );
       const cat = locked.rows[0];
       if (!cat || cat.redacted_at !== null) return { ok: false, why: "NOT_FOUND" };
+      // A merge commits with this cat locked, so one that landed meanwhile is seen here.
+      const survivorId = await survivorIdOf(catId, tx);
+      if (survivorId !== catId) return { ok: false, why: "MERGED", survivorId };
       if (!cat.name_pending) return { ok: false, why: "ALREADY_NAMED" };
       if (!(await hasMetCat(tx, catId, deviceId, "name"))) return { ok: false, why: "NEEDS_SIGHTING" };
       const [holder] = await tx
@@ -851,6 +889,8 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
       res.status(409).json({ error: "This cat already has a name", code: "ALREADY_NAMED" });
     } else if (outcome.why === "NEEDS_SIGHTING") {
       res.status(403).json({ error: NEEDS_SIGHTING_TEXT, code: "NEEDS_SIGHTING" });
+    } else if (outcome.why === "MERGED") {
+      res.status(409).json(mergedBody(outcome.survivorId));
     } else {
       res.status(409).json(await nameTakenBody(await catNamed(name)));
     }
@@ -867,8 +907,8 @@ router.post("/cats/:catId/name", noStore, aiLimiter, async (req, res) => {
 // Owner renames the cat or updates its home description.
 router.patch("/cats/:catId", async (req, res) => {
   res.setHeader("Cache-Control", PER_PHONE);
-  const catId = Number(req.params.catId);
-  if (!Number.isInteger(catId)) {
+  const requested = Number(req.params.catId);
+  if (!Number.isInteger(requested)) {
     res.status(404).json({ error: "Not found" });
     return;
   }
@@ -876,6 +916,9 @@ router.patch("/cats/:catId", async (req, res) => {
   // SYC-107: the owner check below compares a body value against the stored
   // owner, which proves nothing on its own; the secret is what proves it.
   if (!(await verifyDeviceSecret(req, res, body.deviceId))) return;
+  // An owner's phone still showing a merged-away cat edits the cat it is
+  // part of (§9.3); the owner always stays with that cat (§4.1).
+  const catId = await survivorIdOf(requested);
 
   const [cat] = await db
     .select()

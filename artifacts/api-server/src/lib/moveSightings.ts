@@ -22,6 +22,7 @@ import {
   hasLinkOrPhoneNumber,
   isUniqueViolation,
   NAME_HAS_LINK,
+  nameHolder,
   NAME_TAKEN_WORDS,
   OFFENSIVE_NAME_WORDS,
 } from "./catNames";
@@ -373,7 +374,9 @@ function refuseBadName(name: string): void {
 }
 
 async function nameTaken(name: string): Promise<MoveRefused> {
-  const holder = await catNamed(name);
+  const found = await catNamed(name);
+  // A merged-away cat's name points to the cat it is part of (§9.3).
+  const holder = found ? await nameHolder(found) : undefined;
   return new MoveRefused("NAME_TAKEN", NAME_TAKEN_WORDS, holder ? { cat: { id: holder.id, name: holder.name } } : {});
 }
 

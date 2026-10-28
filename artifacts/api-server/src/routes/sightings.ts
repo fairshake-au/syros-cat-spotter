@@ -51,6 +51,7 @@ import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
 import { canonicalCatOf, catsFeeding, liveCats, observationCatIn, type Feeding } from "../lib/catIdentity";
 import { awardPoints } from "../lib/pointsLedger";
+import { lockSurvivor } from "../lib/survivor";
 import { placeFor } from "../lib/areas/placeFor";
 import {
   BLANK_NAME_BODY,
@@ -1052,6 +1053,19 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       // earned by older spots: saved without a celebration, so an existing
       // spotter's first spot after launch doesn't replay their whole history.
       const badgesBefore = thresholdBadges(await computeBadgeStats(tx, spotterId));
+
+      // which-cat-is-which.md §9.2: no resolved sighting is ever filed under
+      // a merged-away cat. The cat is locked (shared, so resolves don't queue
+      // behind each other) and its canonical cat read again under the lock:
+      // a merge committed meanwhile is seen, and the sighting is filed under
+      // the cat Mimi is part of now. A merge still in flight holds the cat
+      // for update, so this waits for it.
+      if (cat) {
+        const survivorId = await lockSurvivor(tx, cat.id, "share");
+        if (survivorId !== cat.id) {
+          [cat] = await tx.select().from(catsTable).where(eq(catsTable.id, survivorId));
+        }
+      }
 
       if (newCatName != null) {
         // SYC-462 spec §6 item 4 (P9): a cover photo removed for good never
