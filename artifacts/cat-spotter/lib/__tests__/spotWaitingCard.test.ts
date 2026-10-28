@@ -74,4 +74,21 @@ describe('the waiting card on the New spot screen', () => {
     const review = readFileSync(path.resolve(__dirname, '../../app/review.tsx'), 'utf8');
     expect(review).not.toMatch(/WaitingCard|waitingEyebrow|starterFacts|'fact\./);
   });
+
+  // SYC-772 (spec §3.2; Review Focus 2)
+  it('works the progress out once, inside startWaitingCard, in the same tick as the choice', () => {
+    expect(source.match(/factProgress\(/g) ?? []).toHaveLength(1);
+    const start = between('const startWaitingCard = async', 'const submit = () =>');
+    expect(start).toMatch(/setWaitProgress\(factProgress\(stored, matchWaitSettings, choice\)\)/);
+    expect(start.indexOf('setWaitProgress(')).toBeLessThan(start.indexOf('setWaitChoice(choice)'));
+  });
+
+  it('clears the progress next to the choice, in finally', () => {
+    const fin = between('} finally {', 'setSubmitting(false);');
+    expect(fin).toMatch(/setWaitChoice\(null\);\s*setWaitProgress\(null\)/);
+  });
+
+  it('passes the progress to the card', () => {
+    expect(source).toMatch(/<WaitingCard choice=\{waitChoice\} progress=\{waitProgress\}/);
+  });
 });
