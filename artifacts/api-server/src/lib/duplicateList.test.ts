@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { catsTable, db, duplicateDecisionsTable, duplicateReportsTable, photosTable, pool } from "@workspace/db";
 import { daysAgo, moveKit, tag } from "../test/moveKit";
 import { libMerge, libUndo } from "../test/merges";
+import { loadDuplicateCards } from "./duplicateCards";
 import { FADE_DAYS, ladder, listDuplicates, reopens, syrosDay, type ListedReport } from "./duplicateList";
 
 // SYC-59 PR 5.1 (which-cat-is-which.md §3.2, §3.3, §9.6; spec tests 24 and
@@ -158,6 +159,34 @@ describe("the ladder (spec test 25)", () => {
   });
 });
 
+describe("the row's words", () => {
+  it("a spotter who chose 'New cat' is not shown as 'not sure'; a new phone keeps its mark", async () => {
+    const counting = await pair();
+    await report(counting, { source: "new_cat_check", says: "not_sure", deviceId: await countingPhone(), score: 0.6, createdAt: noon(1) });
+    const fresh = await pair();
+    const phone = await newPhone();
+    await report(fresh, { source: "new_cat_check", says: "not_sure", deviceId: phone, score: 0.6, createdAt: noon(1) });
+    const { cards } = await loadDuplicateCards();
+    const a = cards.find((c) => c.low === counting.lo && c.high === counting.hi)!;
+    const b = cards.find((c) => c.low === fresh.lo && c.high === fresh.hi)!;
+    expect(a.reporters).toEqual([]);
+    expect(b.reporters.map((r) => r.says)).not.toContain("not sure");
+    expect(b.reporters).toEqual([{ who: "a spotter", says: "", newPhone: true }]);
+  });
+
+  it("an undone merge card says so", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    await kit.sighting(mimi, kit.device(), daysAgo(9));
+    const merge = await libMerge(mimi, agatha);
+    await libUndo(merge.mergeId);
+    const { cards } = await loadDuplicateCards();
+    const card = cards.find((c) => c.low === Math.min(mimi, agatha) && c.high === Math.max(mimi, agatha));
+    expect(card?.mergeUndone).toBe(true);
+    expect(card?.reasons[0]).toMatch(/then undid it/);
+  });
+});
+
 describe("the reopen rule (spec test 25, §9.6)", () => {
   it("a 'different' decision takes the pair off the list, and old evidence does not bring it back", async () => {
     const p = await pair();
@@ -219,7 +248,44 @@ describe("the reopen rule (spec test 25, §9.6)", () => {
     expect(row?.notSure?.note).toBe("needs a clear face photo");
   });
 
-  it("a merge takes the pair off; an undone merge starts again from reports made after the undo", async () => {
+  it("an undone merge fades 60 days after the undo, not before", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    await kit.sighting(mimi, kit.device(), daysAgo(9));
+    const p = { lo: Math.min(mimi, agatha), hi: Math.max(mimi, agatha) };
+    const merge = await libMerge(mimi, agatha);
+    await libUndo(merge.mergeId);
+    const [now59, now61] = [new Date(Date.now() + 59 * 86_400_000), new Date(Date.now() + 61 * 86_400_000)];
+    expect((await listDuplicates(now59)).some((x) => x.low === p.lo && x.high === p.hi)).toBe(true);
+    expect((await listDuplicates(now61)).some((x) => x.low === p.lo && x.high === p.hi)).toBe(false);
+  });
+
+  it("a pair merged by the team's own eye (no reports at all) is on the list after the undo, and a later 'different' takes it off", async () => {
+    const mimi = await kit.cat();
+    const agatha = await kit.cat();
+    await kit.sighting(mimi, kit.device(), daysAgo(9));
+    await kit.sighting(agatha, kit.device(), daysAgo(8));
+    const p = { lo: Math.min(mimi, agatha), hi: Math.max(mimi, agatha) };
+    const merge = await libMerge(mimi, agatha);
+    await libUndo(merge.mergeId);
+    const back = await find(p);
+    expect(back?.mergeUndone).toBe(true);
+    expect(back?.reports).toEqual([]);
+    await decide(p, "different", new Date(Date.now() + 1000));
+    expect(await find(p)).toBeUndefined();
+  });
+
+  it("a game or sweep report counts only when it says 'same'", async () => {
+    const game = await pair();
+    await report(game, { source: "game", says: "not_sure", deviceId: null, createdAt: noon(2) });
+    expect((await find(game))?.level).toBe("possible");
+    const sweep = await pair();
+    await said(sweep, await countingPhone(), noon(3));
+    await report(sweep, { source: "sweep", says: "not_sure", deviceId: null, score: 0.9, createdAt: noon(2) });
+    expect((await find(sweep))?.level).toBe("possible");
+  });
+
+  it("an undone merge goes back on the list marked 'merge undone', with its reports kept (§4.4)", async () => {
     const mimi = await kit.cat();
     const agatha = await kit.cat();
     await kit.sighting(mimi, kit.device(), daysAgo(9));
@@ -230,10 +296,12 @@ describe("the reopen rule (spec test 25, §9.6)", () => {
     const merge = await libMerge(mimi, agatha);
     expect(await find(p)).toBeUndefined();
     await libUndo(merge.mergeId);
-    // The old report is from before the undo: the team's change of mind is not re-argued.
-    expect(await find(p)).toBeUndefined();
-    await report(p, { source: "sweep", says: "same", deviceId: null, createdAt: new Date(Date.now() + 5000) });
-    expect(await find(p)).toBeDefined();
+    const back = await find(p);
+    expect(back?.mergeUndone).toBe(true);
+    expect(back?.reports).toHaveLength(1);
+    const plain = await pair();
+    await said(plain, await countingPhone(), noon(2));
+    expect((await find(plain))?.mergeUndone).toBe(false);
   });
 
   it("a pair with a cat merged into a third is listed under the cat it is part of now", async () => {

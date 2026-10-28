@@ -361,18 +361,19 @@ form.moveform .whatmoves p,form.moveform .warn,.notice,ul.movelist .meta,p.chose
 .mergecol dt{color:var(--muted)}
 .mergecol dd{margin:0}
 /* SYC-59 PR 5.1: the Possible duplicates list and New cats to check. */
-.dupcols{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:8px 0}
-@media(min-width:720px){.dupcols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dupcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
 .dupcat{min-width:0;overflow-wrap:anywhere}
-.dupcat h3{margin:0 0 4px;font-size:17px}
-.dupcat .photos{display:flex;gap:6px;margin:4px 0}
-.dupcat .photos img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
-.dupcat .photos img.main{width:96px;height:96px}
+.dupcat h3{margin:0 0 4px;font-size:16px}
+.dupcat .photos{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.dupcat .photos img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.dupcat .photos img.main{width:72px;height:72px}
+@media(min-width:720px){.dupcat .photos img{width:72px;height:72px}.dupcat .photos img.main{width:96px;height:96px}}
 ul.dupwhy{margin:4px 0 8px;padding-left:20px}
 ul.dupwho{list-style:none;margin:0 0 8px;padding:0;font-size:14px;color:var(--muted)}
 .dupactions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:8px}
 .dupactions form{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.dupactions a.go,.dupactions button{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;box-sizing:border-box}
+.dupactions a.go,.dupactions button{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;box-sizing:border-box;font:inherit;font-size:15px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer;text-decoration:none}
+.dupactions a.go{background:var(--accent);color:var(--on-accent)}
 .dupactions input.text{min-height:44px;flex:1 1 180px}
 .nearby{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
 .nearby figure{margin:0;width:88px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}

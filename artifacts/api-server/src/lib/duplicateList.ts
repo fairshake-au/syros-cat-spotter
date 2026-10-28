@@ -70,7 +70,13 @@ const voiceOf = (r: ListedReport): string | null => (r.deviceId !== null ? r.dev
  */
 export const listable = (r: ListedReport): boolean => r.says !== "different" && (r.says === "same" || r.source !== "spotter_question");
 
-/** "Same cat" answers from a person who counts (§3.2): the only ones the ladder and the reopen rule use. */
+/**
+ * "Same cat" answers from a person who counts (§3.2): the only ones the ladder and the reopen rule use.
+ *
+ * A deleted spotter's cleared report counts as one counting voice. That is
+ * Samuel's decision of 28 Oct 2026 ("Keep as built"): a cleared report is
+ * still evidence (§9.6) and we cannot tell whether the phone counted.
+ */
 export function countingSayings(reports: readonly ListedReport[], counting: ReadonlySet<string>): ListedReport[] {
   return reports.filter(
     (r) =>
@@ -93,9 +99,9 @@ export function countingSayings(reports: readonly ListedReport[], counting: Read
  * New phones' reports never reach Likely, however many (§3.2).
  */
 export function ladder(reports: readonly ListedReport[], counting: ReadonlySet<string>): Level {
-  if (reports.some((r) => r.source === "game" && r.says !== "different")) return "likely";
+  if (reports.some((r) => r.source === "game" && r.says === "same")) return "likely";
   const said = countingSayings(reports, counting);
-  if (said.length > 0 && reports.some((r) => r.source === "sweep" && r.says !== "different")) return "likely";
+  if (said.length > 0 && reports.some((r) => r.source === "sweep" && r.says === "same")) return "likely";
   for (let i = 0; i < said.length; i++) {
     for (let j = i + 1; j < said.length; j++) {
       if (voiceOf(said[i]!) !== voiceOf(said[j]!) && syrosDay(said[i]!.createdAt) !== syrosDay(said[j]!.createdAt)) return "likely";
@@ -113,7 +119,7 @@ export function ladder(reports: readonly ListedReport[], counting: ReadonlySet<s
 export function reopens(afterDecision: readonly ListedReport[], counting: ReadonlySet<string>, mainPhotoChanged: boolean): boolean {
   const voices = new Set(countingSayings(afterDecision, counting).map(voiceOf));
   if (voices.size >= REOPEN_VOICES) return true;
-  return mainPhotoChanged && afterDecision.some((r) => r.source === "sweep" && r.says !== "different");
+  return mainPhotoChanged && afterDecision.some((r) => r.source === "sweep" && r.says === "same");
 }
 
 export interface DuplicatePair {
@@ -127,6 +133,8 @@ export interface DuplicatePair {
   notSure: { note: string | null; at: Date } | null;
   /** The pair was decided "different" and has come back on new evidence. */
   reopened: boolean;
+  /** The team merged the pair and then undid it: back on the list, marked (§4.4). */
+  mergeUndone: boolean;
   /** Newest report (or the decision, for "not sure yet"). */
   newest: Date;
   /** Reports whose phone does not count yet, by device. */
@@ -162,7 +170,7 @@ async function mainPhotoNewerThan(catIds: readonly number[], since: Date): Promi
 export async function listDuplicates(now: Date = new Date()): Promise<DuplicatePair[]> {
   const reports = await db.select().from(duplicateReportsTable);
   const decisions = await db.select().from(duplicateDecisionsTable);
-  if (reports.length === 0) return [];
+  if (reports.length === 0 && decisions.length === 0) return [];
 
   const ids = [...new Set([...reports, ...decisions].flatMap((r) => [r.catLow, r.catHigh]))];
   const canon = await canonicalCatOf(ids);
@@ -202,7 +210,7 @@ export async function listDuplicates(now: Date = new Date()): Promise<DuplicateP
   }
   for (const d of decisions) {
     const pair = pairOf(d.catLow, d.catHigh);
-    if (pair && byPair.has(pairKey(pair[0], pair[1]))) {
+    if (pair) {
       slot(pair).decisions.push({ id: d.id, decision: d.decision, note: d.note, createdAt: d.createdAt });
     }
   }
@@ -214,6 +222,7 @@ export async function listDuplicates(now: Date = new Date()): Promise<DuplicateP
     const newest = ds[ds.length - 1] ?? null;
     let standing = all;
     let reopened = false;
+    let mergeUndone = false;
     let notSure: DuplicatePair["notSure"] = null;
     if (newest?.decision === "merged") continue;
     if (newest?.decision === "different") {
@@ -223,15 +232,17 @@ export async function listDuplicates(now: Date = new Date()): Promise<DuplicateP
       standing = after;
       reopened = true;
     } else if (newest?.decision === "merge_undone") {
-      standing = all.filter((r) => r.createdAt.getTime() > newest.createdAt.getTime());
+      // §4.4: back on the list marked "merge undone", even with no reports; its reports are kept.
+      mergeUndone = true;
     } else if (newest?.decision === "not_sure") {
       notSure = { note: newest.note, at: newest.createdAt };
     }
-    if (!standing.some(listable)) continue;
+    if (!mergeUndone && !standing.some(listable)) continue;
     const latest = standing.reduce((t, r) => Math.max(t, r.createdAt.getTime()), 0);
-    const last = notSure ? Math.max(latest, notSure.at.getTime()) : latest;
-    // Undecided rows fade; one the team marked "not sure yet" stays.
-    if (!notSure && now.getTime() - latest > FADE_DAYS * 86_400_000) continue;
+    const marked = notSure ? notSure.at.getTime() : mergeUndone ? newest!.createdAt.getTime() : 0;
+    const last = Math.max(latest, marked);
+    // Undecided rows fade; "not sure yet" stays, and an undone merge fades 60 days after the undo (or its newest report).
+    if (!notSure && now.getTime() - last > FADE_DAYS * 86_400_000) continue;
     out.push({
       low: pair[0],
       high: pair[1],
@@ -239,6 +250,7 @@ export async function listDuplicates(now: Date = new Date()): Promise<DuplicateP
       reports: standing,
       notSure,
       reopened,
+      mergeUndone,
       newest: new Date(last),
       newPhones: new Set(standing.flatMap((r) => (r.deviceId !== null && !counting.has(r.deviceId) ? [r.deviceId] : []))),
     });

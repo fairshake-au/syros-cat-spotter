@@ -34,7 +34,7 @@ export interface CardCat {
 
 export interface CardReporter {
   who: string;
-  /** "same cat", "different cats" or "not sure". */
+  /** "same cat", "different cats" or "not sure"; empty for a new-cat check (the reason line says it). */
   says: string;
   newPhone: boolean;
 }
@@ -49,6 +49,8 @@ export interface DuplicateCard {
   reasons: string[];
   reporters: CardReporter[];
   reopened: boolean;
+  /** Merged by the team and then undone: back on the list marked "Merge undone" (§4.4). */
+  mergeUndone: boolean;
   /** The team's "not sure yet" note, if the row was marked that way. */
   notSure: { note: string | null } | null;
 }
@@ -100,6 +102,7 @@ export function reasonsOf(
   if (unsure > 0) reasons.push(`${plural(unsure, "spotter wasn't", "spotters weren't")} sure`);
   if (pair.reports.some((r) => r.source === "sweep")) reasons.push("fingerprints very alike");
   if (pair.reports.some((r) => r.source === "game")) reasons.push(`Players think ${names.low} and ${names.high} are one cat`);
+  if (pair.mergeUndone) reasons.unshift(`The team merged ${names.low} and ${names.high}, then undid it`);
   if (pair.reports.some((r) => r.source === "team")) reasons.push("The team marked this pair");
   for (const r of pair.reports.filter((x) => x.source === "new_cat_check")) {
     const made = r.sightingId === null ? undefined : extra.newCatOf.get(r.sightingId);
@@ -123,7 +126,8 @@ export function reasonsOf(
 function reportersOf(pair: DuplicatePair, labels: ReadonlyMap<string, string>): CardReporter[] {
   const out: CardReporter[] = [];
   const seen = new Set<string>();
-  const spotter = pair.reports.filter((r: ListedReport) => (r.source === "spotter_question" || r.source === "new_cat_check") && (r.deviceId !== null || r.redacted));
+  // A new-cat check is the system's flag, not the spotter's answer; the reason line covers it.
+  const spotter = pair.reports.filter((r: ListedReport) => r.source === "spotter_question" && (r.deviceId !== null || r.redacted));
   for (const r of spotter) {
     const key = `${r.deviceId ?? "cleared"}:${r.says}`;
     if (seen.has(key)) continue;
@@ -133,6 +137,14 @@ function reportersOf(pair: DuplicatePair, labels: ReadonlyMap<string, string>): 
       says: SAYS_WORDS[r.says] ?? r.says,
       newPhone: r.deviceId !== null && pair.newPhones.has(r.deviceId),
     });
+  }
+  // The new-cat checks of phones that do not count yet keep their "new phone" mark, with no answer attached.
+  for (const r of pair.reports) {
+    if (r.source !== "new_cat_check" || r.deviceId === null || !pair.newPhones.has(r.deviceId)) continue;
+    const key = `${r.deviceId}:new_cat_check`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ who: labels.get(r.deviceId) ?? "a spotter", says: "", newPhone: true });
   }
   return out;
 }
@@ -165,6 +177,7 @@ export async function loadDuplicateCards(now: Date = new Date()): Promise<{ card
       reasons: reasonsOf(p, { low: lo.cat.namePending ? lo.cat.syr : lo.cat.name, high: hi.cat.namePending ? hi.cat.syr : hi.cat.name }, { newCatOf, downCats, ids: { low: p.low, high: p.high } }),
       reporters: reportersOf(p, labels),
       reopened: p.reopened,
+      mergeUndone: p.mergeUndone,
       notSure: p.notSure ? { note: p.notSure.note } : null,
     });
   }

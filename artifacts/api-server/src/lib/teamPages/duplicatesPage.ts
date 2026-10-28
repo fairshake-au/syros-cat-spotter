@@ -40,13 +40,13 @@ function card(c: DuplicateCard): string {
   const pairFields = hidden("a", String(c.low)) + hidden("b", String(c.high));
   return (
     `<article class="report${c.level === "likely" ? " likely" : ""}" id="p-${c.low}-${c.high}">` +
-    `<div class="head">${level}${c.reopened ? ' <span class="tag state">Back with new evidence</span>' : ""}${c.notSure ? ' <span class="tag state">Not sure yet</span>' : ""}</div>` +
+    `<div class="head">${level}${c.reopened ? ' <span class="tag state">Back with new evidence</span>' : ""}${c.mergeUndone ? ' <span class="tag state">Merge undone</span>' : ""}${c.notSure ? ' <span class="tag state">Not sure yet</span>' : ""}</div>` +
     `<div class="dupcols">${catColumn(c.cats[0])}${catColumn(c.cats[1])}</div>` +
     (c.apart ? `<p class="meta">Usually seen ${esc(c.apart)}.</p>` : "") +
     `<ul class="dupwhy">${c.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` +
     (c.reporters.length > 0
       ? '<ul class="dupwho">' +
-        c.reporters.map((r) => `<li>${esc(r.who)}: ${esc(r.says)}${r.newPhone ? ' <span class="tag unchecked">new phone</span>' : ""}</li>`).join("") +
+        c.reporters.map((r) => `<li>${esc(r.who)}${r.says ? `: ${esc(r.says)}` : ""}${r.newPhone ? ' <span class="tag unchecked">new phone</span>' : ""}</li>`).join("") +
         "</ul>"
       : "") +
     (c.notSure?.note ? `<p class="notice">Team note: ${esc(c.notSure.note)}</p>` : "") +
