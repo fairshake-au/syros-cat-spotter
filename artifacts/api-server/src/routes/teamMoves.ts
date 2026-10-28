@@ -5,6 +5,7 @@ import { loadMoveScreen } from "../lib/moveScreen";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { renderMovePage, renderMoveStopPage, type MovePageOptions } from "../lib/teamPages/movePage";
 import type { MoveSource } from "../lib/teamPages/moveLinks";
+import { mergeHref } from "../lib/teamPages/mergeLinks";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 
@@ -167,8 +168,6 @@ router.get("/team/sightings/move", requireTeam("move_sighting"), async (req: Req
 
 const MOVE_REASONS: readonly string[] = MOVE_REASONS_FROM_SCREEN;
 
-/** §5.3 leaves the offer of a merge to a merge screen (PR 4.2): until then the screen says to ask. */
-const MERGE_ASK = "These look like the same cat. Ask for a merge.";
 
 /**
  * POST /api/team/sightings/move/form: "Move", from the screen. Origin, session
@@ -225,7 +224,15 @@ router.post("/team/sightings/move/form", ...formRoute("move_sighting"), async (r
   if (code === "MOVED_ALREADY" || code === "NOT_RESOLVED" || code === "NOT_FOUND") {
     return void (await drawScreen(res, status, ask, { problem: { message } }));
   }
-  if (code === "MERGE_INSTEAD") return void (await problem(MERGE_ASK, status));
+  // §5.3: moving everything the cat has means the two are one cat. The spec's words, and a link
+  // that opens the merge screen with both cats filled in (the cat it was moving to stays: "Merge
+  // Mimi into Agatha?"; the screen keeps to its own two limits).
+  if (code === "MERGE_INSTEAD" && extra.cat) {
+    return void (await problem(message, status, {
+      href: mergeHref({ a: ask.cat, b: extra.cat.id, survivor: extra.cat.id }),
+      label: "Open the merge screen",
+    }));
+  }
   if (code === "NAME_TAKEN" && extra.cat) {
     return void (await problem(message, status, { href: `/api/team/cats/${extra.cat.id}`, label: `Open ${extra.cat.name}` }));
   }

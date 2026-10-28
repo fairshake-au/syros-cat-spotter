@@ -392,16 +392,24 @@ describe("every refusal reaches the screen in words, and nothing moves", () => {
     expect((await sightingRow(c.s.id)).catId).toBe(c.mimi);
   });
 
-  it("MERGE_INSTEAD is text only: “These look like the same cat. Ask for a merge.”", async () => {
+  it("MERGE_INSTEAD offers the merge (SYC-59 PR 4.2): the spec's words, and a link that opens the merge screen with both cats filled in", async () => {
     const mimi = await kit.cat();
     const agatha = await kit.cat();
     const only = await kit.sighting(mimi, kit.device());
     const res = await move({ mimi, agatha, s: only });
     expect(res.status).toBe(409);
-    expect(res.text).toContain("These look like the same cat. Ask for a merge. Nothing was moved.");
-    expect(res.text).not.toContain("Merge ");
-    expect(res.text).not.toContain("/merge");
+    const [m, a] = [await catRow(mimi), await catRow(agatha)];
+    expect(res.text).toContain(esc(MOVE_WORDS.mergeInstead(m.name, a.name)));
+    expect(res.text).toContain("Nothing was moved.");
+    const link = `/api/team/cats/merge?a=${mimi}&amp;b=${agatha}&amp;survivor=${agatha}`;
+    expect(res.text).toContain(`<a href="${link}">Open the merge screen</a>`);
     expect((await sightingRow(only.id)).catId).toBe(mimi);
+    // The link opens the merge screen for the two cats: Agatha stays, Mimi becomes part of her.
+    const screenPage = await get(link.replace(/&amp;/g, "&"));
+    expect(screenPage.status).toBe(200);
+    expect(screenPage.text).toContain("Which record stays?");
+    expect(screenPage.text).toContain(`<b>${esc(a.name)}</b>'s record stays.`);
+    expect(screenPage.text).toContain(`<b>${esc(m.name)}</b> becomes part of <b>${esc(a.name)}</b>.`);
   });
 
   it("ALREADY_ITS_OWN_CAT: “It's a new cat” with nothing left", async () => {

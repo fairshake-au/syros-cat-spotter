@@ -178,7 +178,7 @@ describe("the move screen: the form", () => {
 
 describe("the move screen: every refusal says why, and that nothing moved", () => {
   const refusals: [string, string][] = [
-    ["MERGE_INSTEAD", "These look like the same cat. Ask for a merge."],
+    ["MERGE_INSTEAD", "This is everything Mimi has, so Mimi and Agatha are the same cat. Merge Mimi into Agatha?"],
     ["SAME_CAT", "That's the cat it's filed under already."],
     ["MAIN_PHOTO_NEEDED", "This is Mimi's main photo. Choose Mimi's new main photo, or \"No photo for now\"."],
     ["ALREADY_ITS_OWN_CAT", "This is everything Mimi has, so it isn't a new cat: Mimi already is a cat of her own."],
@@ -194,6 +194,17 @@ describe("the move screen: every refusal says why, and that nothing moved", () =
       expect(html).toContain("Nothing was moved.");
     });
   }
+
+  it("MERGE_INSTEAD links to the merge screen (SYC-59 PR 4.2)", () => {
+    const html = draw(screen({ chosen: agatha }), {
+      ask: ask({ to: 9 }),
+      problem: {
+        message: "This is everything Mimi has, so Mimi and Agatha are the same cat. Merge Mimi into Agatha?",
+        link: { href: "/api/team/cats/merge?a=7&b=9&survivor=9", label: "Open the merge screen" },
+      },
+    });
+    expect(html).toContain('<a href="/api/team/cats/merge?a=7&amp;b=9&amp;survivor=9">Open the merge screen</a>');
+  });
 
   it("a name already taken links to the cat that has it", () => {
     const html = draw(screen({ chosen: agatha }), {
