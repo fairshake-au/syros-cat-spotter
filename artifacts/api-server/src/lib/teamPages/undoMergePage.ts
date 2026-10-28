@@ -64,7 +64,11 @@ function tickList(s: UndoScreen, o: UndoPageOptions): string {
           `<div class="compare">${thumbs(t.photoUrls, `Photo from the sighting on ${dayTime(t.at)}`)}</div></div></li>`,
       )
       .join("") +
-    "</ul></fieldset>"
+    "</ul>" +
+    (s.tickableMore > 0
+      ? `<p class="hint">and ${s.tickableMore} more not shown here (the newest ${s.tickable.length} are listed).</p>`
+      : "") +
+    "</fieldset>"
   );
 }
 

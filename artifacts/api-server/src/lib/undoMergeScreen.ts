@@ -37,6 +37,8 @@ export interface UndoScreen {
   goesBack: UndoSighting[];
   /** The sightings the team may tick as Mimi's. */
   tickable: UndoSighting[];
+  /** How many more could be ticked than are listed (the list is capped). */
+  tickableMore: number;
   /** What undoing does, in plain words. */
   willDo: string[];
 }
@@ -46,7 +48,7 @@ export type UndoLoad =
   | { kind: "stop"; status: number; message: string; link?: { href: string; label: string } };
 
 /** The tick list is capped: a very long one is a sign the merge was long ago; the route takes any number. */
-const TICKABLE_SHOWN = 200;
+export const TICKABLE_SHOWN = 200;
 
 const nameOf = (c: { name: string; namePending: boolean; id: number }) => (c.namePending ? syrNumber(c.id) : c.name);
 
@@ -69,7 +71,7 @@ async function photosOf(sightingIds: readonly number[]): Promise<Map<number, str
   return out;
 }
 
-export async function loadUndoScreen(_person: CapabilityHolder, mergeId: number): Promise<UndoLoad> {
+export async function loadUndoScreen(_person: CapabilityHolder, mergeId: number, shown = TICKABLE_SHOWN): Promise<UndoLoad> {
   const merge = await mergeRecord(mergeId);
   if (!merge) return { kind: "stop", status: 404, message: MERGE_WORDS.notFound };
   const cats = await db
@@ -188,7 +190,8 @@ export async function loadUndoScreen(_person: CapabilityHolder, mergeId: number)
       agatha,
       merged: { at: merge.createdAt.toISOString(), reasonText: merge.reasonText },
       goesBack,
-      tickable: tickable.slice(0, TICKABLE_SHOWN),
+      tickable: tickable.slice(0, shown),
+      tickableMore: Math.max(0, tickable.length - shown),
       willDo,
     },
   };

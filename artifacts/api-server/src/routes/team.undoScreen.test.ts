@@ -18,7 +18,9 @@ vi.mock("../lib/push", () => ({ sendPushNotification: vi.fn().mockResolvedValue(
 
 import app from "../app";
 import { daysAgo, moveKit, tag } from "../test/moveKit";
-import { libMerge, libUndo } from "../test/merges";
+import { libMerge, libUndo, TEST_MERGER } from "../test/merges";
+import { loadUndoScreen } from "../lib/undoMergeScreen";
+import { renderUndoPage } from "../lib/teamPages/undoMergePage";
 import { moveSighting } from "../test/moves";
 import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKit";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -207,6 +209,24 @@ describe("the screen: the sightings to tick, decided by the helper (§4.4)", () 
     expect(res.text).toContain("None of ");
     expect(res.text).toContain(`name="tick" value="${c.m1.id}"`);
     expect(res.text).toContain(`name="tick" value="${c.m2.id}"`);
+  });
+});
+
+describe("a long tick list", () => {
+  it("is capped, and says how many more are not shown instead of dropping them quietly", async () => {
+    const c = await merged();
+    for (let i = 0; i < 3; i++) await afterMerge(c.agatha);
+    const screenOf = await loadUndoScreen(TEST_MERGER, c.mergeId, 2);
+    if (screenOf.kind !== "ok") throw new Error("expected the screen");
+    expect(screenOf.screen.tickable).toHaveLength(2);
+    expect(screenOf.screen.tickableMore).toBe(1);
+    const html = renderUndoPage(screenOf.screen, { personName: "Sam" });
+    expect(html).toContain("and 1 more not shown here (the newest 2 are listed).");
+    // Within the cap nothing is said.
+    const all = await loadUndoScreen(TEST_MERGER, c.mergeId);
+    if (all.kind !== "ok") throw new Error("expected the screen");
+    expect(all.screen.tickableMore).toBe(0);
+    expect(renderUndoPage(all.screen, { personName: "Sam" })).not.toContain("more not shown");
   });
 });
 
