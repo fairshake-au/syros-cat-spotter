@@ -12,6 +12,8 @@ import { ApiError, type SightingAnswersRequest } from '@workspace/api-client-rea
 export type EarTipChoice = 'clipped' | 'looks_whole' | 'cant_tell';
 export type EarSide = 'left' | 'right' | 'unsure';
 export type FoodAndWater = 'yes' | 'no' | 'cant_tell';
+/** "Are these the same cat?" (SYC-59 PR 5.2): the reward screen's last, optional question. */
+export type DuplicateChoice = 'same' | 'different' | 'not_sure';
 
 export interface SightingAnswers {
   earTip: EarTipChoice | null;
@@ -19,6 +21,7 @@ export interface SightingAnswers {
   earSide: EarSide | null;
   foodAndWater: FoodAndWater | null;
   note: string;
+  duplicate: DuplicateChoice | null;
 }
 
 export const NO_ANSWERS: SightingAnswers = {
@@ -26,6 +29,7 @@ export const NO_ANSWERS: SightingAnswers = {
   earSide: null,
   foodAndWater: null,
   note: '',
+  duplicate: null,
 };
 
 /** The server refuses a longer note (§7.1). */
@@ -56,6 +60,7 @@ export function answersRequest(
   if (answers.foodAndWater) body.foodAndWater = answers.foodAndWater;
   const note = answers.note.trim().slice(0, NOTE_MAX_LENGTH);
   if (note.length > 0) body.note = note;
+  if (answers.duplicate) body.duplicate = answers.duplicate;
 
   return Object.keys(body).length > 1 ? body : null;
 }
