@@ -158,10 +158,17 @@ export function adjustedLayers(lang: MapLang): LayerSpecification[] {
   layers.splice(roadsRail < 0 ? layers.length : roadsRail, 0, pathsLayer);
   const pois = layers.findIndex((l) => l.id === 'pois');
   layers.splice(pois, 0, ...extraLayers(lang));
+  // No capitals on labels that can hold Greek (SYC-764): MapLibre's uppercase keeps
+  // the accents ("ΝΗΣΆΚΙ"), and Greek written in capitals drops them. Both languages,
+  // since the app switches language without reloading the style.
+  const noCaps = layers.map((l) => {
+    const { 'text-transform': _caps, ...layout } = (l.layout ?? {}) as Record<string, unknown>;
+    return l.type === 'symbol' && _caps === 'uppercase' ? ({ ...l, layout } as LayerSpecification) : l;
+  });
   // Labels stay upright when the map turns. Point labels are fixed to the
   // viewport (no tilt, no rotation); line labels keep following the street
   // (rotation 'map', kept upright) and leave pitch alignment at its default.
-  return layers.map((l) => {
+  return noCaps.map((l) => {
     if (l.type !== 'symbol' || KEEP_ALIGNMENT_LAYER_IDS.includes(l.id)) return l;
     const placement = (l.layout as Record<string, unknown> | undefined)?.['symbol-placement'];
     const isLine = placement === 'line' || placement === 'line-center';

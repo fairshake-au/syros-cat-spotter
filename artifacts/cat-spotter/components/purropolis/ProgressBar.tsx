@@ -11,10 +11,14 @@ export interface ProgressBarProps {
   max?: number;
   tone?: ProgressTone;
   label?: string;
+  /** SYC-772: leave out the `{value}/{max}` text (the label still shows). */
+  hideValue?: boolean;
+  /** SYC-772: spoken label and value text, replacing the plain label and value. */
+  accessibilityText?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export function ProgressBar({ value, max = 100, tone = 'aegean', label, style }: ProgressBarProps) {
+export function ProgressBar({ value, max = 100, tone = 'aegean', label, hideValue, accessibilityText, style }: ProgressBarProps) {
   const colors = useColors();
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
 
@@ -30,15 +34,21 @@ export function ProgressBar({ value, max = 100, tone = 'aegean', label, style }:
       {label ? (
         <View style={styles.labelRow}>
           <Text style={[styles.labelText, { color: colors.mutedForeground }]}>{label}</Text>
-          <Text style={[styles.value, { color: colors.mutedForeground }]}>
-            {value}/{max}
-          </Text>
+          {hideValue ? null : (
+            <Text style={[styles.value, { color: colors.mutedForeground }]}>
+              {value}/{max}
+            </Text>
+          )}
         </View>
       ) : null}
       <View
         accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max, now: value }}
-        accessibilityLabel={label}
+        accessibilityValue={
+          accessibilityText ? { min: 0, max, now: value, text: accessibilityText } : { min: 0, max, now: value }
+        }
+        accessibilityLabel={accessibilityText ?? label}
+        // react-native-web ignores the accessibilityValue object, so web gets the text this way.
+        aria-valuetext={accessibilityText}
         style={[styles.track, { backgroundColor: colors.muted }]}
       >
         <View style={[styles.fill, { width: `${pct}%`, backgroundColor: tones[tone] }]} />
