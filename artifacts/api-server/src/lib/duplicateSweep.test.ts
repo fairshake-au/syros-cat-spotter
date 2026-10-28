@@ -37,9 +37,9 @@ afterEach(async () => {
   await db.delete(appSettingsTable).where(eq(appSettingsTable.key, SWEEP_KEY));
 });
 
-/** A fresh `now` each call, so the reports of one run are found by their time. */
+/** A fresh `now` each call, a day apart: the cap is per Athens night, so each run needs its own. */
 let tick = 0;
-const nextNow = () => new Date(Date.now() + 60_000 * ++tick);
+const nextNow = () => new Date(Date.now() + 86_400_000 * ++tick);
 
 let nextDim = 100;
 /** A fingerprint along one dimension, leaning `lean` of the way onto another. */
@@ -142,13 +142,25 @@ describe("the sweep (spec test 26)", () => {
     expect(wrote.has(`${made[11]!.lo}:${made[11]!.hi}`)).toBe(true);
   });
 
+  it("run twice the same night writes at most 10 in total", async () => {
+    for (let i = 0; i < 14; i++) await lookAlikes(0.97);
+    await setDuplicateSweep(true);
+    const now = new Date(Date.now() + 400 * 86_400_000);
+    const first = await runDuplicateSweep(now);
+    const second = await runDuplicateSweep(new Date(now.getTime() + 60_000));
+    expect(first.written + second.written).toBeLessThanOrEqual(10);
+    expect(second.written).toBe(Math.max(0, 10 - first.written));
+    expect((await reportsAt(now)).length + (await reportsAt(new Date(now.getTime() + 60_000))).length).toBeLessThanOrEqual(10);
+  });
+
   it("does not report a pair again within 90 days, and does again after", async () => {
-    const p = await lookAlikes();
+    // Scores highest of this file's pairs, so earlier tests' pairs, eligible again after 90 days, cannot crowd it out of the night's 10.
+    const p = await lookAlikes(0.9999);
     await setDuplicateSweep(true);
     await runDuplicateSweep(nextNow());
     await runDuplicateSweep(nextNow());
     expect(await reportsFor(p)).toHaveLength(1);
-    await runDuplicateSweep(new Date(Date.now() + 91 * 86_400_000));
+    await runDuplicateSweep(new Date(Date.now() + 120 * 86_400_000));
     expect(await reportsFor(p)).toHaveLength(2);
   });
 

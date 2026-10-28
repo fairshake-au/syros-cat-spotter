@@ -4,6 +4,7 @@ import { duplicateSweepIsOn } from "./appSwitches";
 import { haversineKm } from "./catHelpers";
 import { canonicalCatOf, liveCats } from "./catIdentity";
 import { fingerprintsFor } from "./fingerprint";
+import { todayInStreakTimezone } from "./streak";
 import { catDisplayPhotoIds } from "./photoVisibility";
 
 // The nightly look-alike sweep (which-cat-is-which.md §3.1 item 3, §9.6, D11;
@@ -187,8 +188,23 @@ export async function runDuplicateSweep(now: Date = new Date()): Promise<SweepOu
         ),
       );
     const taken = new Set(meanwhile.map((r) => pairKey(r.catLow, r.catHigh)));
+    // The cap is per night, not per run: a re-run or a manual dispatch the same
+    // Athens day adds only what is left of the 10.
+    const night = todayInStreakTimezone(now);
+    const nearby = await tx
+      .select({ createdAt: duplicateReportsTable.createdAt })
+      .from(duplicateReportsTable)
+      .where(
+        and(
+          eq(duplicateReportsTable.source, "sweep"),
+          gt(duplicateReportsTable.createdAt, new Date(now.getTime() - 2 * 86_400_000)),
+        ),
+      );
+    const already = nearby.filter((r) => todayInStreakTimezone(r.createdAt) === night).length;
+    const room = Math.max(0, SWEEP_MAX_PER_NIGHT - already);
     const rows = chosen
       .filter((p) => !taken.has(pairKey(p.low, p.high)))
+      .slice(0, room)
       .map((p) => ({ catLow: p.low, catHigh: p.high, source: "sweep", says: "same", score: p.score, createdAt: now }));
     if (rows.length > 0) await tx.insert(duplicateReportsTable).values(rows);
     return rows.length;
