@@ -26,7 +26,7 @@ export const DUPLICATE_DECISIONS = ["merged", "different", "not_sure", "merge_un
 /**
  * Evidence that two cat records may be the same cat (which-cat-is-which.md
  * §9.6). Team-only: no public route reads it. Add-only: a trigger in
- * migration 0053 refuses delete, truncate and every update except redaction
+ * migration 0054 refuses delete, truncate and every update except redaction
  * (the device cleared, `redacted_at` stamped), as for a deleted spotter.
  */
 export const duplicateReportsTable = pgTable(
