@@ -136,3 +136,18 @@ export function ReadingCat({ size = 120 }: { size?: number }) {
   );
 }
 ```
+
+## Update, 28 Oct 2026: iPhone simulator run
+
+After Xcode was installed, the finished pictures were run in the **iOS simulator**: an iPhone 17e on iOS 27.1, in Expo Go 54.0.7, with the new architecture. The iPhone SE simulator won't run on the iOS 27 runtimes that come with this Xcode ("Incompatible device"), so the 17e (390 × 844 points) was the smallest phone available. This tested the built components, not the throwaway trial screen.
+
+| Check | iPhone result |
+|---|---|
+| All eight pictures draw as in their SVG files | **pass** |
+| The parts move about the right points (tail, blink, nod, heart, ripple, pulse, magnifier, legs, breathing, "z") | **pass**: frames caught mid-motion matched the drawings' motions |
+| Motion stops | **pass**: screenshot hashes changed every 0.4 s until 5.1 s and were identical from 6.5 s to 16.4 s |
+| The walk along the bar | **pass**: it starts at 2 of 11 and ends with the paws at 3 of 11 |
+| "Reduce motion" on (simulator accessibility setting, app relaunched) | **pass**: identical frames from the first one, and the cat placed straight at 3 of 11 |
+| Dark mode | **pass**: the plates keep the topic cats visible, and the grey walking and sleeping cats show on the dark card |
+
+**Not run on the iPhone:** the 3-second busy-JavaScript stress from the trial, and VoiceOver. **Android was not run** (no Android SDK on this Mac). Both stay on SYC-776, which blocks the merge.

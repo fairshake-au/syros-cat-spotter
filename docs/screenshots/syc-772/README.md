@@ -22,3 +22,13 @@ Languages en, el and fr; light and dark; 390 px and 1280 px. No page errors in a
 **Not covered here:**
 - iPhone and Android. That's SYC-776, which blocks the merge.
 - The thanks-screen line on a live result screen. It needs a real send; the component and hook tests cover it.
+
+## iPhone simulator (28 Oct 2026), `ios/`
+
+iPhone 17e, iOS 27.1, Expo Go 54.0.7. The iPhone SE simulator isn't supported on iOS 27. Same preview route as the web check; screenshots taken after the pictures had settled.
+
+- `ios/earTip-3of11-<lang>-<theme>.jpg` and `ios/milk-done-<lang>-<theme>.jpg`: en, el and fr; light and dark.
+- **Card heights** on the 390-point-wide screen, ear-tip card (the tallest): en 444, el 467, fr 491 points. Without the photo: en 283, el 306, fr 283.
+- The topic row sits under the eyebrow, so it doesn't move the card's top edge. On the Spot screen, the card's top is where it was before this change. The first line of the fact moves down by the topic row (about 56 points). The progress bar may scroll out of view on a small phone, which the spec allows.
+- Motion, the walk, reduce motion and dark mode all pass. Details are in `docs/superpowers/plans/2026-10-27-while-we-look-trial-result.md` ("Update, 28 Oct").
+- **Still to check on real phones (SYC-776, blocks the merge):** a real iPhone SE, VoiceOver (is "Cat fact 3 of 11" read once?), and all of Android.
