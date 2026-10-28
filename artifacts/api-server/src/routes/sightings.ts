@@ -77,6 +77,7 @@ import {
 
 import { POINTS_CONFIRM, POINTS_NEW_CAT } from "../lib/points";
 import { writeNewCatChecks } from "../lib/newCatCheck";
+import { duplicateQuestionFor, recordDuplicateAnswer, type DuplicateQuestion } from "../lib/duplicateQuestion";
 export { POINTS_CONFIRM, POINTS_NEW_CAT };
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
@@ -1240,6 +1241,20 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     }
   }
 
+  // SYC-59 PR 5.2 (which-cat-is-which.md §3.1 item 1, D8): "Are these the
+  // same cat?" is offered when the spotter confirmed a suggestion and the
+  // photo check suggested a look-alike scoring nearly as high. Worked out
+  // from the stored set, never from the phone; best effort, so a failure
+  // only means no question.
+  let duplicateQuestion: DuplicateQuestion | null = null;
+  if (!isNewCat) {
+    try {
+      duplicateQuestion = await duplicateQuestionFor({ choice: label.choice, chosenCatId: cat.id, suggested: stored?.suggested });
+    } catch (err) {
+      req.log.error({ err, sightingId }, "Could not work out the duplicate question");
+    }
+  }
+
   // Notification fan-out is best-effort and deliberately happens only after
   // the core resolve writes have committed.
   await createUpdateAndFanOut({
@@ -1318,6 +1333,7 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
     momentId,
     profile,
     askEarTip,
+    duplicateQuestion,
   });
 });
 
@@ -1334,6 +1350,11 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
  * - Each question once per sighting: an already-answered food-and-water or
  *   note is left out and the rest is recorded. ALREADY_ANSWERED only when
  *   nothing in the request could be recorded.
+ * - `duplicate` (SYC-59 PR 5.2): the answer to resolve's "Are these the same
+ *   cat?", once per sighting, written as a `spotter_question` report (not an
+ *   observation). Left out like the others when already answered; refused
+ *   with NO_DUPLICATE_QUESTION (422) when this sighting was not asked about
+ *   a pair, and as NOT_THEIRS for the team desk.
  * - The ear tip once per device per cat (Q3 → B): a second answer is left
  *   out, unless `changeEarTip` asks to replace the device's own current
  *   answer (Decision 3 → B), which is refused with EAR_TIP_CHECKED once
@@ -1399,16 +1420,18 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
   }
   if (note.length > 0) answers.push({ kind: "note", value: { text: note } });
 
-  if (answers.length === 0) {
+  if (answers.length === 0 && !body.duplicate) {
     res.json({ recorded: [] });
     return;
   }
 
   const ALREADY_ANSWERED = { code: "ALREADY_ANSWERED" } as const;
+  const NO_DUPLICATE_QUESTION = { code: "NO_DUPLICATE_QUESTION" } as const;
   const EAR_TIP_CHECKED = { code: "EAR_TIP_CHECKED" } as const;
   const REFILED = { code: "REFILED" } as const;
   const NOT_THEIRS = { code: "NOT_THEIRS" } as const;
   let written: Answer[] = [];
+  let duplicateRecorded = false;
   // A move holds this lock while it files the sighting elsewhere; one that
   // lands between the read above and the lock sends us round once more, on
   // the cat it is under now. Twice at most: three moves of one spot inside
@@ -1496,7 +1519,24 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
         if (!keep) toWrite.splice(toWrite.indexOf(ear), 1);
       }
 
-      if (toWrite.length === 0) throw ALREADY_ANSWERED;
+      // SYC-59 PR 5.2 (which-cat-is-which.md §3.1 item 1, §9.6): "Are these
+      // the same cat?" is a report for the team, not a statement about a
+      // cat, so it is not an observation. Once per sighting, under its own
+      // lock; refused when no question was offered for this sighting.
+      duplicateRecorded = false;
+      if (body.duplicate) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('duplicate-answer'), ${sightingId})`);
+        const [match] = await tx
+          .select({ choice: sightingMatchesTable.choice, chosenCatId: sightingMatchesTable.chosenCatId, suggested: sightingMatchesTable.suggested })
+          .from(sightingMatchesTable)
+          .where(eq(sightingMatchesTable.sightingId, sightingId));
+        const outcome = await recordDuplicateAnswer(tx, { sightingId, deviceId: spotterId, says: body.duplicate, match });
+        if (!outcome.ok && outcome.refused === "TEAM_DESK") throw NOT_THEIRS;
+        if (!outcome.ok && outcome.refused === "NO_QUESTION") throw NO_DUPLICATE_QUESTION;
+        duplicateRecorded = outcome.ok;
+      }
+
+      if (toWrite.length === 0 && !duplicateRecorded) throw ALREADY_ANSWERED;
 
       for (const a of toWrite) {
         await writeObservation(tx, {
@@ -1534,6 +1574,13 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
       res.status(403).json({ error: "Not your sighting" });
       return;
     }
+    if (err === NO_DUPLICATE_QUESTION) {
+      res.status(422).json({
+        error: "This sighting wasn't asked whether two cats are the same",
+        code: "NO_DUPLICATE_QUESTION",
+      });
+      return;
+    }
     if (err === ALREADY_ANSWERED) {
       res.status(409).json({
         error: "This sighting's questions were already answered",
@@ -1551,7 +1598,7 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
     throw err;
   }
 
-  res.json({ recorded: written.map((a) => a.kind) });
+  res.json({ recorded: [...written.map((a) => a.kind), ...(duplicateRecorded ? (["duplicate"] as const) : [])] });
 });
 
 /**

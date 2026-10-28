@@ -13,4 +13,5 @@ export const SightingAnswersResultRecordedItem = {
   ear_tip: 'ear_tip',
   food_and_water: 'food_and_water',
   note: 'note',
+  duplicate: 'duplicate',
 } as const;

@@ -820,6 +820,16 @@ export const ResolveResultPointsReason = {
   repeat_today: 'repeat_today',
 } as const;
 
+/**
+ * "Are these the same cat?" (which-cat-is-which.md §3.1 item 1, D8). Present only when the spotter confirmed a suggested cat and the photo check also suggested a look-alike scoring nearly as high, and the team has not decided the pair. The app asks it below the other questions, with both cats' main photos, and answers it with `duplicate` on the answers route. Absent from an older server, and ignored by an older app: both mean no question.
+ */
+export type ResolveResultDuplicateQuestion = {
+  /** The cat the spotter confirmed. */
+  catId: number;
+  /** The look-alike the photo check suggested beside it. */
+  otherCatId: number;
+} | null;
+
 export type BadgeProgressGroup = typeof BadgeProgressGroup[keyof typeof BadgeProgressGroup];
 
 
@@ -880,6 +890,8 @@ export interface ResolveResult {
   profile: Profile;
   /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
   askEarTip: boolean;
+  /** "Are these the same cat?" (which-cat-is-which.md §3.1 item 1, D8). Present only when the spotter confirmed a suggested cat and the photo check also suggested a look-alike scoring nearly as high, and the team has not decided the pair. The app asks it below the other questions, with both cats' main photos, and answers it with `duplicate` on the answers route. Absent from an older server, and ignored by an older app: both mean no question. */
+  duplicateQuestion?: ResolveResultDuplicateQuestion;
 }
 
 /**
@@ -908,6 +920,18 @@ export const SightingAnswersRequestFoodAndWater = {
   cant_tell: 'cant_tell',
 } as const;
 
+/**
+ * The answer to resolve's `duplicateQuestion`: "Are these the same cat?" (which-cat-is-which.md §3.1 item 1). Written as a report for the team to weigh; it never changes either cat. Once per sighting (a second one is left out, or ALREADY_ANSWERED if nothing else in the request was recorded). Refused with NO_DUPLICATE_QUESTION when this sighting was not asked about a pair, and with NOT_THEIRS for the team desk.
+ */
+export type SightingAnswersRequestDuplicate = typeof SightingAnswersRequestDuplicate[keyof typeof SightingAnswersRequestDuplicate];
+
+
+export const SightingAnswersRequestDuplicate = {
+  same: 'same',
+  different: 'different',
+  not_sure: 'not_sure',
+} as const;
+
 export interface SightingAnswersRequest {
   /** Device credential of the sighting owner; must match the sighting */
   deviceId: string;
@@ -922,6 +946,8 @@ export interface SightingAnswersRequest {
   note?: string;
   /** With earTip: replace this device's own current ear-tip answer for this cat (from the cat's page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out. */
   changeEarTip?: boolean;
+  /** The answer to resolve's `duplicateQuestion`: "Are these the same cat?" (which-cat-is-which.md §3.1 item 1). Written as a report for the team to weigh; it never changes either cat. Once per sighting (a second one is left out, or ALREADY_ANSWERED if nothing else in the request was recorded). Refused with NO_DUPLICATE_QUESTION when this sighting was not asked about a pair, and with NOT_THEIRS for the team desk. */
+  duplicate?: SightingAnswersRequestDuplicate;
 }
 
 export type MyOpenSightingsEarTipState = typeof MyOpenSightingsEarTipState[keyof typeof MyOpenSightingsEarTipState];
@@ -991,6 +1017,7 @@ export const SightingAnswersResultRecordedItem = {
   ear_tip: 'ear_tip',
   food_and_water: 'food_and_water',
   note: 'note',
+  duplicate: 'duplicate',
 } as const;
 
 export interface SightingAnswersResult {

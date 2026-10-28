@@ -7,6 +7,7 @@
  */
 import type { Cat } from './cat';
 import type { Profile } from './profile';
+import type { ResolveResultDuplicateQuestion } from './resolveResultDuplicateQuestion';
 import type { ResolveResultPointsReason } from './resolveResultPointsReason';
 
 export interface ResolveResult {
@@ -22,4 +23,6 @@ export interface ResolveResult {
   profile: Profile;
   /** Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat ("clipped", "looks whole" or "can't tell"), so each spotter is asked once per cat (data spine plan, decision Q3 → B). */
   askEarTip: boolean;
+  /** "Are these the same cat?" (which-cat-is-which.md §3.1 item 1, D8). Present only when the spotter confirmed a suggested cat and the photo check also suggested a look-alike scoring nearly as high, and the team has not decided the pair. The app asks it below the other questions, with both cats' main photos, and answers it with `duplicate` on the answers route. Absent from an older server, and ignored by an older app: both mean no question. */
+  duplicateQuestion?: ResolveResultDuplicateQuestion;
 }
