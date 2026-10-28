@@ -24,6 +24,7 @@ import {
 import { SHEET_MAX_WIDTH } from '@/lib/appColumn';
 import { CATALOGUE_QUERY_ROOT } from '@/lib/catalogue';
 import { isDeviceMovedError } from '@/lib/deviceMoved';
+import { mergedSurvivorId } from '@/lib/mergedCats';
 import { classifyResolveError, isBlankName } from '@/lib/catPicker';
 import { registerModalOpen } from '@/lib/modalVisibility';
 import { useColors } from '@/hooks/useColors';
@@ -86,6 +87,13 @@ function NameThisCatSheet({
       onError: (err: unknown) => {
         if (isDeviceMovedError(err)) {
           onClose();
+          return;
+        }
+        // SYC-59: the team merged this record into another cat while the card
+        // was open. Reload the page: it now shows that cat, with the note.
+        if (mergedSurvivorId(err) !== null) {
+          refreshCat();
+          setError(t('mergedRefused'));
           return;
         }
         const code = ((err as { data?: { code?: string } })?.data?.code) ?? null;

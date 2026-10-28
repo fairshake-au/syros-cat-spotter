@@ -28,6 +28,7 @@ export * from './catCoatColoursItem';
 export * from './catCoatItem';
 export * from './catCoatPattern';
 export * from './catDetail';
+export * from './catDetailMergedFrom';
 export * from './catFollow';
 export * from './catHomePin';
 export * from './catLetGo';

@@ -44,6 +44,7 @@ import { PhotosTab } from '@/components/catPage/PhotosTab';
 import { StoryTab } from '@/components/catPage/StoryTab';
 import { MapTab } from '@/components/catPage/MapTab';
 import { FollowButton } from '@/components/catPage/FollowButton';
+import { mergedIntoNote } from '@/lib/mergedCats';
 import { fonts, fontSizes, lineHeights } from '@/constants/theme';
 
 /** The photo's height. The tab row and the first facts show on a 390 px phone without scrolling. */
@@ -181,6 +182,9 @@ export default function CatDetailScreen() {
   const shownName = catDisplayName(cat, t);
   const sentenceName = catNameInSentence(cat);
   const careTimeline = data.careTimeline;
+  // SYC-59 (which-cat-is-which.md §4.2): the page was asked for a record the
+  // team merged into this cat (an old link, a notification, a cached list).
+  const mergedNote = mergedIntoNote(t, data.mergedFrom, sentenceName);
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
   // the truth about who owns the cat now. The list saved on the phone can be
@@ -327,6 +331,15 @@ export default function CatDetailScreen() {
           aria-labelledby={tabId(shownTab)}
           style={styles.panel}
         >
+          {mergedNote !== null && (
+            <Text
+              testID="cat-merged-note"
+              role="note"
+              style={[styles.mergedNote, { color: colors.mutedForeground }]}
+            >
+              {mergedNote}
+            </Text>
+          )}
           {shownTab === 'about' && <NameThisCatCard cat={cat} canName={data.canName} />}
           {shownTab === 'about' && (
             <AboutTab
@@ -463,4 +476,10 @@ const styles = StyleSheet.create({
     lineHeight: fontSizes['2xl'] * lineHeights.tight,
   },
   panel: { padding: 16 },
+  mergedNote: {
+    fontSize: fontSizes.xs,
+    fontFamily: fonts.body,
+    lineHeight: fontSizes.xs * lineHeights.normal,
+    marginBottom: 12,
+  },
 });
