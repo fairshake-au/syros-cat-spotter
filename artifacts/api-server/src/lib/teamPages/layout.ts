@@ -483,6 +483,8 @@ input[type=date]{max-width:220px}
 .fixes details.addnote[open]>summary{margin-bottom:4px}
 .fixes summary.risky{color:var(--danger)}
 .fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:var(--accent-strong)}
+.fixes form.samecat{margin:8px 0 4px}
+.fixes form.samecat button{width:100%;background:var(--card);color:var(--accent-strong);border:2px solid var(--accent)}
 .fixes form.diedform{margin:20px 0 4px}
 .fixes form.diedform button{width:100%;background:var(--card);color:var(--danger);border:2px solid var(--danger)}
 .fixes form.diedform button:hover{background:var(--danger-soft)}

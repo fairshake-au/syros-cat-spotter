@@ -1,7 +1,8 @@
 import { isIslandWide, visibleColonyIds } from "../lib/guardianView";
 import { useHeldTypingFor } from "../lib/teamAuth/heldTyping";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { searchTeamCats, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
+import { searchTeamCats, syrNumber, teamCatView, teamPhotoUrl } from "../lib/teamCatView";
+import { canonicalCatOf } from "../lib/catIdentity";
 import { getQueueReport, reportPhotoForFind } from "../lib/welfareQueue";
 import { requireOrigin, setTeamHeaders } from "../lib/teamAuth/refuse";
 import { TEAM_ORIGIN } from "../lib/teamAuth/config";
@@ -41,7 +42,7 @@ import { ALREADY_UNDONE, logVetVisit, undoVetVisit, visitDay, visitsFor } from "
 import { blankVisitForm, readVisitForm, renderVetVisitForm, visitFormFrom } from "../lib/teamPages/vetVisitForm";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { refuseSignedIn } from "../middlewares/requireTeam";
-import { db, observationsTable } from "@workspace/db";
+import { catsTable, db, observationsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { issueStripFor } from "../lib/issues/queue";
 
@@ -495,6 +496,21 @@ router.post(
 const CAT_ID_RE = /^\d{1,9}$/;
 const PHOTO_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+/**
+ * Is this cat merged into another now? Then the merge that did it (the newest
+ * one standing) and, when the cat it was merged into is itself part of another,
+ * that cat (SYC-59 PR 4.2). Undefined for a cat standing alone.
+ */
+async function mergedAwayOf(view: NonNullable<Awaited<ReturnType<typeof teamCatView>>>) {
+  const canonical = (await canonicalCatOf([view.cat.id])).get(view.cat.id);
+  if (canonical == null || canonical === view.cat.id) return undefined;
+  const event = [...view.merges].reverse().find((e) => e.role === "merged" && e.kind === "merged" && e.standing);
+  if (!event) return undefined;
+  if (canonical === event.otherCat.id) return { event, part: null };
+  const [part] = await db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(eq(catsTable.id, canonical));
+  return { event, part: part ? { id: part.id, syr: syrNumber(part.id), name: part.name } : null };
+}
+
 /** GET /api/team/cats/:id: the team's page for one cat. */
 router.get(
   "/team/cats/:id",
@@ -519,16 +535,21 @@ router.get(
     const p = req.query["p"];
     const photo = typeof p === "string" && PHOTO_ID_RE.test(p) ? p : undefined;
     const visits = await visitsFor(view.cat.id, { costs: can(person, "view_vet_costs") });
+    // A cat merged into another has its own page, saying so (which-cat-is-which.md §4.3; SYC-59
+    // PR 4.2): this GET reads the cat asked about and never the cat it is part of now (the team's
+    // correction routes act on that one, `catOf`), and draws no form that writes.
+    const mergedInto = await mergedAwayOf(view);
     // Back after signing in again (SYC-516 C3): one of this page's forms filled in.
-    const kept = await useHeldTypingFor(req, person, catPageFormKeys(view, (c) => can(person, c)));
+    const kept = mergedInto ? null : await useHeldTypingFor(req, person, catPageFormKeys(view, (c) => can(person, c)));
     const html = renderCatPage(view, person.name, {
         visits,
         kept: kept ?? undefined,
         may: (c) => can(person, c),
+        mergedInto,
         done,
         at,
         photo,
-        colonies: can(person, "assign_cat_to_colony")
+        colonies: can(person, "assign_cat_to_colony") && !mergedInto
           ? await allColonyChoices(visibleColonyIds(person))
           : undefined,
         back: cameFromCats(req.get("referer")),

@@ -153,6 +153,60 @@ describe("the cat that was merged away, and after an undo", () => {
   });
 });
 
+describe("“Same cat as…” (§4.1)", () => {
+  it("is on every team cat page for someone who may merge: a GET to the merge screen carrying only this cat's number", () => {
+    const html = renderCatPage(agatha({ merges: [], moves: [] }), "Sam", { may });
+    expect(html).toContain('<form method="get" action="/api/team/cats/merge" class="samecat"><input type="hidden" name="a" value="9"><button type="submit">Same cat as…</button></form>');
+  });
+
+  it("is not there for someone who may not merge", () => {
+    expect(renderCatPage(agatha({ merges: [], moves: [] }), "Sam", { may: mayNot })).not.toContain("Same cat as…");
+  });
+
+  it("is there on a bare cat too (no sightings, no history)", () => {
+    const html = renderCatPage(catView({ cat: AGATHA, sightings: [], moves: [], merges: [] }), "Sam", { may });
+    expect(html).toContain("Same cat as…");
+  });
+});
+
+describe("the merged-away cat's own page (§4.3)", () => {
+  const away = (over: { part?: typeof AGATHA | null; mayFn?: (c: string) => boolean } = {}) =>
+    renderCatPage(
+      catView({ cat: MIMI, sightings: [], moves: [], merges: [event({ role: "merged", otherCat: AGATHA })] }),
+      "Sam",
+      { may: over.mayFn ?? may, mergedInto: { event: event({ role: "merged", otherCat: AGATHA }), part: over.part ?? null } },
+    );
+
+  it("says “Mimi was merged into Agatha on 26 Oct 2026 by Maria”, with the reason, and links to Agatha and to Undo", () => {
+    const html = away();
+    expect(html).toContain('<strong>Mimi was merged into <a href="/api/team/cats/9">Agatha</a> on 26 Oct 2026 by Maria.</strong>');
+    expect(html).toContain("Why: Same face markings and torn left ear.");
+    expect(html).toContain('<a class="tap" href="/api/team/cats/9">Open Agatha</a>');
+    expect(html).toContain('<a class="tap" href="/api/team/cats/merge/31/undo">Undo this merge</a>');
+  });
+
+  it("draws no form that writes, and no Same cat as…", () => {
+    const html = away();
+    for (const absent of ["Same cat as…", "Update this cat", "Log a vet visit", "This cat has died", "/life-status", "/sterilisation", "Add a note"]) {
+      expect(html).not.toContain(absent);
+    }
+  });
+
+  it("no Undo link for someone who may not merge", () => {
+    const html = away({ mayFn: () => false });
+    expect(html).toContain("was merged into");
+    expect(html).not.toContain("Undo this merge");
+  });
+
+  it("in a chain it names the cat she is part of now", () => {
+    const dora = { id: 11, syr: "SYR-0011", name: "Dora" };
+    const html = away({ part: dora });
+    expect(html).toContain('Agatha is part of <a href="/api/team/cats/11">Dora</a> now.');
+    expect(html).toContain("Everything recorded about this cat now counts for Dora.");
+    expect(html).toContain('<a class="tap" href="/api/team/cats/11">Open Dora</a>');
+  });
+});
+
 describe("escaping and words", () => {
   it("names and reasons are escaped", () => {
     const html = renderCatPage(

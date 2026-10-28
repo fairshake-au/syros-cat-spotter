@@ -3,6 +3,7 @@ import type { Capability } from "../capabilities";
 import type { TeamCatView } from "../teamCatView";
 import { escapeHtml as esc } from "./escape";
 import { howFold, whatHappens } from "./help";
+import { MERGE_SCREEN } from "./mergeLinks";
 import type { KeptFields } from "./signedOutPage";
 
 // The buttons on the team's cat page: "Log a vet visit", "Update this cat" and
@@ -201,6 +202,11 @@ export function renderCatActions(
     may("set_life_status") && !dead
       ? `<form method="get" action="${base}/died" class="diedform"><button type="submit">This cat has died</button></form>`
       : "";
+  // "Same cat as…" (which-cat-is-which.md §4.1; SYC-59 PR 4.2): opens the merge screen for this cat.
+  // A plain link, so it works with no script; only someone who may merge sees it.
+  const same = may("merge_cats")
+    ? `<form method="get" action="${MERGE_SCREEN}" class="samecat"><input type="hidden" name="a" value="${v.cat.id}"><button type="submit">Same cat as…</button></form>`
+    : "";
   // Log a vet visit (spec §7.2): the main action, full width, above the rest.
   const vet = may("log_vet_visit")
     ? `<form method="get" action="${base}/vet-visit" class="vetvisit"><button type="submit" class="primary wide">Log a vet visit</button></form>`
@@ -223,7 +229,7 @@ export function renderCatActions(
     whatHappens(
       "Everything you change here is saved with your name and shows in the History tab. To undo a mistake, use Mark wrong on that change.",
     ) + howFold(HOW_CHANGES, { summary: "How changes work", words: false });
-  if (items.length === 0 && !died && !note) return vet ? `<div class="fixes" id="corrections">${notice}${vet}${changeHelp}</div>` : notice;
+  if (items.length === 0 && !died && !note && !same) return vet ? `<div class="fixes" id="corrections">${notice}${vet}${changeHelp}</div>` : notice;
   // The list opens by itself when a form in it was filled in again, or when
   // the page comes back from one of its saves (spec 3.2, "After a save").
   const inList = opts.done !== undefined && UPDATE_DONE.has(opts.done) && items.length > 0;
@@ -239,6 +245,7 @@ export function renderCatActions(
     list +
     note +
     died +
+    same +
     changeHelp +
     "</div>"
   );
