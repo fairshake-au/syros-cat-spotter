@@ -25,3 +25,5 @@ export * from "./photoFingerprints";
 export * from "./badges";
 export * from "./vetBatches";
 export * from "./mapData";
+export * from "./sightingMoves";
+export * from "./duplicates";

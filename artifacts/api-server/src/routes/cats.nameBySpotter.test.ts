@@ -17,6 +17,7 @@ import { TEAM_DESK_DEVICE } from "../lib/teamDesk";
 import { peek } from "../lib/limits";
 import { _resetNameCatLimitForTests, NAME_CAT_WINDOW_MS } from "../middlewares/rateLimit";
 import { deleteTestSightings } from "../test/sightings";
+import { mergeKeepingSightings } from "../test/merges";
 
 // SYC-677 D: a cat Syros Cats left for spotters to name ("Spotters naming a
 // cat", vet-visit-batches design). Its stored name is its SYR number until a
@@ -343,7 +344,7 @@ describe("SYC-709: naming limits", () => {
     const catId = await pendingCat();
     const merged = await namedCat(`${NAME}MergedIn`);
     await met(merged, device("c"));
-    await db.execute(sql`insert into cat_identity (cat_id, canonical_cat_id) values (${merged}, ${catId})`);
+    await mergeKeepingSightings({ catId: merged, canonicalCatId: catId });
     const res = await nameIt(catId, device("c"), `${NAME}ViaMerge`);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
   });

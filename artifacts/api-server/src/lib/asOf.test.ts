@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db, pool, catsTable, catIdentityTable, observationsTable, sightingsTable, type Observation } from "@workspace/db";
 import { like } from "drizzle-orm";
 import { loadCatRecords, resolveAt } from "./observations";
+import { mergeKeepingSightings } from "../test/merges";
 import { resolveCat } from "./resolve";
 import { currentColonyOf } from "./colonyMembership";
 import { loadTeamCats } from "./teamCatList";
@@ -254,7 +255,7 @@ describe("resolveAt", () => {
     await row(b.id, "sterilised", { sterilised: true }, day(2));
     await row(c.id, "sterilised", { sterilised: true }, day(2));
     await sighting(b.id, day(3));
-    await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: a.id, createdBy: "vitest-asof", createdAt: day(5) });
+    await mergeKeepingSightings({ catId: b.id, canonicalCatId: a.id, createdBy: "vitest-asof", createdAt: day(5) });
     const [merge] = await db
       .insert(catIdentityTable)
       .values({ catId: c.id, canonicalCatId: d.id, createdBy: "vitest-asof", createdAt: day(5) })

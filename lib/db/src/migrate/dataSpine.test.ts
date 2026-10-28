@@ -280,14 +280,16 @@ describe("cat_identity: a merge is a row and an unmerge is another row", () => {
       `insert into cat_identity (cat_id, canonical_cat_id, reason, supersedes_id) values (2, 2, 'unmerge', $1)`,
       [id],
     );
+    // Since 0054 the guard allows one update, redaction (SYC-150), so its
+    // words changed from "append-only".
     await expect(
       c.query(`update cat_identity set canonical_cat_id = 3 where id = $1`, [
         id,
       ]),
-    ).rejects.toThrow(/cat_identity is append-only: UPDATE/);
+    ).rejects.toThrow(/cat_identity is add-only: the only permitted update is redaction/);
     await expect(
       c.query(`delete from cat_identity where id = $1`, [id]),
-    ).rejects.toThrow(/cat_identity is append-only: DELETE/);
+    ).rejects.toThrow(/cat_identity is add-only: delete is not allowed/);
   });
 });
 
