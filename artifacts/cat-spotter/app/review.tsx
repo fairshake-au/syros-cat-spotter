@@ -1500,7 +1500,7 @@ const styles = StyleSheet.create({
   },
   questions: { width: "100%", gap: spacing[2], marginTop: spacing[2] },
   nextFact: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing[1] },
-  nextFactText: { fontSize: fontSizes.md, fontFamily: "Inter_400Regular" },
+  nextFactText: { fontSize: fontSizes.md, fontFamily: fonts.body },
   questionsHeading: { fontSize: fontSizes.md, fontFamily: fonts.displayBold },
   header: {
     flexDirection: "row",

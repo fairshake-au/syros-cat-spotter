@@ -85,3 +85,22 @@ export function reanimatedMock() {
     },
   };
 }
+
+/**
+ * react-native-web drops the native-only accessibility props from the DOM, so
+ * read them from the React fibers above the element: true when any component
+ * rendering this node was given importantForAccessibility="no-hide-descendants"
+ * and accessibilityElementsHidden (Android and iOS screen readers; SYC-772).
+ */
+export function hidesFromNativeReaders(el: Element): boolean {
+  const key = Object.keys(el).find((k) => k.startsWith('__reactFiber$'));
+  let fiber = key ? (el as any)[key] : null;
+  while (fiber) {
+    const p = fiber.memoizedProps;
+    if (p && p.importantForAccessibility === 'no-hide-descendants' && p.accessibilityElementsHidden === true) {
+      return true;
+    }
+    fiber = fiber.return;
+  }
+  return false;
+}

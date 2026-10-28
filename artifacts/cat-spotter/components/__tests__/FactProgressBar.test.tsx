@@ -18,7 +18,7 @@ import { FactProgressBar } from '@/components/FactProgressBar';
 import { WALKING_CAT_ASPECT } from '@/components/waitingCats/WalkingCat';
 import { SLEEPING_CAT_ASPECT } from '@/components/waitingCats/SleepingCat';
 import { catPosition } from '@/lib/catPosition';
-import { motion, readStyle, spies } from './helpers/waitingCatsMocks';
+import { hidesFromNativeReaders, motion, readStyle, spies } from './helpers/waitingCatsMocks';
 
 const STRINGS: Record<string, string> = {
   factProgress: 'Cat fact {n} of {total}',
@@ -60,6 +60,11 @@ describe('FactProgressBar', () => {
   it('hides the visible words from screen readers', () => {
     render(<FactProgressBar progress={count} t={t} />);
     expect(screen.getByText('Cat fact 3 of 11').closest('[aria-hidden="true"]')).toBeTruthy();
+  });
+
+  it('also hides the visible words from native readers (Android would read them twice)', () => {
+    render(<FactProgressBar progress={count} t={t} />);
+    expect(hidesFromNativeReaders(screen.getByText('Cat fact 3 of 11'))).toBe(true);
   });
 
   it('shows the done words and a sleeping cat, no walking cat', () => {

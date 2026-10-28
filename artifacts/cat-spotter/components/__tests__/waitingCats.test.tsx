@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('react-native-svg', async () => (await import('./helpers/waitingCatsMocks')).svgMock());
 vi.mock('react-native-reanimated', async () => (await import('./helpers/waitingCatsMocks')).reanimatedMock());
 
-import { motion, readStyle } from './helpers/waitingCatsMocks';
+import { hidesFromNativeReaders, motion, readStyle } from './helpers/waitingCatsMocks';
 import { TopicCat } from '@/components/waitingCats/TopicCat';
 import { WalkingCat, WALKING_CAT_ASPECT } from '@/components/waitingCats/WalkingCat';
 import { SleepingCat, SLEEPING_CAT_ASPECT } from '@/components/waitingCats/SleepingCat';
@@ -98,6 +98,11 @@ describe.each(pictures)('%s', (_label, testId, ui) => {
     expect(root.getAttribute('aria-hidden')).toBe('true');
     // react-native-web drops the native-only props; the outer View still gets accessible={false}
     expect(root.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('is hidden from native readers too (Android no-hide-descendants)', () => {
+    render(ui());
+    expect(hidesFromNativeReaders(screen.getByTestId(testId))).toBe(true);
   });
 
   it('holds still under reduced motion', () => {
