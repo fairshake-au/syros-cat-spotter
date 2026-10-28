@@ -22,6 +22,7 @@ import {
 import { blurPosition } from "./blur";
 import { deriveCatStatuses } from "./catHelpers";
 import { writeObservation, WITHDRAWN, type DbOrTx } from "./observations";
+import { mergeKeepingSightings } from "../test/merges";
 
 // claiming-a-cat.md §3 (who may claim), D1, D3, D11; review 2 HIGH-1.
 //
@@ -239,9 +240,7 @@ describe("claimEligibility: rule 2, this phone has met the cat", () => {
     const merged = await streetCat();
     const d = dev();
     await sighting(merged.id, d, "suggested");
-    await db
-      .insert(catIdentityTable)
-      .values({ catId: merged.id, canonicalCatId: c.id, reason: "test" });
+    await mergeKeepingSightings({ catId: merged.id, canonicalCatId: c.id, reason: "test" });
     expect(await eligible(c.id, d)).toEqual(OK);
   });
 
@@ -250,10 +249,7 @@ describe("claimEligibility: rule 2, this phone has met the cat", () => {
     const merged = await streetCat();
     const d = dev();
     await sighting(merged.id, d, "suggested");
-    const [m] = await db
-      .insert(catIdentityTable)
-      .values({ catId: merged.id, canonicalCatId: c.id, reason: "test" })
-      .returning();
+    const m = await mergeKeepingSightings({ catId: merged.id, canonicalCatId: c.id, reason: "test" });
     await db.insert(catIdentityTable).values({
       catId: merged.id,
       canonicalCatId: merged.id,
@@ -269,9 +265,7 @@ describe("claimEligibility: rule 2, this phone has met the cat", () => {
     const merged = await streetCat();
     const d = dev();
     await sighting(merged.id, d, "suggested");
-    await db
-      .insert(catIdentityTable)
-      .values({ catId: merged.id, canonicalCatId: elsewhere.id, reason: "test" });
+    await mergeKeepingSightings({ catId: merged.id, canonicalCatId: elsewhere.id, reason: "test" });
     expect(await eligible(c.id, d)).toEqual(NOT_MET);
   });
 });
@@ -411,9 +405,7 @@ describe("claimEligibility: a cat merged into another (critic HIGH-1)", () => {
     const mergedAway = await streetCat();
     const d = dev();
     await sighting(mergedAway.id, d, "suggested");
-    await db
-      .insert(catIdentityTable)
-      .values({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" });
+    await mergeKeepingSightings({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" });
     expect(await eligible(mergedAway.id, d)).toEqual(NOT_ON_STREET);
     // The cat it was merged into is the one to claim.
     expect(await eligible(canonical.id, d)).toEqual(OK);
@@ -424,10 +416,7 @@ describe("claimEligibility: a cat merged into another (critic HIGH-1)", () => {
     const mergedAway = await streetCat();
     const d = dev();
     await sighting(mergedAway.id, d, "suggested");
-    const [m] = await db
-      .insert(catIdentityTable)
-      .values({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" })
-      .returning();
+    const m = await mergeKeepingSightings({ catId: mergedAway.id, canonicalCatId: canonical.id, reason: "test" });
     await db.insert(catIdentityTable).values({
       catId: mergedAway.id,
       canonicalCatId: mergedAway.id,

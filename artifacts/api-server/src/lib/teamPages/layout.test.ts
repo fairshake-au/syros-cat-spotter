@@ -225,7 +225,7 @@ describe("the skip link (SYC-366)", () => {
   });
 
   it("keeps main's class beside its id", () => {
-    expect(page({ mainClass: "mappage" })).toContain('<main id="main" tabindex="-1" class="mappage">');
+    expect(page({ mainClass: "wide" })).toContain('<main id="main" tabindex="-1" class="wide">');
   });
 
   it("is hidden until focused, and focus gets a visible outline", () => {
@@ -393,7 +393,7 @@ describe("one left edge at every width (SYC-619 §2.4)", () => {
   });
 
   it("a narrow page wraps its content in .readcol, 736px (today's reading width inside main's 12px padding), left-aligned", () => {
-    for (const mainClass of [undefined, "mappage"] as const) {
+    for (const mainClass of [undefined] as const) {
       const html = page({ mainClass, beforeTitle: "<a>back</a>", banner: "<p>b</p>", afterTitle: "<p>a</p>" });
       const body = inner(html);
       expect(body.startsWith('<div class="readcol"><p>b</p><a>back</a><h1>T</h1><p>a</p><p>x</p></div>')).toBe(true);
@@ -403,14 +403,12 @@ describe("one left edge at every width (SYC-619 §2.4)", () => {
     expect(styles(page())).not.toMatch(/\.readcol\{[^}]*margin/);
   });
 
-  it("wide pages have no .readcol", () => {
-    expect(inner(page({ mainClass: "wide" }))).not.toContain('class="readcol"');
+  it("keeps the .attrib rule the map credit (mapCredit) relies on", () => {
+    expect(styles(page())).toContain(".attrib{margin:4px 0 8px;font-size:12px;color:var(--muted)}");
   });
 
-  it("the .mappage margin rule uses the 1120px frame and still rounds down to 1px", () => {
-    const css = styles(page({ mainClass: "mappage" }));
-    expect(css).toContain("round(down,(100% - 1120px) / 2,1px)");
-    expect(css).not.toContain("(100% - 760px) / 2,1px");
+  it("wide pages have no .readcol", () => {
+    expect(inner(page({ mainClass: "wide" }))).not.toContain('class="readcol"');
   });
 });
 

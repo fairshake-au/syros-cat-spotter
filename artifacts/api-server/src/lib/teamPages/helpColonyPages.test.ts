@@ -5,7 +5,6 @@ import { renderPlanPrintPage } from "./planPrintPage";
 import { renderGuardianCatPage, renderGuardianColonyPage } from "./guardianPages";
 import { renderCentreConfirm } from "./centrePages";
 import { renderSitePage, renderSitesPage } from "./sitePages";
-import { viewAround } from "../mapTiles/geometry";
 
 // SYC-739: the plain-English help on the colony, site, area, plan and
 // cat-guardian pages. Wording was checked against the code that does the work.
@@ -88,7 +87,6 @@ describe("Centre confirm help", () => {
       zoom: 17,
       nowLabel: "now",
       newLabel: "new",
-      tapAction: "/x",
       saveAction: "/y",
       back: { href: "/z", label: "Back" },
       help: "A place takes the name of the area whose centre is nearest.",
@@ -130,14 +128,12 @@ describe("Cat guardian help", () => {
 });
 
 describe("Feeding sites help", () => {
-  const view = viewAround({ lat: 37.4447, lng: 24.9417 }, 15);
   const list = (o: Record<string, unknown> = {}) =>
     renderSitesPage({
       personName: "Sam",
       counts: { total: 1, public: 0, private: 1, retired: 0 },
       changes: [],
       sites: [],
-      view,
       showRetired: false,
       ...o,
     } as never);
@@ -161,9 +157,9 @@ describe("Feeding sites help", () => {
     expect(list({ island: false })).toContain("You see only the sites in your own colonies.");
   });
   it("explains the same on one site", () => {
-    const html = renderSitePage({ personName: "Sam", site: site(true), view, colonies: [] });
+    const html = renderSitePage({ personName: "Sam", site: site(true), colonies: [] });
     expect(html).toContain("This pin is one place where street cats are fed.");
     expect(html).toContain("A QR sticker is a printed code");
-    expect(renderSitePage({ personName: "Sam", site: site(false), view, colonies: [] })).not.toContain("A QR sticker is");
+    expect(renderSitePage({ personName: "Sam", site: site(false), colonies: [] })).not.toContain("A QR sticker is");
   });
 });

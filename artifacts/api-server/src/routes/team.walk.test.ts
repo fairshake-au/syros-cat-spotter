@@ -5,6 +5,7 @@ import { db, observationsTable, pool, sightingsTable } from "@workspace/db";
 import { areaFor } from "../lib/areas/namedAreas";
 import { formatDate, tr } from "../lib/teamPages/strings";
 import app from "../app";
+import { setMapSourceForTests } from "./teamMapData";
 import router from "./index";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
@@ -215,7 +216,6 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/cats": { why: "the island-wide cat list: view_exact_location with no target, so island-only" },
   "GET /api/team/cats/find": { why: "Find from a photo's form and count (SYC-396 PR 2.5): find_cat_from_photo, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/find": { why: "Find from a photo's search: find_cat_from_photo, island-only; the walk's form has no photo, so the team gets a 400 and no search runs" },
-  "POST /api/team/cats/map": { why: "the island Map's button-map moves, for a browser with no script (SYC-396 PR 1.5): view_exact_location with no target" },
   "POST /api/team/cats/positions": { why: "the island map's cat positions (SYC-396 PR 1.5): view_exact_location with no target, so island-only" },
   "GET /api/team/cats/:id": { why: "the team's cat page: view_exact_location with no target (a guardian's own page is PR 2.1's)" },
   "POST /api/team/cats/:id/life-status": { why: "set_life_status with no target, island-only" },
@@ -268,8 +268,7 @@ const TABLE: Record<string, Row> = {
   },
   "POST /api/team/colonies/:id": { why: "edit_colony on that colony (PR 4.2), rename_colony island-only; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/centre": { why: "the centre map: edit_colony on that colony (SYC-517, 517-B); a colony that isn't hers, or isn't one, is the same 403" },
-  "POST /api/team/colonies/:id/centre/map": { why: "zoom, pan, areas on the centre map: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
-  "POST /api/team/colonies/:id/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
+  "POST /api/team/colonies/:id/centre/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation and saves nothing: edit_colony on that colony; a colony that isn't hers, or isn't one, is the same 403" },
   "GET /api/team/colonies/:id/plan": { why: "the printable trapping plan (SYC-396 PR 2.3): print_trapping_plan, island-only, so every cat guardian gets the 403" },
   "GET /api/team/colonies/:id/cats": { why: "the Add cats search: sees some colony, then assign_cat_to_colony on the colony read from the record", except: SEEING },
   "POST /api/team/colonies/:id/cats": { why: "assign_cat_to_colony on the colony the cats go into (PR 4.2); a colony that isn't hers, or isn't one, is the same 403" },
@@ -281,11 +280,9 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/insights/:report.csv": { why: "a report's spreadsheet: export_report, island-only; the walk's :report is no report, so the team gets a 404 and nothing is recorded" },
   "GET /api/team/areas": { why: "edit_named_areas: island-only, so every cat guardian gets the 403" },
   "GET /api/team/areas/:key/centre": { why: "the area centre map: edit_named_areas: island-only, so every cat guardian gets the 403 (SYC-517, 517-B)" },
-  "POST /api/team/areas/:key/centre/map": { why: "zoom, pan on the area centre map: edit_named_areas: island-only" },
-  "POST /api/team/areas/:key/centre/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
+  "POST /api/team/areas/:key/centre/pick": { why: "the map's pin or a typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only" },
   "POST /api/team/areas/new": { why: "name and key check, then the new area's map: edit_named_areas: island-only (SYC-557)" },
-  "POST /api/team/areas/new/map": { why: "zoom, pan on the new area's map: edit_named_areas: island-only (SYC-557)" },
-  "POST /api/team/areas/new/pick": { why: "a tap or typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only (SYC-557)" },
+  "POST /api/team/areas/new/pick": { why: "the map's pin or a typed position, answers with the confirmation and saves nothing: edit_named_areas: island-only (SYC-557)" },
   "POST /api/team/areas": { why: "edit_named_areas: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   // SYC-396 PR 3.1b: the Vet settings page and its one form route. Team-only.
   "GET /api/team/vet-settings": { why: "edit_vet_settings: island-only, so every cat guardian gets the 403" },
@@ -298,37 +295,30 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/words": { why: "Words we use (SYC-739): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "POST /api/team/cats/:id/colony": { why: "assign_cat_to_colony on the colony it goes into, or for a take-out the one it leaves, from the record (PR 4.2); an unreadable form has no colony" },
-  // SYC-209 PR 3.1, the team map. Never the door's "any colony" check. The Map page and its
-  // tap stay the team's; the picture route opens to anyone who sees a colony (PR 4.1: a
-  // picture is the island only, never a site).
-  "GET /api/team/map": { why: "the team's map page: view_exact_location with no target" },
-  "POST /api/team/map": { why: "zoom, pan, areas on the team's map page: view_exact_location with no target" },
-  "POST /api/team/map/tap": { why: "a tap on the team's map page: view_exact_location with no target" },
-  "GET /api/team/map-tiles/:tile": { why: "a map picture: sees some colony (PR 4.1); the walk's token is unreadable, so 404", except: SEEING },
-  // SYC-396 PR 1.5, the island map's squares: team-only (the Map is the team's in phase 1).
-  "POST /api/team/map-squares": { why: "tokens for the island map's squares: view_exact_location with no target, so island-only" },
-  "GET /api/team/map-square/:token": {
-    why: "one island map square by its token: view_exact_location with no target; the walk's token is unreadable, so 404",
-    mayCache: "private, max-age=86400",
-  },
+  // SYC-209 PR 3.1, the team map; now only the old address, redirected (SYC-705 2b.8).
+  "GET /api/team/map": { why: "the old map address, a 303 to the Cats map view: view_exact_location with no target" },
+  // SYC-705 Phase 2 (2b.3), the dashboard's own map files: anyone who sees a colony; the island's
+  // map only. The walk's version is too high for any of them, so each answers a no-store 404.
+  "GET /api/team/map-data/current": { why: "the map's version: sees some colony (SYC-705 2b.3)", except: SEEING },
+  "GET /api/team/map-data/v:version/syros.pmtiles": { why: "the whole map file: sees some colony; the walk's version is above the current one, so 404", except: SEEING },
+  "GET /api/team/map-data/v:version/fonts/:stack/:range.pbf": { why: "a font range: sees some colony; the walk's stack is no stack, so 404 with nothing fetched", except: SEEING },
+  "GET /api/team/map-data/v:version/sprites/:file": { why: "the map's symbols: sees some colony; the walk's file is no file, so 404 with nothing fetched", except: SEEING },
+  "GET /api/team/map-data/v:version/style-:lang.json": { why: "the map's style: sees some colony; the walk's lang is no lang, so 404", except: SEEING },
   // SYC-209 PR 3.2 and PR 4.1, the Feeding sites pages.
   "GET /api/team/sites": { why: "the Feeding sites page, filtered: sees some colony", except: SEEING },
-  "POST /api/team/sites/map": { why: "zoom, pan, areas on the Feeding sites page, filtered: sees some colony", except: SEEING },
   "GET /api/team/sites/:id": { why: "one site, filtered in the query: sees some colony; another colony's site is 404", except: SEEING },
   // SYC-209 PR 3.3, adding, moving, retiring and changing the colony of a feeding site.
   // PR 4.2: the add pages open to anyone who may add a site to a colony they see; each
   // one-site write is checked against that site's own colony. Never canSomewhere.
   "GET /api/team/sites/new": { why: "the add-a-site map: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
-  "POST /api/team/sites/new/map": { why: "zoom, pan, areas on the add page: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
-  "POST /api/team/sites/pick": { why: "a tap or typed position, answers with the confirmation: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
+  "POST /api/team/sites/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation: sees some colony, and add_feeding_site on one of them", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "POST /api/team/sites": { why: "save a new site: the add door, then add_feeding_site on the colony it goes into (a guardian's must be hers)", except: { guardianOne: "pass", guardianTwo: "pass", guardianEvery: "pass" } },
   "POST /api/team/sites/:id": { why: "edit name, notes, how to find it: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "POST /api/team/sites/:id/colony": { why: "change a site's colony: reassign_feeding_site (island-only by kind)" },
   "POST /api/team/sites/:id/retire": { why: "retire a site: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "POST /api/team/sites/:id/restore": { why: "bring a site back: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   "GET /api/team/sites/:id/move": { why: "the move picker: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
-  "POST /api/team/sites/:id/move/map": { why: "zoom, pan, areas on the move page: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
-  "POST /api/team/sites/:id/move/pick": { why: "a tap or typed position, answers with the confirmation: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
+  "POST /api/team/sites/:id/move/pick": { why: "the map's pin, an area or a typed position, answers with the confirmation: edit_feeding_site on the site's own colony, from the record (PR 4.2)" },
   // PR 4.1: both sighting buttons check against the sighting's CAT's colony, from the record.
   // The walk names no sighting, so there is no colony: only the team passes.
   "POST /api/team/sites/from-sighting": { why: "'Make a feeding site here': add_feeding_site and view_exact_location on the sighting's cat's colony" },
@@ -424,8 +414,6 @@ const WELL_FORMED_BODIES: Record<string, unknown> = {
   "POST /api/team/my/cats/:id/life-status": { status: "in_care", reason: "walk test" },
   "POST /api/team/issues/:publicId/keep-hidden": { from: "new" },
   "POST /api/team/issues/:publicId/restore": { from: "new" },
-  // A range off Syros: a well-formed ask that gets no tokens.
-  "POST /api/team/map-squares": { z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 },
 };
 
 /**
@@ -462,6 +450,8 @@ const people = {} as Record<Kind, Signed>;
 let catInA: SeededCat & { colonyId: number; otherColony: number };
 
 beforeAll(async () => {
+  // SYC-705 2b.3: the map-data routes ask the map host through the store; here it is unreachable.
+  setMapSourceForTests({ fetch: (async () => { throw new Error("offline"); }) as typeof fetch });
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   const colonyA = await newColony("walk-A");
@@ -505,6 +495,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  setMapSourceForTests(undefined);
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   // The walk's team people each start a batch (GET /vet-batches/new, SYC-677); a batch names its author.

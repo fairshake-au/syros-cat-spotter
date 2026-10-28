@@ -58,7 +58,10 @@ export const catUpdatesTable = pgTable("cat_updates", {
  * The bell's entries. `kind 'cat'` is news about a cat (`cat_update_id` set,
  * the words come from the cat update). `kind 'week_result'` (SYC-706) is a
  * spotter's place in last week's top three: no cat, its words in `message`,
- * which never names an area or a place.
+ * which never names an area or a place. `merged` (a followed cat was merged
+ * into another) and `duplicate_points` (points for finding a duplicate) are
+ * shaped like `week_result`: no cat update, the words in `message`
+ * (which-cat-is-which.md D4, D10). Neither is ever pushed.
  */
 export const notificationsTable = pgTable("notifications", {
   id: serial("id").primaryKey(),
@@ -78,7 +81,7 @@ export const notificationsTable = pgTable("notifications", {
   check(
     "notifications_kind_ck",
     sql`(${t.kind} = 'cat' and ${t.catUpdateId} is not null)
-      or (${t.kind} = 'week_result' and ${t.catUpdateId} is null and ${t.message} is not null)`,
+      or (${t.kind} in ('week_result', 'merged', 'duplicate_points') and ${t.catUpdateId} is null and ${t.message} is not null)`,
   ),
 ]);
 

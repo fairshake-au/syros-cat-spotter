@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { catIdentityTable, catsTable, db, pool } from "@workspace/db";
 import { inArray, like, sql } from "drizzle-orm";
+import { identityRowPastTheGuard } from "../test/merges";
 import { MAX_MERGE_HOPS, canonicalCatOf, catsFeeding, catsMergedAway, liveCats, notMergedAway, observationCatIn } from "./catIdentity";
 
 // SYC-410 (which-cat-is-which.md §9.3; spec tests 15's core and 16): the one
@@ -173,7 +174,10 @@ describe("canonicalCatOf and catsFeeding", () => {
     const mimi = await cat();
     const agatha = await cat();
     const m = await merge(mimi, agatha, day(2));
-    await undo(m, agatha, day(3));
+    // Since migration 0054 the database refuses the row outright…
+    await expect(undo(m, agatha, day(3))).rejects.toMatchObject({ cause: { message: expect.stringMatching(/supersedes only a merge of its own cat/) } });
+    // …and a reader still ignores it if it ever got in.
+    await identityRowPastTheGuard({ catId: agatha, canonicalCatId: agatha, supersedesId: m, reason: "vitest undo", createdAt: day(3) });
     expect(await canonical(mimi)).toBe(agatha);
     expect(await feeding(agatha)).toEqual(sorted(agatha, mimi));
   });

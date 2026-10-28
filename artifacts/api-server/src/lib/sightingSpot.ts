@@ -1,6 +1,6 @@
 import { db, sightingsTable } from "@workspace/db";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { inIsland, type Position } from "./mapTiles/geometry";
+import { inIsland, type Position } from "./island";
 
 // Where a sighting was, for the cat page's two buttons "Make a feeding site
 // here" and "Show on our map" (SYC-209 PR 3.4; plan K13). The cat page's

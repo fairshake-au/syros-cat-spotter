@@ -364,58 +364,19 @@ export async function _resetFollowBurstForTests(address: string): Promise<void> 
   await followBurstLimiter.resetKey(addressKey(address));
 }
 
-// The team map's pictures, GET /api/team/map-tiles/:tile (SYC-209 PR 3.1).
-// Behind a session, so this is a courtesy cap on the server's work, not a
-// security control (what we ask OpenStreetMap for is held down by the cache
-// and the backoff in lib/mapTiles/tileCache.ts). A map page draws its one
-// picture at five sizes (one per screen-width band; a browser may fetch
-// them all), so 5 a page; 5000 leaves room for a team in one office
-// panning quickly. Pictures seen again in the same hour come from the
-// browser's own cache and don't count.
-//
-// STAYS IN MEMORY, per server, like photoLimiter and for the same reason
-// (SYC-105 PR 2.1): a page loads five pictures, so a database write per
-// picture would cost more than this courtesy cap protects. It sits behind a
-// signed-in session; nothing security depends on rests on it.
-export const mapTileLimiter = rateLimit({
-  ...common,
-  windowMs: 15 * 60 * 1000,
-  limit: 5000,
-});
-
-// The island map's single squares, GET /api/team/map-square/:token (SYC-396
-// PR 1.5; spec §6.3; plan Decision 7): at most 300 squares per PERSON per 10
-// minutes, to protect OpenStreetMap's goodwill and our 200 MB picture cache.
-// Counted per signed-in person, never per address: a team sharing an office
-// connection must not share one budget, and one person on two devices must
-// not get two. In Postgres, so it holds across servers and restarts. It runs
-// after requireTeam, so the person is known; squares seen again within the
-// hour come from the browser's own cache and don't count.
-export const MAP_SQUARES_BUCKET = "map_squares";
-export const MAP_SQUARES_LIMIT = 300;
-export const MAP_SQUARES_WINDOW_MS = 10 * 60 * 1000;
-// Sliding, so a window boundary never hands out a second 300 at once
-// (adversarial review of PR #230, finding 4).
-export const mapSquareLimiter = sharedLimiter({
-  bucket: MAP_SQUARES_BUCKET,
-  message: { error: "Too many map pictures. Please try again in a few minutes." },
-  windowMs: MAP_SQUARES_WINDOW_MS,
-  limit: MAP_SQUARES_LIMIT,
-  sliding: true,
-  key: (_req, res) => `person:${teamPerson(res).id}`,
-});
-
-// The square-token requests, POST /api/team/map-squares (review of PR #230,
-// finding 3). Minting is cheap (no picture is fetched), but it shouldn't be
-// free without end: 120 asks per person per 10 minutes is far more than a
-// map ever makes (one or two per pan or zoom), at up to 64 squares each.
-export const MAP_SQUARE_TOKENS_BUCKET = "map_square_tokens";
-export const MAP_SQUARE_TOKENS_LIMIT = 120;
-export const mapSquareTokensLimiter = sharedLimiter({
-  bucket: MAP_SQUARE_TOKENS_BUCKET,
+// The dashboard map's own files, GET /api/team/map-data/** (SYC-705 Phase 2,
+// Task 2b.3): the map file, fonts, symbols and style, served from here so a
+// browser never asks a map company for them. A cold page load is about 25
+// requests and the browser keeps every file for a year, so 600 per PERSON per
+// 10 minutes is far beyond a real visit. Counted per person, in Postgres.
+export const MAP_DATA_BUCKET = "map_data";
+export const MAP_DATA_LIMIT = 600;
+export const MAP_DATA_WINDOW_MS = 10 * 60 * 1000;
+export const mapDataLimiter = sharedLimiter({
+  bucket: MAP_DATA_BUCKET,
   message: { error: "Too many map requests. Please try again in a few minutes." },
-  windowMs: MAP_SQUARES_WINDOW_MS,
-  limit: MAP_SQUARE_TOKENS_LIMIT,
+  windowMs: MAP_DATA_WINDOW_MS,
+  limit: MAP_DATA_LIMIT,
   key: (_req, res) => `person:${teamPerson(res).id}`,
 });
 

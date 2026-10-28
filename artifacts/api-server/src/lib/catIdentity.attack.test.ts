@@ -6,6 +6,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
 }));
 
+import { identityRowPastTheGuard } from "../test/merges";
 import { canonicalCatOf, catsFeeding, catsMergedAway } from "./catIdentity";
 import { claimEligibility } from "./claiming";
 import { loadCatRecords, resolveAt } from "./observations";
@@ -112,7 +113,10 @@ describe("attack: undone merges", () => {
     const mimi = await cat();
     const agatha = await cat();
     const m = await merge(mimi, agatha, day(2));
-    await undo(m, agatha, day(3));
+    // Since migration 0054 the database refuses the row outright…
+    await expect(undo(m, agatha, day(3))).rejects.toMatchObject({ cause: { message: expect.stringMatching(/supersedes only a merge of its own cat/) } });
+    // …and the reader still ignores it if it ever got in.
+    await identityRowPastTheGuard({ catId: agatha, canonicalCatId: agatha, supersedesId: m, reason: "attack undo", createdAt: day(3) });
     expect(await canonical(mimi)).toBe(agatha);
   });
 

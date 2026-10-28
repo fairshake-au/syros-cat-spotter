@@ -14,7 +14,6 @@ import {
 } from "@workspace/db";
 import app from "../app";
 import { sessionCookieFor, TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
-import { BANDS } from "../lib/mapTiles/geometry";
 import { guardianOn, newColony, putInColony, seedCat } from "../test/roleKit";
 import { deleteTestSightings } from "../test/sightings";
 import { isOpaqueAddress } from "../test/opaqueAddress";
@@ -115,6 +114,11 @@ function expectNoPositionInAddresses(html: string) {
   // like z-x-y by chance; it holds no position, so it is set aside first.
   const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
   const values = [...html.matchAll(ATTR)].map((m) => m[2]!.replace(UUID, "photo"));
+  // SYC-705: a map's markers link from its data-map JSON; those are addresses too.
+  for (const m of html.matchAll(/data-map="([^"]*)"/g)) {
+    const data = JSON.parse(decoded(m[1]!)) as { markers?: Array<{ href?: string }> };
+    for (const mk of data.markers ?? []) if (mk.href !== undefined) values.push(mk.href);
+  }
   expect(values.length).toBeGreaterThan(0);
   for (const v of values) {
     if (isOpaqueAddress(v)) continue; // a photo uuid or a signed tile token (SYC-425)
@@ -125,21 +129,16 @@ function expectNoPositionInAddresses(html: string) {
   }
 }
 
-/** A band's tap form: where it posts and every hidden field it carries. */
-function bandForm(html: string, size: number) {
-  const band = new RegExp(`<div class="mapband b${size}"[^>]*>(.*?)</div>`).exec(html)![0];
-  const action = decoded(/<form method="post" action="([^"]*)"/.exec(band)![1]!);
-  const fields: Record<string, string> = {};
-  for (const m of band.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)) fields[m[1]!] = decoded(m[2]!);
-  return { action, fields, band };
-}
+/** The map's data on a page (renderMap's data-map), decoded. */
+const mapDataIn = (html: string) => JSON.parse(decoded(/data-map="([^"]*)"/.exec(html)![1]!));
 
-/** The zoom, pan and area form under the map. */
-function moveForm(html: string) {
-  const m = /<form method="post" action="([^"]*)" class="mapmove">(.*?)<\/form>/.exec(html)!;
-  const fields: Record<string, string> = {};
-  for (const h of m[2]!.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)) fields[h[1]!] = decoded(h[2]!);
-  return { action: decoded(m[1]!), fields };
+/** Every form on a page: where it posts, and its hidden fields. */
+function formsIn(html: string) {
+  return [...html.matchAll(/<form method="post" action="([^"]*)"[^>]*>([\s\S]*?)<\/form>/g)].map((m) => {
+    const fields: Record<string, string> = {};
+    for (const h of m[2]!.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)"/g)) fields[h[1]!] = decoded(h[2]!);
+    return { action: decoded(m[1]!), fields };
+  });
 }
 
 const siteRows = (name: string) => db.select().from(feedingSitesTable).where(eq(feedingSitesTable.name, name));
@@ -286,26 +285,16 @@ describe("'Make a feeding site here'", () => {
     // The colony's name is escaped in the choice list.
     expect(res.text).not.toContain("<img src=x");
     expect(decoded(res.text)).toContain(MARKUP);
-    // The small map is centred on the spot and can be nudged.
-    expect(res.text).toContain("Not quite right? Tap the small map to move the pin.");
-    expect(bandForm(res.text, 179).action).toBe("/api/team/sites/pick");
-    expect(bandForm(res.text, 179).fields["colonyId"]).toBe(String(colonyId));
+    // The small place map is centred on the spot, inside the save form: drag it to move the pin.
+    expect(res.text).toContain("Not quite right? Drag the small map to move the pin.");
+    // The map's data holds positions to 5 places (renderMap); the form keeps the exact one.
+    expect(mapDataIn(res.text)).toMatchObject({ mode: "place", formId: "detailsform", centre: [37.44471, 24.94175], zoom: 17 });
+    expect(res.text).toContain('<form method="post" action="/api/team/sites" id="detailsform">');
+    expect(res.text).not.toContain('name="approximate"');
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
     // It saves nothing, and the sighting's number does not come back.
     expect(res.text).not.toContain("sightingId");
     expectNoPositionInAddresses(res.text);
-  });
-
-  it("the pin is within the central half of the small map at every width band", async () => {
-    const res = await post("/api/team/sites/from-sighting", { sightingId: String(sightingB) });
-    for (const b of BANDS) {
-      const { band } = bandForm(res.text, b.size);
-      const m = /class="pin site-private" style="left:(\d+)px;top:(\d+)px"/.exec(band);
-      expect(m, `at ${b.size}`).not.toBeNull();
-      const span = 2 * b.size;
-      for (const off of [Number(m![1]), Number(m![2])]) {
-        expect(Math.abs(off - span / 2), `at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
-      }
-    }
   });
 
   it("a cat in no colony gets no colony chosen", async () => {
@@ -416,21 +405,14 @@ describe("'Show on our map'", () => {
     const res = await post("/api/team/sites/map-at-sighting", { sightingId: String(sightingA) });
     expect(res.status).toBe(200);
     expect(res.text).toContain("<h1>Feeding sites</h1>");
-    for (const b of BANDS) {
-      const { band } = (() => {
-        const band = new RegExp(`<div class="mapband b${b.size}"[^>]*>(.*?)</div>`).exec(res.text)![0];
-        return { band };
-      })();
-      const m = /<span class="pin sighting" style="left:(\d+)px;top:(\d+)px"/.exec(band);
-      expect(m, `at ${b.size}`).not.toBeNull();
-      const span = 2 * b.size;
-      for (const off of [Number(m![1]), Number(m![2])]) {
-        expect(Math.abs(off - span / 2), `at ${b.size}`).toBeLessThanOrEqual(span / 4 + 1);
-      }
-      // The site is a link marker of its own kind.
-      expect(band).toContain(`<a class="pin site-private"`);
-      expect(band).toContain(`href="/api/team/sites/${site!.id}"`);
-    }
+    // The MapLibre sites map, opened on the sighting, close up (Samuel, 26 Oct 2026).
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
+    const data = mapDataIn(res.text);
+    expect(data).toMatchObject({ mode: "view", centre: [37.44471, 24.94175], zoom: 17, fit: null });
+    expect(data.markers).toContainEqual({ lat: 37.44471, lng: 24.94175, label: "Where the cat was seen", look: "sighting" });
+    // The site is a link marker of its own kind, to its number.
+    expect(data.markers).toContainEqual(expect.objectContaining({ href: `/api/team/sites/${site!.id}`, look: "private" }));
+    expect(res.text).not.toContain('class="mapband');
     expect(res.text).toContain("Where the cat was seen");
     expect(res.text).toContain("Dashed blue square: where the cat was seen.");
     expectNoPositionInAddresses(res.text);
@@ -438,14 +420,12 @@ describe("'Show on our map'", () => {
     expect({ sites: await totalSites(), events: await totalSiteEvents() }).toEqual(before);
   });
 
-  it("zoom, pan and the area buttons keep working from this page", async () => {
+  it("is a POST with nothing in the address: no zoom, pan or area buttons (the map's own), and POST /api/team/sites/map is gone", async () => {
     const res = await post("/api/team/sites/map-at-sighting", { sightingId: String(sightingA) });
-    const form = moveForm(res.text);
-    expect(form.action).toBe("/api/team/sites/map");
-    const moved = await post(form.action, { ...form.fields, go: "in" });
-    expect(moved.status).toBe(200);
-    expect(Number(hiddenIn(moved.text, "vz"))).toBe(Number(form.fields["vz"]) + 1);
-    expectNoPositionInAddresses(moved.text);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('class="mapmove"');
+    expect(res.text).not.toContain('action="/api/team/sites/map"');
+    expect((await post("/api/team/sites/map", { vz: "12", vx: "1", vy: "1" })).status).toBe(404);
   });
 
   it("an unknown sighting, or one outside the island, is a 400 that names no position", async () => {
@@ -488,8 +468,10 @@ describe("'Add a feeding site to this colony'", () => {
     // Escaped: the colony's name has markup in it.
     expect(res.text).not.toContain("<img src=x");
     expect(decoded(res.text)).toContain(MARKUP);
-    for (const b of BANDS) expect(bandForm(res.text, b.size).fields["colonyId"]).toBe(String(colonyId));
-    expect(moveForm(res.text).fields["colonyId"]).toBe(String(colonyId));
+    // The map's form, the area list and the typed numbers all carry it.
+    const forms = formsIn(res.text).filter((f) => f.action === "/api/team/sites/pick");
+    expect(forms).toHaveLength(3);
+    for (const f of forms) expect(f.fields["colonyId"]).toBe(String(colonyId));
     expect(res.text).toMatch(/class="typedpos">\s*<input type="hidden" name="colonyId"/);
     expectNoPositionInAddresses(res.text);
   });
@@ -503,61 +485,40 @@ describe("'Add a feeding site to this colony'", () => {
     }
   });
 
-  it("the colony stays chosen through a move, a tap and the nudge", async () => {
+  it("the colony stays chosen through the map's pin, an area, and typed coordinates", async () => {
     const page = (await get(`/api/team/sites/new?colony=${colonyId}`)).text;
-
-    // A move (zoom in).
-    const mv = moveForm(page);
-    expect(mv.action).toBe("/api/team/sites/new/map");
-    const moved = await post(mv.action, { ...mv.fields, go: "in" });
-    expect(moved.status).toBe(200);
-    expect(moved.text).toContain("This site will be put in the colony");
-    expect(moveForm(moved.text).fields["colonyId"]).toBe(String(colonyId));
-    expect(Number(moveForm(moved.text).fields["vz"])).toBe(Number(mv.fields["vz"]) + 1);
-
-    // A tap on the moved map.
-    const tap = bandForm(moved.text, 179);
-    expect(tap.action).toBe("/api/team/sites/pick");
-    const tapped = await post(tap.action, { ...tap.fields, x: "190", y: "190" });
-    expect(tapped.status).toBe(200);
-    expect(tapped.text).toContain("Check the spot");
-    expect(tapped.text).toContain(`<option value="${colonyId}" selected>`);
-
-    // The nudge: a re-tap on the confirmation's small map.
-    const nudge = bandForm(tapped.text, 179);
-    expect(nudge.fields["colonyId"]).toBe(String(colonyId));
-    const nudged = await post(nudge.action, { ...nudge.fields, x: "120", y: "100" });
-    expect(nudged.status).toBe(200);
-    expect(nudged.text).toContain(`<option value="${colonyId}" selected>`);
-    expectNoPositionInAddresses(tapped.text);
-    expectNoPositionInAddresses(nudged.text);
+    for (const f of formsIn(page).filter((x) => x.action === "/api/team/sites/pick")) {
+      // Each form as the browser sends it: the pin's spot, an area, or typed numbers.
+      const body = { ...f.fields, ...(Object.hasOwn(f.fields, "lat") ? { lat: "37.4447", lng: "24.9417" } : {}) };
+      const sent = Object.hasOwn(body, "lat") ? body : { ...body, area: "kini" };
+      const res = await post(f.action, sent);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain("Check the spot");
+      expect(res.text).toContain(`<option value="${colonyId}" selected>`);
+      expectNoPositionInAddresses(res.text);
+    }
   });
 
-  it("the colony stays chosen through typed coordinates, and when a tap is refused", async () => {
-    const page = (await get(`/api/team/sites/new?colony=${colonyId}`)).text;
-    const typed = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417", colonyId: String(colonyId) });
-    expect(typed.text).toContain(`<option value="${colonyId}" selected>`);
-
-    // (0, 0) is refused, and the picker it comes back to still has the colony.
-    const tap = bandForm(page, 179);
-    const refused = await post(tap.action, { ...tap.fields, x: "0", y: "0" });
+  it("the colony stays chosen when a pick is refused", async () => {
+    const refused = await post("/api/team/sites/pick", { lat: "37.30", lng: "24.70", colonyId: String(colonyId) });
     expect(refused.status).toBe(400);
     expect(refused.text).toContain("This site will be put in the colony");
-    expect(bandForm(refused.text, 179).fields["colonyId"]).toBe(String(colonyId));
+    for (const f of formsIn(refused.text).filter((x) => x.action === "/api/team/sites/pick")) expect(f.fields["colonyId"]).toBe(String(colonyId));
   });
 
   it("a colony number that was altered on the way is ignored, never trusted", async () => {
     const res = await post("/api/team/sites/pick", { lat: "37.4447", lng: "24.9417", colonyId: NO_SUCH });
     expect(res.status).toBe(200);
     expect(res.text).not.toContain(" selected>");
-    const move = await post("/api/team/sites/new/map", { vz: "12", vx: "1", vy: "1", colonyId: "<script>" });
-    expect(move.status).toBe(200);
-    expect(move.text).not.toContain('name="colonyId"');
+    const refused = await post("/api/team/sites/pick", { lat: "0", lng: "0", colonyId: "<script>" });
+    expect(refused.status).toBe(400);
+    expect(refused.text).not.toContain('name="colonyId"');
   });
 
   it("saving from there puts the new site in the colony, private, with a 'created' event", async () => {
-    const tap = bandForm((await get(`/api/team/sites/new?colony=${colonyId}`)).text, 179);
-    const confirm = (await post(tap.action, { ...tap.fields, x: "190", y: "190" })).text;
+    const pin = formsIn((await get(`/api/team/sites/new?colony=${colonyId}`)).text).find((f) => f.action === "/api/team/sites/pick")!;
+    expect(pin.fields).toEqual({ colonyId: String(colonyId), lat: "", lng: "" });
+    const confirm = (await post(pin.action, { ...pin.fields, lat: "37.444712", lng: "24.941734" })).text;
     const name = unique("in-colony");
     const saved = await post("/api/team/sites", {
       lat: hiddenIn(confirm, "lat"),
