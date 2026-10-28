@@ -1,8 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="A ginger cat, tail held up, slowly blinking">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" aria-hidden="true">
 <!-- Cat Spotters, While we look (SYC-772). First draft for refinement.
-     Motion: tail swishes (rotate about 108px 124px, 2.4s); eyes blink every 4s
-     Keep: the viewBox, every id, and each transform-origin (the app animates these parts by id).
-     Free to change: shapes, colours, details. Keep it flat (no gradients), outline #3b3934. -->
+     Moving parts: tail: rotate -6..8deg about 108,124, 2.4s loop | eyes: scaleY 1..0.1 about 80,56, blink every 4s
+     Keep: the viewBox, every id listed under Moving parts, and each pivot (the app moves these parts by id).
+     Free to change: shapes, colours, details. Allowed: g, path, ellipse, circle, rect, polygon, line; flat fills only.
+     Not allowed: text, gradients, filters, masks, clip paths, images. Outline #3b3934. -->
 <style>#tail{transform-origin:108px 124px;animation:swish 2.4s ease-in-out infinite}@keyframes swish{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}#eyes{transform-origin:80px 56px;animation:blink 4s infinite}@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>
 <path id="tail" d="M104 128 Q132 128 132 96 Q132 70 120 56 Q114 50 112 58 Q122 74 122 96 Q122 116 104 116 Z" fill="#e38b3a" stroke="#3b3934" stroke-width="2" stroke-linejoin="round"/><g stroke="#3b3934" stroke-width="2" stroke-linejoin="round"><g id="body" fill="#e38b3a"><ellipse cx="80" cy="113" rx="40" ry="35"/><rect x="60" y="118" width="14" height="32" rx="7"/><rect x="86" y="118" width="14" height="32" rx="7"/></g></g><g stroke="#3b3934" stroke-width="2" stroke-linejoin="round"><g id="head" fill="#e38b3a"><polygon id="ear-left" points="57,46 59,17 78,34"/><polygon id="ear-right" points="103,46 101,17 82,34"/><circle cx="80" cy="58" r="26"/></g></g><g id="eyes"><ellipse cx="70" cy="56" rx="4" ry="5" fill="#c8d65a" stroke="#2b2b2b" stroke-width="1"/><ellipse cx="90" cy="56" rx="4" ry="5" fill="#c8d65a" stroke="#2b2b2b" stroke-width="1"/><ellipse cx="70" cy="56" rx="1.4" ry="3.5" fill="#1d1d1d"/><ellipse cx="90" cy="56" rx="1.4" ry="3.5" fill="#1d1d1d"/></g><polygon id="nose" points="76,66 84,66 80,71" fill="#d98a94" stroke="#2b2b2b" stroke-width="1"/>
 </svg>

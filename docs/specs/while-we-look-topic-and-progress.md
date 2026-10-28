@@ -60,20 +60,32 @@ With today's 11 facts switched on, *Reading a cat* comes up 6 times out of 11. T
 
 **The walking cat.**
 
-- When the card appears, the cat walks along the bar from where it stood last time to where it stands now, in about a second. For example, on the third fact it walks from 2/11 to 3/11, then stays there, walking on the spot.
-- On a phone's first fact it walks in from the start of the bar.
-- It walks only when the fact on screen is one the phone hasn't seen. A repeat in a later round shows the cat standing at its spot, walking on the spot. A fact cut short is still unseen, so next time the cat walks the same step again.
+- **Where it stands:** its front paws are at the end of the filled part of the bar. It never sticks out past either end of the bar: near the start or the end, it stops at the edge.
+- **How it moves:** when the card appears, the bar's fill and the cat move together, from the previous fact's place to this one's, in about a second. For example, on the third fact both go from 2/11 to 3/11. The cat then walks on the spot.
+- On a phone's first fact, both start from the beginning of the bar.
+- A fact cut short is still unseen, so next time the same step is walked again.
+- After §3.5, a fact the phone has already seen only comes up once all have been seen, and then the sleeping cat shows. So the walking cat always has a step to walk.
 - **Once every fact has been seen** (*"All 11 cat facts seen"*), the walking cat is replaced by a **sleeping cat**, curled up at the end of a full bar, breathing gently while a small "z" drifts up.
 - When no progress is shown (§3.2), there's no cat either.
 
 #### The pictures: how they're made and how they move
 
 - **Format.** Each picture is a flat SVG drawing, in the same style as the app's existing drawn cat (`components/coat/DrawnCat.tsx`): simple shapes, the same outline colour and the same coat fills. The first set includes eight drawings: the six topic cats, the walking cat and the sleeping cat.
-- **Refinement.** Samuel refines the drawings with Gemini. Gemini may change the shapes, colours and details. It must keep each file's drawing area (viewBox), every named part (`id`), and each part's pivot point (`transform-origin`), because the app moves those parts by name. Each file says this in a comment at the top, and lists its motion.
-- **In the app**, each drawing becomes a small component, as `DrawnCat` is. Its named parts are moved with `react-native-reanimated`, which the app already has, using the same motions as the SVG files. The SVG files' own CSS motion is only there for previewing and for Gemini; the app doesn't use it.
+- **Refinement.** Samuel refines the drawings with Gemini. Gemini may change the shapes, colours and details. Each file's top comment lists its moving parts, with their `id`, motion and pivot point. Gemini must keep:
+  - the drawing area (`viewBox`);
+  - every listed `id`;
+  - each pivot.
+
+  It may only use plain shapes with flat fills: `g`, `path`, `ellipse`, `circle`, `rect`, `polygon` and `line`. No text, gradients, filters, masks, clip paths or images, because those draw differently on iPhone, Android and the web.
+
+  A small test checks each file in the folder: its viewBox, its listed ids, and that it uses only the allowed shapes. So a refined file that breaks a rule is caught before it's ported.
+- **In the app**, each drawing becomes a small component, as `DrawnCat` is. Its named parts are moved with `react-native-reanimated`, which the app already has, following the motions in the file's comment. The SVG files' own CSS motion is only there for previewing and for Gemini; the app doesn't use it. The plan starts with a short trial to prove this works smoothly on iPhone, Android and the web (§5.1).
 - **Built in.** The pictures are part of the app, so they appear with no signal, and nothing is downloaded.
-- **Gentle and small.** Motions loop slowly (about 2–4 seconds), stay inside the picture, and never flash. Nothing moves faster than the walking cat's steps. Only one card shows at a time, and its motion stops when the card goes.
-- **"Reduce motion" on.** Every picture stays still in its resting pose. The walking cat is placed straight at its spot, without walking, and the sleeping cat doesn't breathe. The app checks this setting with Reanimated's `useReducedMotion`.
+- **Gentle and short.** Motions loop slowly (about 2–4 seconds), stay inside the picture, and never flash. The walking cat's steps are the exception: they're quicker, but small.
+  - **All motion stops after 5 seconds** and the pictures settle in their resting pose. That's the usual accessibility limit for movement that starts by itself. Most waits are shorter than that anyway.
+  - The motion also stops when the card goes.
+- **"Reduce motion" on.** Every picture stays still in its resting pose. The bar and the cat are placed straight at their spot, without walking, and the sleeping cat doesn't breathe. The app checks this setting with Reanimated's `useReducedMotion`, as the badge celebration does.
+- **Dark mode.** The pictures keep their own colours in both themes, so each sits on a small light, rounded plate (the card's light background colour), and a black cat never disappears into a dark card.
 - **If a picture can't be drawn** (an unexpected error), the card shows the topic name, the bar and the words without it. The fact always shows.
 
 ### 3.2 How the count works
@@ -124,7 +136,7 @@ It doesn't appear on any other screen. The matches, naming, no-cat and couldn't-
 - The topic is read as plain text. The cat pictures, the walking cat and the sleeping cat are decoration, so screen readers skip them: the topic name and the progress words already say what they show.
 - The bar is read as a progress bar whose words are *"Cat fact 3 of 11"* (or *"All 11 cat facts seen"*), not as a percentage. The words under it are hidden from screen readers, so they aren't read twice.
 - The thanks-screen line is plain text, read in order. Its icon is hidden from screen readers.
-- **Fit.** The existing rule stands: the card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. The topic row (48-point picture and name) sits above the fact. The progress, with its walking cat, sits below and may scroll out of view on a long French fact, which is fine. If the topic row pushes the card's top out of view anywhere, the picture shrinks to 40 points before anything else changes. The tallest card is the ear-tip fact with its photo, so the plan must check that one on a real small phone in all three languages. At the largest text size the screen scrolls, as now.
+- **Fit.** The existing rule stands: the card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. The topic row (48-point picture and name) sits above the fact. The progress, with its walking cat, sits below and may scroll out of view on a long French fact, which is fine. The picture's size is fixed, not adjusted while the app runs: 48 points unless the real-phone check finds the card's top out of view, in which case it's set to 40 for everyone. The topic name wraps onto a second line beside the picture when it has to, for example a long Greek name at large text. The tallest card is the ear-tip fact with its photo, so the plan must check that one on a real small phone in all three languages. At the largest text size the screen scrolls, as now.
 
 ### 3.5 One change to the order: unseen facts first
 
@@ -174,11 +186,17 @@ For "spot", the Greek and French follow the app's own words: *παρατήρησ
 
 **The pictures** go in `components/waitingCats/`, one component per drawing (six topic cats, `WalkingCat`, `SleepingCat`), each a port of its SVG file in `docs/specs/assets/while-we-look/` (as refined by Samuel), drawn with `react-native-svg`.
 
-- Each component moves its named parts with `react-native-reanimated`, following the motion written in the file's comment.
+- **Start with a trial (half a day to a day).** Prove that `react-native-reanimated` can smoothly animate a `react-native-svg` group's transform and opacity on iPhone, Android and the web. Cover rotate, scale, translate and skew, with this project's new architecture switched on (`app.json`). The send keeps the JavaScript side busy while the card shows, so the motion must run on the UI thread.
+  - **Pivots:** a group has no CSS pivot. Each turn, scale or skew about a pivot (px, py) is written as translate(px, py), then the turn, then translate(−px, −py).
+  - **If the trial fails,** each moving part becomes its own small `Svg` inside an `Animated.View` that moves instead. The drawing looks the same either way.
+- Each component moves its named parts as its file's comment says. It stops all motion after 5 seconds and on unmount (`cancelAnimation`).
 - Each one checks `useReducedMotion()` and holds still when it's on.
-- Each one is decorative: `accessible={false}`, and hidden from screen readers.
-- `WaitingCard` picks the topic picture by strand. It places the walking cat on the bar at `n / total`, walking in from `(n − 1) / total` when the fact on screen is unseen (§3.1), and shows `SleepingCat` at the end for *done*.
-- The walk takes about 1 second with easing. Ports should keep the drawings' look, so the app matches what Samuel approved.
+- Each one is decorative, hidden from screen readers on every platform: `accessible={false}`, `importantForAccessibility="no-hide-descendants"`, `accessibilityElementsHidden`, and `aria-hidden` on the web.
+- **The bar.** `WaitingCard` wraps `ProgressBar` in a `View` that measures its width (`onLayout`). It draws the fill and the walking cat over the bar, both animated from `(n − 1) / total` to `n / total`, or placed straight at `n / total` when "reduce motion" is on. The cat's front paws sit at the fill's end, clamped so the cat stays within the bar.
+  - A pure function, `catPosition(n, total, barWidth, catWidth)`, works out the cat's position, so tests don't need a real layout.
+  - `SleepingCat` replaces it for *done*.
+- `WaitingCard` picks the topic picture by strand.
+- Ports must keep the drawings' look, so the app matches what Samuel approved.
 
 **The waiting card** (`components/WaitingCard.tsx`) gets the progress as a new prop. The spot screen works it out in `startWaitingCard` (`app/(tabs)/spot.tsx`), from the choice and record it already has.
 
@@ -227,8 +245,11 @@ Component:
   - the announcement is unchanged.
 - The pictures:
   - the right topic picture for each strand, and none for a fact with no strand;
-  - the walking cat sits at 3/11 for *"3 of 11"*;
-  - it walks in from 2/11 when the fact is unseen, and stands still for a repeat;
+  - `catPosition`: 3/11 puts the front paws at 3/11 of the width; 1/11 and 11/11 stay within the bar;
+  - the fill and the cat start at 2/11 and end at 3/11;
+  - all motion stops after 5 seconds, and is cancelled when the card unmounts;
+  - every picture is hidden from screen readers;
+  - the drawings check (Node): every file in `docs/specs/assets/while-we-look/` keeps its viewBox and listed ids, and uses only the allowed shapes;
   - the sleeping cat, and no walking cat, for *done*;
   - no cat when there's no progress;
   - with "reduce motion" on, nothing animates and the walking cat is placed straight at its spot;
@@ -321,3 +342,23 @@ An independent adversarial review (Sonnet, read-only, 27 October 2026) checked t
 | 10 | "Unchanged" claims: the hook and the card gain new fields; some planned tests were trivially true | Minor | Stated in §5.1. Tests replaced with ones that can fail (§5.3) |
 
 The builder questions the review raised are all answered above, except for two. The owner of the translation file is named in the build brief. Whether to build during the hold is Samuel's call (§8).
+
+### 10.1 Second review: the animated pictures
+
+A second independent review (Sonnet, read-only, 27 October 2026) checked the picture additions and the drawings. It found no blockers, 3 major issues and 9 minor ones.
+
+| # | Finding | Severity | Handled |
+|---|---|---|---|
+| 1 | Animating parts of an SVG drawing with Reanimated is unproven here, and groups have no CSS pivot | Major | A trial at the start of the plan on iPhone, Android and the web, with the pivot method written out and a fallback (§5.1) |
+| 2 | The cat's place on the bar wasn't defined, and the bar's fill wouldn't move with the cat | Major | Front paws at the fill's end, kept within the bar. The fill and the cat move together. A pure position function for tests (§3.1, §5.1) |
+| 3 | Nothing limited what a refined drawing could contain, and pivots were only in the CSS | Major | Each file's comment lists every moving part and pivot. Allowed shapes are listed. A Node test checks every file (§3.1, §5.3) |
+| 4 | The clipped ear was named "right" in the file and "left" in the spec | Minor | Renamed `ear-clipped`; the comment says it's the cat's left ear |
+| 5 | The walking cat's ears were cut off when it bobbed, and its eye didn't bob | Minor | Drawing area enlarged; eye moved into the cat |
+| 6–7 | The ripple's pivot was off; the sleeping cat's comment disagreed with its motion | Minor | Both fixed |
+| 8 | Looping motion with no end, and the walking cat breaks the "slow" rule | Minor | All motion stops after 5 seconds and on unmount; the walking cat is named as the exception |
+| 9 | "Stands still for a repeat" can't happen after §3.5 | Minor | Removed, and the reason stated |
+| 10 | `accessible={false}` alone doesn't hide pictures on Android or the web; the files had screen-reader labels | Minor | Full set of hiding props listed; files marked `aria-hidden` |
+| 11 | Black cats vanish on a dark card | Minor | A small light plate behind each picture |
+| 12 | The small-phone size rule was vague, and long topic names could overflow | Minor | One fixed size chosen at the device check; topic names wrap |
+
+The sleeping cat's "z" is now a drawn shape, not text.
