@@ -48,8 +48,10 @@ import { ForegroundStopwatch } from '@/lib/foregroundStopwatch';
 import {
   NUDGE_ENABLED,
   chooseForWait,
+  factProgress,
   settleWait,
   shouldShowWaitingCard,
+  type FactProgress,
   type WaitChoice,
   type WaitingRecord,
   type WaitOutcome,
@@ -262,6 +264,9 @@ export default function SpotScreen() {
   // place, only while a sighting is being SENT (never on an offline save:
   // plan C7). Null when there's no card.
   const [waitChoice, setWaitChoice] = useState<WaitChoice | null>(null);
+  // SYC-772 (spec §3.2): the count, worked out once when the wait starts. The
+  // card unmounts between waits, so each wait's bar walks on a fresh mount.
+  const [waitProgress, setWaitProgress] = useState<FactProgress | null>(null);
   const waitRef = React.useRef<{
     choice: WaitChoice;
     /** Null when the phone's record couldn't be read: nothing is saved. */
@@ -881,6 +886,9 @@ export default function SpotScreen() {
       record,
       stopwatch: new ForegroundStopwatch(Date.now(), AppState.currentState !== 'background'),
     };
+    // Same tick as the choice, from the record as read and the switches as
+    // they are now: never recomputed if settings load later in the wait.
+    setWaitProgress(factProgress(stored, matchWaitSettings, choice));
     setWaitChoice(choice);
   };
 
@@ -1136,6 +1144,7 @@ export default function SpotScreen() {
         waitTokenRef.current += 1;
         waitRef.current = null;
         setWaitChoice(null);
+        setWaitProgress(null);
         setOptimizingUpload(false);
         setSubmitting(false);
       }
@@ -1655,7 +1664,7 @@ export default function SpotScreen() {
               {/* SYC-48: while a sighting is being sent, the waiting card takes
                   the map's place (starter-facts.md §3.1). The pin is kept. */}
               {shouldShowWaitingCard({ waiting: waitChoice !== null }) && waitChoice ? (
-                <WaitingCard choice={waitChoice} t={t} />
+                <WaitingCard choice={waitChoice} progress={waitProgress} t={t} />
               ) : pickedCoords && locationAsk !== 'card' && (
                 <LocationPicker
                   key={mapStartKey}

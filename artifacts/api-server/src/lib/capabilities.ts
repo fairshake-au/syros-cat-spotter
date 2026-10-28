@@ -119,7 +119,11 @@ export const CATALOGUE = {
   hide_photo: { kind: "island", roles: TEAM },
   restore_photo: { kind: "island", roles: TEAM },
   remove_photo: { kind: "island", roles: TEAM },
+  // Moving and merging cats (which-cat-is-which.md §4, §5, §9.7; SYC-150).
+  move_sighting: { kind: "island", roles: TEAM },
+  merge_cats: { kind: "island", roles: TEAM },
   // Deciding, and running the list of people
+  review_duplicates: { kind: "island", roles: TEAM },
   settle_confirmation: { kind: "island", roles: TEAM },
   manage_people: { kind: "island", roles: ["management"] },
   action_deletion_request: { kind: "island", roles: ["management"] },
