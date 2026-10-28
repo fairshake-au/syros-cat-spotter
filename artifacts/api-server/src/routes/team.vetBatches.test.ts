@@ -27,6 +27,7 @@ import { removeTestPerson } from "../test/removeTestPerson";
 import { _resetBatchFindLimitsForTests, _resetFindLimitsForTests } from "../middlewares/rateLimit";
 import { getBatch } from "../lib/vetBatches";
 import { syrNumber } from "../lib/teamCatView";
+import { libMerge } from "../test/merges";
 
 let staff: Signed;
 let guardian: Signed;
@@ -563,6 +564,19 @@ describe("the cat cards", () => {
       const res = await post(`/api/team/vet-batches/${batch}/cats/${row}/lookup`, { q });
       expect(res.status).toBe(200);
     }
+  });
+});
+
+describe("a cat merged away since the page was drawn (SYC-59 PR 4.1, which-cat-is-which.md §9.3)", () => {
+  it("confirming the merged-away cat's id confirms the cat it is part of now", async () => {
+    const survivor = await freshCat();
+    const mergedAway = await freshCat();
+    await libMerge(mergedAway.id, survivor.id);
+    const batch = await newBatch();
+    const row = await addCatTo(batch);
+    expect((await post(`/api/team/vet-batches/${batch}/cats/${row}/confirm`, { catId: String(mergedAway.id) })).status).toBe(303);
+    const line = (await getBatch(batch))!.cats.find((c) => c.id === row)!;
+    expect(line).toMatchObject({ catId: survivor.id, confirmed: true });
   });
 });
 
