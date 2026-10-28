@@ -172,7 +172,7 @@ async function sideOf(v: TeamCatView): Promise<MergeSide> {
 }
 
 /** Where the cat is usually seen: the middle of its sightings, or where it was first recorded. */
-function centre(v: TeamCatView): { lat: number; lng: number } {
+export function centre(v: TeamCatView): { lat: number; lng: number } {
   const spots: { lat: number; lng: number }[] = v.sightings.length > 0 ? v.sightings : [{ lat: v.cat.lat, lng: v.cat.lng }];
   return { lat: spots.reduce((n, p) => n + p.lat, 0) / spots.length, lng: spots.reduce((n, p) => n + p.lng, 0) / spots.length };
 }
