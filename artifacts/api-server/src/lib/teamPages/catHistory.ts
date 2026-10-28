@@ -870,9 +870,11 @@ function movedRow(r: Extract<HistoryRow, { type: "moved" }>, c: Ctx): string {
  */
 function mergeRow(r: Extract<HistoryRow, { type: "merge" }>, c: Ctx): string {
   const e = r.event;
-  const other = `<a href="${esc(catHref(e.otherCat.id))}">${esc(e.otherCat.name)}</a> <span class="syr">${esc(e.otherCat.syr)}</span>`;
+  const other = `<a href="${esc(catHref(e.otherCat.id))}">${esc(e.otherCat.name)}</a>`;
   const into = e.role === "merged" ? "into" : "with";
-  const headline = e.kind === "merged" ? `Merged ${into} ${other}` : `Merge ${into} ${other} undone`;
+  const on = dayMonth(e.at, yearOf(e.at) !== yearOf(c.now.toISOString()));
+  const verb = e.kind === "merged" ? `Merged ${into} ${other}` : `Merge ${into} ${other} undone`;
+  const headline = `${verb} by ${esc(moverWords(e))}, ${esc(on)}${e.reasonText ? `: “${esc(e.reasonText)}”` : ""}`;
   const n = e.sightings;
   const counted = `${n} ${n === 1 ? "sighting" : "sightings"}`;
   const moved =
@@ -890,7 +892,6 @@ function mergeRow(r: Extract<HistoryRow, { type: "merge" }>, c: Ctx): string {
     whenCell(e.at, c.now) +
     '<div class="what">' +
     `<b>${headline}</b>` +
-    `<span class="who">${esc(e.kind === "merged" ? "Merged" : "Undone")} by ${esc(moverWords(e))}${e.reasonText ? `: “${esc(e.reasonText)}”` : ""}</span>` +
     `<p class="meta">${moved}${e.kind === "merged" && !e.standing ? " Undone since." : ""}</p>` +
     "</div>" +
     (items.length > 0 ? dots(`the merge with ${e.otherCat.name}`, items, false) : "<span></span>") +

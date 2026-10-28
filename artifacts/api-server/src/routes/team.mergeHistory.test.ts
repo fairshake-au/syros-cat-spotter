@@ -82,8 +82,7 @@ describe("the cat that stays", () => {
     const [mimi, agatha] = [await db.select().from(catsTable).where(eq(catsTable.id, c.mimi)), await db.select().from(catsTable).where(eq(catsTable.id, c.agatha))];
     const page = await get(`/api/team/cats/${c.agatha}`);
     expect(page.status).toBe(200);
-    expect(page.text).toContain(`Merged with <a href="/api/team/cats/${c.mimi}">${esc(mimi[0]!.name)}</a>`);
-    expect(page.text).toContain(`Merged by Vt ${staffLabel}: “Same face markings and torn left ear”`);
+    expect(page.text).toMatch(new RegExp(`Merged with <a href="/api/team/cats/${c.mimi}">${esc(mimi[0]!.name)}</a> by Vt ${staffLabel}, \\d{1,2} \\w{3}: “Same face markings and torn left ear”`));
     expect(page.text).toContain(`2 sightings came with ${esc(mimi[0]!.name)}.`);
     expect(page.text).toContain(`href="/api/team/cats/merge/${m.body.mergeId}/undo">Undo merge</a>`);
     // Both of Mimi's sightings are tagged and say how they came; Agatha's own is not.
@@ -121,8 +120,7 @@ describe("after the undo, on both cats", () => {
     const [mimiRow, agathaRow] = [(await db.select().from(catsTable).where(eq(catsTable.id, c.mimi)))[0]!, (await db.select().from(catsTable).where(eq(catsTable.id, c.agatha)))[0]!];
 
     const agatha = await get(`/api/team/cats/${c.agatha}`);
-    expect(agatha.text).toContain(`Merge with <a href="/api/team/cats/${c.mimi}">${esc(mimiRow.name)}</a>`);
-    expect(agatha.text).toContain("Undone by Vt " + staffLabel + ": “Two cats after all”");
+    expect(agatha.text).toMatch(new RegExp(`Merge with <a href="/api/team/cats/${c.mimi}">${esc(mimiRow.name)}</a> undone by Vt ${staffLabel}, \\d{1,2} \\w{3}: “Two cats after all”`));
     expect(agatha.text).toContain("Undone since.");
     expect(agatha.text).not.toContain("Undo merge");
     expect(agatha.text).not.toContain('class="tag from"');

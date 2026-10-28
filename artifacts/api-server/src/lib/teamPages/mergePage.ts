@@ -133,7 +133,6 @@ export function renderMergePage(load: Extract<MergeLoad, { kind: "ok" | "choose"
     body:
       back +
       problem +
-      `<h2>These two records are the same cat?</h2>` +
       `<div class="mergecols">${column(s.stays, "stays")}${column(s.goes, "goes")}</div>` +
       `<p><a class="tap" href="${esc(mergeHref({ a: o.ask.a }))}">Choose a different cat</a></p>` +
       whichStays(s, o) +

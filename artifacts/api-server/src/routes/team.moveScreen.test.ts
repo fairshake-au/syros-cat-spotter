@@ -402,7 +402,7 @@ describe("every refusal reaches the screen in words, and nothing moves", () => {
     expect(res.text).toContain(esc(MOVE_WORDS.mergeInstead(m.name, a.name)));
     expect(res.text).toContain("Nothing was moved.");
     const link = `/api/team/cats/merge?a=${mimi}&amp;b=${agatha}&amp;survivor=${agatha}`;
-    expect(res.text).toContain(`<a href="${link}">Open the merge screen</a>`);
+    expect(res.text).toContain(`<a href="${link}">Merge ${esc(m.name)} into ${esc(a.name)}</a>`);
     expect((await sightingRow(only.id)).catId).toBe(mimi);
     // The link opens the merge screen for the two cats: Agatha stays, Mimi becomes part of her.
     const screenPage = await get(link.replace(/&amp;/g, "&"));

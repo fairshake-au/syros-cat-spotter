@@ -73,7 +73,7 @@ describe("Mimi's own page once she is part of Agatha", () => {
     const [mimi, agatha] = [await nameOf(c.mimi), await nameOf(c.agatha)];
     const page = await get(`/api/team/cats/${c.mimi}`);
     expect(page.status).toBe(200);
-    expect(page.text).toMatch(new RegExp(`${esc(mimi)} was merged into <a href="/api/team/cats/${c.agatha}">${esc(agatha)}</a> on \\d{1,2} \\w{3} \\d{4} by Vt ${staffLabel}\\.`));
+    expect(page.text).toMatch(new RegExp(`${esc(mimi)} was merged into <a href="/api/team/cats/${c.agatha}">${esc(agatha)}</a> on \\d{1,2} \\w{3} by Vt ${staffLabel}\\.`));
     expect(page.text).toContain("Why: Same face markings and torn left ear.");
     expect(page.text).toContain(`<a class="tap" href="/api/team/cats/${c.agatha}">Open ${esc(agatha)}</a>`);
     expect(page.text).toContain(`<a class="tap" href="/api/team/cats/merge/${m.body.mergeId}/undo">Undo this merge</a>`);

@@ -13,7 +13,7 @@ import { resolveLifeStatus, resolveSterilised, type EvidenceOfLife } from "./res
 import { TEAM_DESK_DEVICE } from "./teamDesk";
 import { searchTeamCats, syrNumber, teamCatView, teamPhotoUrl, type TeamCatView } from "./teamCatView";
 import { LIFE } from "./teamPages/catActions";
-import { coatPhraseOf, sterilisedText } from "./teamPages/catFacts";
+import { coatPhraseOf } from "./teamPages/catFacts";
 
 // What the merge screen shows (which-cat-is-which.md §4.1, decision D7; SYC-59
 // PR 4.2): the two cats side by side, which record stays (with its two
@@ -98,6 +98,13 @@ const monthOf = (iso: string, now: Date) => {
   return at.toLocaleDateString("en-GB", { month: "long", ...(year(at) === year(now) ? {} : { year: "numeric" }), ...opt });
 };
 
+/** The spec's words for what is known about sterilisation: "Likely", "Unknown" (§4.1). */
+function sterilWords(s: { value: boolean | null; confidence: string }): string {
+  if (s.value === null || s.confidence === "unknown") return "Unknown";
+  if (s.value) return s.confidence === "likely" ? "Likely" : s.confidence === "reported" ? "Reported" : "Yes";
+  return s.confidence === "reported" ? "Reported not sterilised" : "No";
+}
+
 const sightingsWord = (n: number) => `${n} ${n === 1 ? "sighting" : "sightings"}`;
 const km = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
 
@@ -159,7 +166,7 @@ async function sideOf(v: TeamCatView): Promise<MergeSide> {
     photoUrls: photos.slice(0, PHOTOS_SHOWN),
     morePhotos: Math.max(0, photos.length - PHOTOS_SHOWN),
     colony: v.colony?.name ?? null,
-    sterilised: sterilisedText(v.records.sterilised),
+    sterilised: sterilWords(v.records.sterilised),
     life: LIFE[v.records.lifeStatus.value ?? "street"],
     owner: v.owner.has || v.owner.orphanedHome,
     followers: await followersOf(v.cat.id),
@@ -338,11 +345,11 @@ export async function loadMergeScreen(person: CapabilityHolder, ask: MergeAsk, n
   const was = sv.records.sterilised;
   const now_ = after.sterilised;
   const sameSter = was.value === now_.value && was.confidence === now_.confidence;
-  if (sameSter) lines.push(`Sterilised: ${sterilisedText(now_)}.`);
+  if (sameSter) lines.push(`Sterilised: ${sterilWords(now_)}.`);
   else {
     const kinds = after.fromMerged(now_.supportingObservationIds);
     const from = kinds.length > 0 ? `, from ${goes.name}'s ${KIND_WORDS[kinds[0]!] ?? "record"}` : "";
-    lines.push(`Sterilised: ${sterilisedText(now_)}${from} (was ${sterilisedText(was)}).`);
+    lines.push(`Sterilised: ${sterilWords(now_)}${from} (was ${sterilWords(was)}).`);
   }
   const lifeWas = sv.records.lifeStatus.value;
   if (after.life.value !== lifeWas && after.life.value !== null) {

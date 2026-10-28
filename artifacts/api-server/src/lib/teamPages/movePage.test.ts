@@ -200,10 +200,10 @@ describe("the move screen: every refusal says why, and that nothing moved", () =
       ask: ask({ to: 9 }),
       problem: {
         message: "This is everything Mimi has, so Mimi and Agatha are the same cat. Merge Mimi into Agatha?",
-        link: { href: "/api/team/cats/merge?a=7&b=9&survivor=9", label: "Open the merge screen" },
+        link: { href: "/api/team/cats/merge?a=7&b=9&survivor=9", label: "Merge Mimi into Agatha" },
       },
     });
-    expect(html).toContain('<a href="/api/team/cats/merge?a=7&amp;b=9&amp;survivor=9">Open the merge screen</a>');
+    expect(html).toContain('<a href="/api/team/cats/merge?a=7&amp;b=9&amp;survivor=9">Merge Mimi into Agatha</a>');
   });
 
   it("a name already taken links to the cat that has it", () => {

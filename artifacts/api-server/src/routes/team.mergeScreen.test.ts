@@ -201,6 +201,8 @@ describe("the screen: the two cats, which record stays (D7)", () => {
     expect(res.text).toContain("<dt>Sightings</dt><dd>1</dd>");
     expect(res.text).toContain("<dt>Sightings</dt><dd>2</dd>");
     expect(res.text).toContain("Which record stays?");
+    // No heading the spec doesn't have.
+    expect(res.text).not.toContain("These two records are the same cat");
     expect(res.text).toContain(`<b>${esc(a.name)}</b>'s record stays.`);
     expect(res.text).toContain(`href="/api/team/cats/merge?a=${c.mimi}&amp;b=${c.agatha}&amp;survivor=${c.mimi}"`);
     expect(res.text).toContain(`Keep ${esc(m.name)}'s record instead`);
@@ -287,12 +289,12 @@ describe("the screen: What happens (§4.1)", () => {
     expect(res.text).not.toContain("get 10 points");
   });
 
-  it("sterilised is worked out over both records: a clipped ear on Mimi makes Agatha Probably sterilised", async () => {
+  it("sterilised is worked out over both records, in the spec's words: a clipped ear on Mimi makes Agatha Likely (was Unknown)", async () => {
     const c = await pair();
     await kit.answer(c.m1, "ear_tip", { clipped: true, side: "left" });
     const res = await get(screen(c.mimi, c.agatha));
     const [m, a] = [await catRow(c.mimi), await catRow(c.agatha)];
-    expect(res.text).toContain(esc(`Sterilised: Probably sterilised, from ${m.name}'s clipped ear (was Not known yet).`));
+    expect(res.text).toContain(esc(`Sterilised: Likely, from ${m.name}'s clipped ear (was Unknown).`));
     // The preview is what the merge then does.
     expect(sterilisedText((await teamCatView(c.agatha))!.records.sterilised)).toBe("Not known yet");
     await libMerge(c.mimi, c.agatha);

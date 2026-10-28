@@ -230,7 +230,7 @@ router.post("/team/sightings/move/form", ...formRoute("move_sighting"), async (r
   if (code === "MERGE_INSTEAD" && extra.cat) {
     return void (await problem(message, status, {
       href: mergeHref({ a: ask.cat, b: extra.cat.id, survivor: extra.cat.id }),
-      label: "Open the merge screen",
+      label: `Merge ${extra.from?.name ?? "it"} into ${extra.cat.name}`,
     }));
   }
   if (code === "NAME_TAKEN" && extra.cat) {

@@ -465,13 +465,14 @@ export const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
   v.history.some((h) => h.kind === "team_note") ? { ...v, history: v.history.filter((h) => h.kind !== "team_note") } : v;
 
 /**
- * “Mimi was merged into Agatha on 26 Oct 2026 by Maria” (spec §4.3), at the
+ * “Mimi was merged into Agatha on 26 Oct by Maria” (spec §4.3), at the
  * top of the merged-away cat's own page, with links to Agatha and to Undo
  * merge (for someone who may merge).
  */
 function mergedAwayNotice(
   m: NonNullable<CatPageOptions["mergedInto"]>,
   name: string,
+  now: Date,
   may: (c: Capability) => boolean,
 ): string {
   const e = m.event;
@@ -479,7 +480,7 @@ function mergedAwayNotice(
   const target = m.part ?? e.otherCat;
   return (
     '<p class="notice" role="status">' +
-    `<strong>${esc(name)} was merged into ${link(e.otherCat)} on ${esc(day(e.at))} by ${esc(moverWords(e))}.</strong>` +
+    `<strong>${esc(name)} was merged into ${link(e.otherCat)} on ${esc(dayMonth(e.at, now))} by ${esc(moverWords(e))}.</strong>` +
     (e.reasonText ? ` Why: ${esc(e.reasonText)}.` : "") +
     (m.part ? ` ${esc(e.otherCat.name)} is part of ${link(m.part)} now.` : "") +
     ` Everything recorded about this cat now counts for ${esc(target.name)}. ` +
@@ -601,7 +602,7 @@ export function renderCatPage(
     // photo's own place in Photos is gone (review A7).
     beforeTitle:
       backToCats(opts.back) +
-      (opts.mergedInto ? mergedAwayNotice(opts.mergedInto, cat.namePending ? cat.syr : cat.name, asked) : "") +
+      (opts.mergedInto ? mergedAwayNotice(opts.mergedInto, cat.namePending ? cat.syr : cat.name, now, asked) : "") +
       (topDone ? notice : "") +
       deathNotice(v, byId, shown) +
       guardianMarkNotice(v, byId, shown) +
