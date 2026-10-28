@@ -4,10 +4,14 @@ import {
   chooseForResult,
   chooseForWait,
   emptyRecord,
+  factProgress,
+  isNudgeDue,
+  nextSpotBringsNewFact,
   markTapped,
   settleWait,
   waitOutcomeForSend,
   shouldShowWaitingCard,
+  visibleFacts,
   type ScheduleContext,
   type SettingsView,
   type Signals,
@@ -351,5 +355,163 @@ describe('waitOutcomeForSend (SYC-503)', () => {
   });
   it('no answer is a failed send', () => {
     expect(waitOutcomeForSend(null)).toEqual({ kind: 'failed' });
+  });
+});
+
+// SYC-772 (spec §3.2, §3.3, §3.5): progress counting, the "next spot brings a
+// new fact" test, and unseen facts first.
+
+// Copied from SIGN_OFF_FACT_IDS in lib/db/src/appSettings/shape.ts: the 9
+// facts hidden until sign-off, so the card starts with 11 visible.
+const SIGN_OFF_9: readonly string[] = [
+  'fact.earTip',
+  'fact.disease',
+  'fact.backHome',
+  'fact.vacuum',
+  'fact.cost',
+  'fact.leftovers',
+  'fact.water',
+  'fact.kittensAlone',
+  'fact.colonyFemales',
+];
+const settings = (hidden: readonly string[] = SIGN_OFF_9): SettingsView => ({
+  loaded: true,
+  linkOn: true,
+  hiddenFacts: hidden,
+  extraPhotosOn: false,
+});
+const VISIBLE_11 = FACT_IDS.filter((id) => !SIGN_OFF_9.includes(id));
+const rec = (everSeen: string[]): WaitingRecord => ({ ...emptyRecord(), everSeen });
+const fact = (id: string): WaitChoice => ({ kind: 'fact', id });
+// A fact added on the server (spec §5.3) can't exist until SYC-754, because
+// visibleFacts reads FACT_IDS; the total is tied to it so it stays right then.
+
+describe('factProgress', () => {
+  it('first fact on a fresh phone reads 1 of 11 and walks from 0', () => {
+    expect(VISIBLE_11).toHaveLength(11);
+    expect(factProgress(emptyRecord(), settings(), fact('fact.milk')))
+      .toEqual({ kind: 'count', n: 1, total: 11, walkFrom: 0 });
+  });
+  it('3 of 11 after two seen', () => {
+    expect(factProgress(rec(['fact.milk', 'fact.litters']), settings(), fact('fact.hiss')))
+      .toEqual({ kind: 'count', n: 3, total: 11, walkFrom: 2 });
+  });
+  it('a fact cut short (not in everSeen) keeps its number next wait', () => {
+    const r = rec(['fact.milk', 'fact.litters']);
+    const expected = { kind: 'count', n: 3, total: 11, walkFrom: 2 };
+    expect(factProgress(r, settings(), fact('fact.hiss'))).toEqual(expected);
+    // Shown for under SEEN_AFTER_MS, so it isn't marked seen.
+    const settled = settleWait(r, fact('fact.hiss'), { kind: 'result', sightingId: 7 }, 2999);
+    expect(factProgress(settled, settings(), fact('fact.hiss'))).toEqual(expected);
+  });
+  it('the last unseen fact reads 11 of 11', () => {
+    const tenSeen = VISIBLE_11.filter((id) => id !== 'fact.purr');
+    expect(factProgress(rec(tenSeen), settings(), fact('fact.purr')))
+      .toEqual({ kind: 'count', n: 11, total: 11, walkFrom: 10 });
+  });
+  it('with all seen, a round-2 repeat reads done and adds nothing', () => {
+    expect(factProgress(rec(VISIBLE_11), settings(), fact('fact.milk'))).toEqual({ kind: 'done', total: 11 });
+  });
+  it('a seen fact that is now hidden counts in neither number nor total', () => {
+    expect(factProgress(rec(['fact.earTip', 'fact.milk']), settings(), fact('fact.hiss')))
+      .toEqual({ kind: 'count', n: 2, total: 11, walkFrom: 1 });
+  });
+  it('a hidden seen fact shown again counts again', () => {
+    expect(
+      factProgress(rec(['fact.earTip', 'fact.milk']), settings(SIGN_OFF_9.filter((i) => i !== 'fact.earTip')), fact('fact.hiss')),
+    ).toEqual({ kind: 'count', n: 3, total: 12, walkFrom: 2 });
+  });
+  it('the total is always visibleFacts(settings).length', () => {
+    for (const hidden of [[], SIGN_OFF_9, FACT_IDS.slice(0, 18)]) {
+      const p = factProgress(emptyRecord(), settings(hidden), fact(visibleFacts(settings(hidden))[0]!));
+      expect(p && p.total).toBe(visibleFacts(settings(hidden)).length);
+    }
+  });
+  it('null for: record null, settings not loaded, nudge, empty, fewer than 2 visible', () => {
+    expect(factProgress(null, settings(), fact('fact.milk'))).toBeNull();
+    expect(factProgress(emptyRecord(), { ...settings(), loaded: false }, fact('fact.milk'))).toBeNull();
+    expect(factProgress(emptyRecord(), settings(), { kind: 'nudge', form: 'link', countable: true })).toBeNull();
+    expect(factProgress(emptyRecord(), settings(), { kind: 'empty' })).toBeNull();
+    expect(factProgress(emptyRecord(), settings(FACT_IDS.slice(1)), fact(FACT_IDS[0]!))).toBeNull();
+  });
+});
+
+const CTX = { nudgeEnabled: true, signedInRole: null } as const;
+const counted = (everSeen: string[]): WaitingRecord => ({ ...rec(everSeen), nudgeCounted: true });
+
+describe('isNudgeDue', () => {
+  it('true only when enabled, not counted and not signed in', () => {
+    expect(isNudgeDue(emptyRecord(), CTX)).toBe(true);
+    expect(isNudgeDue(emptyRecord(), { ...CTX, nudgeEnabled: false })).toBe(false);
+    expect(isNudgeDue({ ...emptyRecord(), nudgeCounted: true }, CTX)).toBe(false);
+    expect(isNudgeDue(emptyRecord(), { ...CTX, signedInRole: 'guardian' })).toBe(false);
+  });
+});
+
+describe('nextSpotBringsNewFact', () => {
+  it('true with an unseen visible fact and the nudge counted', () => {
+    expect(nextSpotBringsNewFact(counted(['fact.milk']), settings(), CTX)).toBe(true);
+  });
+  it('false when the nudge is due', () => {
+    expect(nextSpotBringsNewFact(rec(['fact.milk']), settings(), CTX)).toBe(false);
+  });
+  it('false when everything visible is in everSeen', () => {
+    expect(nextSpotBringsNewFact(counted(VISIBLE_11), settings(), CTX)).toBe(false);
+  });
+  it('false for null record, settings not loaded, fewer than 2 visible', () => {
+    expect(nextSpotBringsNewFact(null, settings(), CTX)).toBe(false);
+    expect(nextSpotBringsNewFact(counted([]), { ...settings(), loaded: false }, CTX)).toBe(false);
+    expect(nextSpotBringsNewFact(counted([]), settings(FACT_IDS.slice(1)), CTX)).toBe(false);
+  });
+  it('false right after settleWait marks the last unseen fact seen', () => {
+    const before = counted(VISIBLE_11.filter((id) => id !== 'fact.purr'));
+    const after = settleWait(before, fact('fact.purr'), { kind: 'result', sightingId: 7 }, 3000);
+    expect(nextSpotBringsNewFact(after, settings(), CTX)).toBe(false);
+  });
+});
+
+describe('chooseForWait: unseen first (spec §3.5)', () => {
+  it("after a full round, un-hiding a fact makes it the next wait's fact", () => {
+    // All 11 seen; a second round is partly through (4 of the 11 in seenFacts).
+    const mid: WaitingRecord = {
+      ...counted(VISIBLE_11),
+      order: [...VISIBLE_11],
+      seenFacts: VISIBLE_11.slice(0, 4),
+      lastFactId: VISIBLE_11[3]!,
+    };
+    const unhidden = settings(SIGN_OFF_9.filter((id) => id !== 'fact.colonyFemales'));
+    // Constant randoms put the new id at the very end, in the middle and at the start of the order.
+    for (const value of [0.99, 0.5, 0]) {
+      const { choice } = chooseForWait(mid, unhidden, ctx({ random: () => value }));
+      expect(choice).toEqual({ kind: 'fact', id: 'fact.colonyFemales' });
+    }
+  });
+
+  it('round 1 order is unchanged: a fresh record chooses what it did before', () => {
+    // Expected values computed from the code before SYC-772 (seeded(), nudge counted).
+    let r: WaitingRecord = { ...emptyRecord(), nudgeCounted: true };
+    const c = ctx();
+    const shown: string[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const w = spot(r, LOADED, c, i);
+      shown.push((w.shown as { id: string }).id);
+      r = w.record;
+    }
+    expect(shown).toEqual(['fact.earTip', 'fact.milk', 'fact.backHome', 'fact.hiss', 'fact.litters']);
+  });
+
+  it('never puts lastFactId first in a new round', () => {
+    const all = visibleFacts(LOADED);
+    const done: WaitingRecord = {
+      ...counted(all),
+      order: [...all],
+      seenFacts: [...all],
+      lastFactId: all[5]!,
+    };
+    for (let seed = 1; seed <= 20; seed++) {
+      const { choice, record } = chooseForWait(done, LOADED, ctx({ random: seeded(seed) }));
+      expect(choice).not.toEqual({ kind: 'fact', id: all[5] });
+      expect(record!.seenFacts).toEqual([]);
+    }
   });
 });

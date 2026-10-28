@@ -999,31 +999,39 @@ describe("txid can't be stamped ahead (review M2)", () => {
     const a = await cat();
     const b = await cat();
     const s = await resolved(a);
-    const now = BigInt((await one<{ t: string }>(c, `select txid_current()::text as t`)).t);
-    const asked = new Map<string, number>();
-    await inTx(c, async () => {
-      for (let i = 1n; i <= 50n; i++) {
-        const t = (now + i).toString();
-        const r = await one<{ id: number }>(
+    // A second connection opens the "later" transaction and learns its real
+    // id, so nothing is guessed: the row is then pre-stamped with exactly it.
+    const later = new pg.Client({ connectionString: url(name) });
+    await later.connect();
+    try {
+      await later.query("begin");
+      const laterTxid = (await one<{ t: string }>(later, `select txid_current()::text as t`)).t;
+      const m = await inTx(c, async () => {
+        const ownTxid = (await one<{ t: string }>(c, `select txid_current()::text as t`)).t;
+        const row = await one<{ id: number; txid: string }>(
           c,
           `insert into sighting_moves
              (sighting_id, from_cat_id, to_cat_id, batch_id, reason, source, moved_by_account_id, role_at_time, txid)
            values ($1, $2, $3, gen_random_uuid(), 'wrong_pick', 'cat_page', 'acct-team', 'staff', $4::bigint)
-           returning id`,
-          [s, a, b, t],
+           returning id, txid::text`,
+          [s, a, b, laterTxid],
         );
-        asked.set(t, r.id);
-      }
-    });
-    await expect(
-      inTx(c, async () => {
-        const t = (await one<{ t: string }>(c, `select txid_current()::text as t`)).t;
-        const id = asked.get(t);
-        expect(id, `txid ${t} was not asked for; widen the range`).toBeDefined();
-        await setMove(c, id!);
-        await recat(c, s, b);
-      }),
-    ).rejects.toThrow(APPEND_ONLY);
+        return { id: row.id, txid: row.txid, ownTxid };
+      });
+      expect(m.ownTxid).not.toBe(laterTxid);
+      expect(m.txid).toBe(m.ownTxid);
+      // Without the stamp the row would carry laterTxid and this would pass.
+      await expect(
+        (async () => {
+          await setMove(later, m.id);
+          await recat(later, s, b);
+          await later.query("commit");
+        })(),
+      ).rejects.toThrow(APPEND_ONLY);
+    } finally {
+      await later.query("rollback").catch(() => {});
+      await later.end();
+    }
     expect((await sightingRow(s)).cat_id).toBe(a);
   });
 });
