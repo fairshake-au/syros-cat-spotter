@@ -29,8 +29,13 @@ export const ASSET_NAMES = [
   "dashboard-grid.js",
   "dashboard-map.js",
   "find-photo.js",
-  "leaflet.js",
-  "leaflet.css",
+  // SYC-705 Task 2b.5: the dashboard's MapLibre maps (map-core.js starts one; dashboard-pin.js draws a view map's markers).
+  "map-core.js",
+  "dashboard-pin.js",
+  "maplibre-gl.mjs",
+  "maplibre-gl-worker.mjs",
+  "maplibre-gl.css",
+  "pmtiles.js",
   "inter-latin.woff2",
   "inter-latin-ext.woff2",
   "inter-greek.woff2",
@@ -38,13 +43,18 @@ export const ASSET_NAMES = [
 
 /**
  * Files copied from a pinned npm package rather than kept in assets/
- * (SYC-396 PR 1.5): Leaflet 1.9.4, the island map's library. The same list
+ * (SYC-705): MapLibre GL JS, PMTiles and the Inter font. The same list
  * is in scripts/buildAssets.mjs, which copies them into dist/assets/ for
  * production; running from source they are read from node_modules here.
  */
 export const VENDOR: Readonly<Record<string, string>> = {
-  "leaflet.css": "leaflet/dist/leaflet.css",
-  "leaflet.js": "leaflet/dist/leaflet.js",
+  // SYC-705 Task 2b.4: the dashboard's maps, MapLibre GL JS 6.15.0 (an ES
+  // module; its worker is started from the same folder) and PMTiles 4.3.2 (a
+  // classic script that defines the global `pmtiles`).
+  "maplibre-gl.mjs": "maplibre-gl/dist/maplibre-gl.mjs",
+  "maplibre-gl-worker.mjs": "maplibre-gl/dist/maplibre-gl-worker.mjs",
+  "maplibre-gl.css": "maplibre-gl/dist/maplibre-gl.css",
+  "pmtiles.js": "pmtiles/dist/pmtiles.js",
   // Inter, the app's typeface (SYC-579), pinned at @fontsource-variable/inter
   // 5.2.8: one variable file per script, so every weight is one download.
   "inter-latin.woff2": "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
@@ -54,7 +64,20 @@ export const VENDOR: Readonly<Record<string, string>> = {
 
 /** The bytes of a vendored file, from its package. Throws if it isn't installed. */
 export function vendorBytes(name: string): Buffer {
-  return readFileSync(createRequire(import.meta.url).resolve(VENDOR[name]!));
+  const require = createRequire(import.meta.url);
+  const spec = VENDOR[name]!;
+  try {
+    return readFileSync(require.resolve(spec));
+  } catch (err) {
+    // A package whose "exports" map hides the path (pmtiles): find the
+    // package through its package.json and join the path. Same rule as
+    // scripts/buildAssets.mjs.
+    if ((err as NodeJS.ErrnoException)?.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw err;
+    const parts = spec.split("/");
+    const n = spec.startsWith("@") ? 2 : 1;
+    const pkgDir = path.dirname(require.resolve(`${parts.slice(0, n).join("/")}/package.json`));
+    return readFileSync(path.join(pkgDir, ...parts.slice(n)));
+  }
 }
 export type AssetName = (typeof ASSET_NAMES)[number];
 
@@ -62,6 +85,7 @@ export const ASSET_PATH = "/api/team/assets";
 
 const TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".woff2": "font/woff2",
 };

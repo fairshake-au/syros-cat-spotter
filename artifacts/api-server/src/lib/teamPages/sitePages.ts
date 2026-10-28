@@ -1,12 +1,11 @@
 import type { SiteChange, SiteCounts, SiteHistoryEntry, SiteRow, SiteView } from "../teamSites";
 import { keptLine, type KeptFields } from "./signedOutPage";
-import type { Position, TileSize, View } from "../mapTiles/geometry";
-import { mintTileToken } from "../mapTiles/tileToken";
+import type { Position } from "../island";
 import { escapeHtml as esc } from "./escape";
 import { dayIn } from "./colonyPages";
 import { backLink } from "./backLink";
 import { renderPage } from "./layout";
-import { renderMap, type MapMarker } from "./map";
+import { mapPageAssets, renderMap, type MapMarker } from "./map";
 import { mapPrivacyNote } from "./mapNote";
 import { place, position } from "./position";
 import { publicLabelOf } from "../areas/placeLabel";
@@ -19,7 +18,8 @@ import {
 } from "../teamSiteWrites";
 
 // The team's Feeding sites pages (SYC-209 PR 3.2; spec §2.1, §2.2, §8).
-// Server-drawn, no scripts, read-only. Every value a person typed (a site's
+// Server-drawn and read-only; the map is MapLibre (SYC-705: lib/teamPages/map.ts,
+// its scripts add the map and nothing else). Every value a person typed (a site's
 // name, notes, directions, a colony's name, a person's name) goes through
 // escapeHtml. No position in any of our own addresses: the only addresses
 // here are site and colony numbers (K13). Positions print through
@@ -45,8 +45,6 @@ export interface SiteViewer {
 const navFor = (v: { island?: boolean }) => (v.island === false ? "guardian" : undefined);
 
 export const SITES_PATH = "/api/team/sites";
-/** Where the Feeding sites page's zoom, pan and area buttons post (K13). */
-export const SITES_MOVE_PATH = "/api/team/sites/map";
 
 const siteHref = (id: number) => `${SITES_PATH}/${id}`;
 const colonyHref = (id: number) => `/api/team/colonies/${id}`;
@@ -157,7 +155,6 @@ export function renderSitesPage(opts: SiteViewer & {
   counts: SiteCounts;
   changes: SiteChange[];
   sites: SiteRow[];
-  view: View;
   showRetired: boolean;
   note?: string;
   /** "Show on our map" from a sighting (PR 3.4): an outlined marker where the cat was seen. */
@@ -168,24 +165,17 @@ export function renderSitesPage(opts: SiteViewer & {
   const W = wordsIn(opts.lang);
   const { t, w } = W;
   const mayAdd = opts.mayAdd ?? opts.island !== false;
-  const map = renderMap({
-    lang: opts.lang,
-    view: opts.view,
-    markers: [
-      ...opts.sites.map((s) => markerFor(s, opts.lang)),
-      ...(opts.sighting
-        ? [{ ...opts.sighting, label: t("sites.sightingMarker"), look: "sighting" as const }]
-        : []),
-    ],
-    mode: "view",
-    moveAction: SITES_MOVE_PATH,
-    // The page's own setting travels with every map button, as a fixed key.
-    hidden: opts.showRetired ? { retired: "1" } : undefined,
-  });
+  const markers: MapMarker[] = [
+    ...opts.sites.map((s) => markerFor(s, opts.lang)),
+    ...(opts.sighting ? [{ ...opts.sighting, label: t("sites.sightingMarker"), look: "sighting" as const }] : []),
+  ];
+  // Every site shown is in view (SYC-705). "Show on our map" (a sighting)
+  // opens on the sighting instead, close enough to see the street (zoom 17).
+  const map = opts.sighting
+    ? renderMap({ mode: "view", lang: opts.lang, centre: opts.sighting, zoom: 17, markers })
+    : renderMap({ mode: "view", lang: opts.lang, fit: opts.sites, markers });
   const retiredForm =
     `<form method="get" action="${SITES_PATH}" class="search">` +
-    // The view travels as an opaque token, never as numbers (K13).
-    `<input type="hidden" name="view" value="${esc(mintTileToken({ ...opts.view, size: 179 as TileSize }))}">` +
     `<label class="choice" for="show-retired"><input type="checkbox" id="show-retired" name="retired" value="1"${opts.showRetired ? " checked" : ""}>` +
     `${w("sites.showRetired")}</label>` +
     `<button type="submit">${w("sites.update")}</button></form>`;
@@ -199,12 +189,9 @@ export function renderSitesPage(opts: SiteViewer & {
     nav: navFor(opts),
     lang: opts.lang,
     personName: opts.personName,
-    mainClass: "mappage",
+    ...mapPageAssets(),
     body:
-      // Spec §2.1 order: the count, Recently changed, then the map and its
-      // buttons, then the list. Everything above the map has fixed line
-      // heights (see .mappage in layout.ts), so the map still starts on a
-      // whole pixel.
+      // Spec §2.1 order: the count, Recently changed, then the map, then the list.
       `<p class="intro">${w(opts.island === false ? "sites.introOwn" : "sites.intro")}</p>` +
       `<p><strong>${esc(countLine(opts.counts, opts.lang))}</strong></p>` +
       retiredForm +
@@ -404,7 +391,6 @@ const textOrNone = ({ w }: Words, v: string | null) =>
 
 export function renderSitePage(opts: SiteViewer & {
   site: SiteView;
-  view: View;
   colonies: Array<{ id: number; name: string }>;
   done?: string;
   /** Draw the actions (edit, move, retire). Default: as `island`. */
@@ -418,9 +404,11 @@ export function renderSitePage(opts: SiteViewer & {
   const { w } = W;
   const mayAct = opts.mayAct ?? opts.island !== false;
   const s = opts.site;
+  // Close enough to see the street (app zoom 17), centred on the site.
   const map = renderMap({
     lang: opts.lang,
-    view: opts.view,
+    centre: { lat: s.lat, lng: s.lng },
+    zoom: 17,
     markers: [
       {
         lat: s.lat,
@@ -430,7 +418,6 @@ export function renderSitePage(opts: SiteViewer & {
       },
     ],
     mode: "view",
-    controls: false,
   });
   const visibility = s.isPublic
     ? `<p>${w("site.publicSince")} ${s.madePublicAt ? esc(dayIn(W.lang, s.madePublicAt)) : ""}` +
@@ -449,11 +436,10 @@ export function renderSitePage(opts: SiteViewer & {
     nav: navFor(opts),
     lang: opts.lang,
     personName: opts.personName,
-    mainClass: "mappage",
+    ...mapPageAssets(),
     beforeTitle: backLink(SITES_PATH, w("site.back")),
     body:
       map +
-      // Below the map, so nothing of variable height sits above it (see .mappage).
       (opts.kept && mayAct ? keptLine(opts.lang) : "") +
       banner(W, opts.done) +
       `<p class="intro">${w("site.intro")}</p>` +
@@ -480,6 +466,7 @@ export function renderSitePage(opts: SiteViewer & {
             })
           : position(s.lat, s.lng, { link: false })
       }</p>` +
+      (s.approximate ? `<p class="notice">${w("site.approximate")}</p>` : "") +
       `<h2>${w("site.historyTitle")}</h2>` +
       historyList(W, s.history, mapLinks(opts)) +
       (mayAct

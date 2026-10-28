@@ -100,6 +100,13 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     return renderCatPage(v, "Sam", { now: NOW, ...opts });
   };
   const caption = (html: string) => /<p class="mapcap">[\s\S]*?<\/p>/.exec(html)![0];
+  /** The small map's markers, from its data (SYC-705: dashboard-pin.js draws them). */
+  const markersOf = (html: string) =>
+    JSON.parse(/<div class="catmap"><div class="map" data-map="([^"]*)"/.exec(html)![1]!.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")).markers as {
+      href: string;
+      n: number;
+      text?: string;
+    }[];
 
   it("starts with the newest sighting's place, the words Last seen uses", () => {
     const v = catView();
@@ -114,8 +121,8 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
     const v = catView();
     v.sightings = [sighting(3, 0, { lat: 37.4447, lng: 24.9418 }), sighting(2, 1, { lat: 37.4447, lng: 24.9418 }), sighting(1, 2, { lat: 37.4500, lng: 24.9500 })];
     const html = renderCatPage(v, "Sam", { now: NOW });
-    expect(html).toMatch(/<a class="pin seen multi"[^>]*><span class="pinnum" aria-hidden="true">2–3<\/span>/);
-    expect(html).toMatch(/<a class="pin seen"[^>]*><span class="pinnum" aria-hidden="true">1<\/span>/);
+    // A marker with `text` is drawn as the pill ("pin seen multi", dashboard-pin.js; mapCore.test.ts).
+    expect(markersOf(html).map((m) => [m.n, m.text])).toEqual([[1, undefined], [3, "2–3"]]);
   });
 
   // placeLabel is fixed vocabulary here (an area's name; no site label is passed),
@@ -153,8 +160,7 @@ describe("the small map's caption (SYC-602 Task 1.4)", () => {
       .map(([lat, lng], i) => sighting(900 + i, 0, { lat, lng, at: new Date(Date.UTC(2026, 9, 1 + i)).toISOString(), mixedCats: true }))
       .reverse();
     const html = renderCatPage(v, "Sam", { now: NOW });
-    const band = /<div class="mapband b179"[\s\S]*?<\/div>/.exec(html)![0];
-    const pins = [...band.matchAll(/<a class="pin seen(?: multi)?"[^>]*href="#sg-(\d+)"[^>]*><span class="pinnum"[^>]*>([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]);
+    const pins = markersOf(html).map((m) => [/^#sg-(\d+)$/.exec(m.href)![1], m.text]);
     expect(pins).toEqual([["904", "1, 5"], ["903", "2–4"]]);
   });
 });

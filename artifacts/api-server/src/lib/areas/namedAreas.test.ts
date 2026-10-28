@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { haversineKm } from "../catHelpers";
-import { AREAS as MAP_AREAS } from "../mapTiles/areas";
 import { areaFor, areaByKey, SEED_AREAS, OFF_SYROS } from "./namedAreas";
 
 describe("named areas (spec §3.3)", () => {
   it("puts a point in the area whose centre is nearest", () => {
     expect(areaFor(37.4447, 24.9417).key).toBe("ermoupoli");
-    expect(areaFor(37.4436, 24.8889).key).toBe("kini"); // centres from lib/mapTiles/areas.ts
+    expect(areaFor(37.4436, 24.8889).key).toBe("kini"); // a seed centre
   });
   it("is Off Syros more than 2 km from every centre", () => {
     expect(areaFor(37.28745, -109.54176)).toBe(OFF_SYROS); // the Arizona test report
@@ -22,13 +21,21 @@ describe("named areas (spec §3.3)", () => {
     expect(areaByKey("37.4,24.9")).toBeUndefined();
     expect(areaByKey(undefined)).toBeUndefined();
   });
-  it("shares its first 7 centres with lib/mapTiles/areas.ts, so the lists can't drift", () => {
-    for (const m of MAP_AREAS) {
-      const n = areaByKey(m.key);
-      expect(n, m.key).toBeDefined();
-      expect([n!.lat, n!.lng]).toEqual([m.lat, m.lng]);
+  it("keeps its first 7 centres where the old team map had them, so named places don't move", () => {
+    const first7: [string, number, number][] = [
+      ["ermoupoli", 37.4447, 24.9417],
+      ["vaporia", 37.4447, 24.9475],
+      ["kini", 37.4436, 24.8889],
+      ["galissas", 37.4226, 24.8825],
+      ["finikas", 37.3976, 24.8783],
+      ["posidonia", 37.3889, 24.8874],
+      ["azolimnos", 37.4105, 24.9594],
+    ];
+    for (const [key, lat, lng] of first7) {
+      const n = areaByKey(key);
+      expect(n, key).toBeDefined();
+      expect([n!.lat, n!.lng]).toEqual([lat, lng]);
     }
-    expect(MAP_AREAS).toHaveLength(7);
   });
   it("treats NaN and Infinity as Off Syros", () => {
     expect(areaFor(NaN, 24.9)).toBe(OFF_SYROS);

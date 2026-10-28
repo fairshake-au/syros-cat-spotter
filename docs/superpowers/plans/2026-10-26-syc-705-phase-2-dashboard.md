@@ -16,7 +16,7 @@
 - **The no-script path stands on its own.** Every map page works without a script: a line saying so, the lists in words, and for placing, an area list or typed coordinates.
 
 **Tech Stack:**
-- `maplibre-gl` 5.6.2 (CSP build) and `pmtiles` 4.3.2, the same pins as the website. They're vendored as dashboard assets, as Leaflet was.
+- `maplibre-gl` **6.15.0** and `pmtiles` 4.3.2, the same pins as the website (#366 moved the website off 5.6.2, which Replit's package firewall refuses: GHSA-jrc7-96c5-q579). They're vendored as dashboard assets, as Leaflet was. v6 ships ES modules only (no CSP build); see Task 2b.4.
 - `@workspace/map-style` (`buildStyle`, `MAP_LANG`).
 - Express, Drizzle and Postgres; Vitest with jsdom; and a local Playwright browser check (Chromium and WebKit).
 
@@ -225,21 +225,22 @@
 
 **Files:**
 - Modify:
-  - `artifacts/api-server/package.json`: remove `leaflet`; add devDependencies `maplibre-gl@5.6.2` and `pmtiles@4.3.2`.
+  - `artifacts/api-server/package.json`: remove `leaflet`; add devDependencies `maplibre-gl@6.15.0` and `pmtiles@4.3.2`.
   - `scripts/buildAssets.mjs` and `src/lib/teamAssets.ts`: `VENDOR` and `ASSET_NAMES`.
   - `src/routes/team.assets.test.ts` and `src/lib/teamAssets.fallback.test.ts`.
 - Modify: the asset route (find where `GET /api/team/assets/:file` lives). The worker file gets the wide header, so its own fetches are allowed. Add that route's file to `WIDE_CSP_FILES`, with a reason line.
 
 **Interfaces:**
 - Produces vendored names:
-  - `maplibre-gl.js` ← `maplibre-gl/dist/maplibre-gl-csp.js`;
-  - `maplibre-gl-worker.js` ← `maplibre-gl/dist/maplibre-gl-csp-worker.js`;
+  - `maplibre-gl.mjs` ← `maplibre-gl/dist/maplibre-gl.mjs` (an ES module; it has no imports of its own);
+  - `maplibre-gl-worker.mjs` ← `maplibre-gl/dist/maplibre-gl-worker.mjs` (MapLibre starts it with `new Worker(url, { type: "module" })` for a same-origin URL, so no `blob:` and no CSP change);
   - `maplibre-gl.css` ← `maplibre-gl/dist/maplibre-gl.css`;
-  - `pmtiles.js` ← the package's browser IIFE build (global `pmtiles`).
-- After `pnpm install`, confirm each source path exists with `ls`. If the CSP build or an IIFE is missing at these pins, stop and report back. Don't swap versions without the session model's OK.
+  - `pmtiles.js` ← `pmtiles/dist/pmtiles.js` (classic IIFE, global `pmtiles`).
+- `.mjs` joins `ASSET_EXTENSIONS` (in both files), served as `text/javascript`.
+- After `pnpm install`, confirm each source path exists with `ls`.
 
 - [ ] Update the tests:
-  - "vendored files are the pinned maplibre-gl 5.6.2 and pmtiles 4.3.2" (replaces the Leaflet test);
+  - "vendored files are the pinned maplibre-gl 6.15.0 and pmtiles 4.3.2" (replaces the Leaflet test);
   - "the worker is served with WIDE_CSP; every other asset as before".
 - [ ] Run `node scripts/buildAssets.mjs assets /tmp/x` (in the scratchpad) and the asset tests. Commit.
 
@@ -269,13 +270,13 @@
   - Then the credit line.
   - Keep `mergeSameSpot`. `fitView`, `resolveView`, `BANDS` and the token code go.
   - Marker `href`s must still pass `isOpaqueAddress`.
-- `map-core.js` exposes `window.CatMap = { start(el, opts) → Promise<map>, toMapLibreZoom(z), fromMapLibreZoom(z) }`. `start`:
-  - checks `maplibregl.supported()`, `fetch`, `caches` (optional) and `pmtiles`;
+- `map-core.js` is a classic script. It loads MapLibre with a dynamic `import(<maplibre-gl.mjs asset URL>)`; the hashed asset URLs (library, worker) come from `data-` attributes on the map-core `<script>` tag, written by the page from `assetUrl()`. It exposes `window.CatMap = { start(el, opts) → Promise<map>, toMapLibreZoom(z), fromMapLibreZoom(z) }`. `start`:
+  - checks `fetch`, `caches` (optional), `pmtiles` and that the dynamic import succeeds (v6 has no `supported()`: without WebGL2 the `Map` constructor throws `GPUInitializationError`, which counts as "can't start");
   - fetches `/api/team/map-data/current`;
   - opens Cache API `"syros-map"`, deletes entries for other versions, and fetches the whole `/api/team/map-data/v{N}/syros.pmtiles` (falling back to a plain `fetch` if `caches` is missing);
   - wraps it in `new File([blob], "syros-v{N}.pmtiles")` → `protocol.add(new pmtiles.PMTiles(new pmtiles.FileSource(file)))`;
   - fetches `style-{lang}.json` and makes `glyphs`/`sprite` absolute with `location.origin`;
-  - calls `maplibregl.setWorkerUrl(<worker asset URL from a data attribute on the script tag>)`;
+  - calls `maplibregl.setWorkerUrl(<worker asset URL from the script tag's data attribute>)` before the first `Map`;
   - creates the map with: `attributionControl: false`, `pitchWithRotate: false`, `maxPitch: 0`, `maxBounds` = island box padded by 0.03°, `minZoom` 11, `maxZoom` 18;
   - adds its own controls (`+`, `−`, compass that turns north up), as `<button>`s with translated `aria-label`s from `data-words`;
   - on success removes `.mapnojs` and adds `.maplive` to the page's `.mapfallback` blocks (the CSS hides them);
@@ -289,7 +290,7 @@
     - "fetches only fixed map-data addresses with the version, never a Range header";
     - "uses the Cache API copy on a second start, no second file fetch";
     - "app zoom 17 becomes MapLibre 16";
-    - "map failure shows needsJs and keeps the fallback" (Review Focus 2: `supported()` false; file 503; style 503);
+    - "map failure shows needsJs and keeps the fallback" (Review Focus 2: `Map` constructor throws; dynamic import rejects; file 503; style 503);
     - "markers are links with text labels, no innerHTML";
     - "rotation off when asked".
 - [ ] Implement. Switch these view maps over:
@@ -298,7 +299,7 @@
   - the colony plan map (`colonyPages.ts`, fit);
   - the cat page sightings map (`catPages.ts`, fit; keep the "N not on this map" count by checking against the fitted bounds' box in the server, or drop the count if it's always 0 with fitting — say which in the commit).
 - [ ] Each page that now has a map:
-  - loads `maplibre-gl.css`, `maplibre-gl.js`, `pmtiles.js`, `map-core.js`, `dashboard-pin.js` through `layout.ts`'s `scripts`/`styles` options;
+  - loads `maplibre-gl.css`, `pmtiles.js`, `map-core.js` (with the library and worker URLs in data attributes) and `dashboard-pin.js` through `layout.ts`'s `scripts`/`styles` options;
   - calls `setTeamHeaders(res, { scripts: true })`;
   - is added to `WIDE_CSP_ROUTES`, and its file to `WIDE_CSP_FILES`, each with a reason line.
 - [ ] Run `map.render`, `mapCore`, `team.sites`, `team.colonies`, `catPages.*`, `team.headers`, `team.scriptTags`, `refuse.source`. Commit.

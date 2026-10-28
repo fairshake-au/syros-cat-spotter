@@ -1,44 +1,36 @@
-import { SYROS_OUTLINE } from "@workspace/geo";
-import { filtersToQuery } from "../teamCatFilters";
-import type { CatListFilters, CatListItem, SterilisedMark } from "../teamCatList";
+import type { CatListFilters, CatListItem } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
-import { shownName } from "../teamCatView";
-import { AREAS } from "../mapTiles/areas";
-import { latToTileY, lngToTileX, MAX_ZOOM, MIN_ZOOM, type View } from "../mapTiles/geometry";
+import { currentAreas } from "../areas/namedAreas";
 import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
 import { escapeHtml as esc } from "./escape";
 import { pageIntro } from "./help";
 import { renderPage } from "./layout";
-import { lastSeenWords } from "./lastSeen";
-import { renderMap, type MapMarker } from "./map";
+import { ISLAND_CENTRE, renderMap, START_ZOOM } from "./map";
 import { mapPrivacyNote } from "./mapNote";
 import { MARK_ORDER, MARK_WORD } from "./marks";
+import { tr } from "./strings";
 
-// The island Map (SYC-396 PR 1.5; spec §6, §10, §12.2, §12.4, §13). Every
-// active cat at the place it was last seen, on the Cats page as
-// `GET /api/team/cats?view=map` (plan Decision 1), with the grid's filters
+// The island Map (SYC-396 PR 1.5; spec §6, §10, §12.2, §12.4, §13; SYC-705
+// Phase 2). Every active cat at the place it was last seen, on the Cats page
+// as `GET /api/team/cats?view=map` (plan Decision 1), with the grid's filters
 // and one switch between Grid and Map.
 //
-// **With the script** (assets/dashboard-map.js on Leaflet, both from our own
-// server): a draggable, pinchable map whose pictures come by token
-// (POST /api/team/map-squares, then GET /api/team/map-square/:token), whose
-// cats come from a signed-in POST (POST /api/team/cats/positions, the filters
-// in the body), grouped when zoomed out, with a card on tap.
+// **With the script** (assets/map-core.js starts MapLibre GL JS on our own
+// Syros map file; assets/dashboard-map.js puts the cats on it): a draggable,
+// pinchable map whose cats come from a signed-in POST
+// (POST /api/team/cats/positions, the filters in the body), grouped when
+// close together, with a card on tap.
 //
-// **Without it**: the button map that works today, with the cats as markers
-// (grouped the same way) inside <noscript>. Its zoom, pan and "Go to"
-// buttons post to POST /api/team/cats/map, which draws this page again with
-// no script at all and the button map in the open.
+// **Without it, or when the map can't start**: the map's box says the map
+// needs JavaScript, and a link shows these same cats as the grid (the
+// filters in its query, as the Grid switch has them; never a position).
 //
 // **No position in any address** (spec §10.4). The page's own address holds
 // filter codes, the search text (D11) and at most a cat's number (`focus`).
-// Positions are in the signed-in page only: the feeding sites and a focused
-// cat's trail as data on #island-map, for the script; pins' pixel offsets in
-// the button map. Nothing here prints a position as numbers: the card and the
-// labels give the place in words.
-
-const PATH = "/api/team/cats";
-export const CAT_MAP_MOVE_PATH = "/api/team/cats/map";
+// Positions are in the signed-in page only, as data on the map's box (the
+// feeding sites, the Go to areas, a focused cat's trail) for the script.
+// Nothing here prints a position as numbers: the card and the labels give
+// the place in words.
 
 /** A feeding site, as the map draws it: a square (spec §12.4). */
 export interface MapSite {
@@ -60,7 +52,7 @@ export interface CatMapOptions {
   personName: string;
   filters: CatListFilters;
   colonies: { id: number; name: string }[];
-  /** Every cat the filters match (for the button map and the count). */
+  /** Every cat the filters match (for the count). */
   cats: CatListItem[];
   /** Every cat there is, before any filter. */
   catCount: number;
@@ -68,16 +60,7 @@ export interface CatMapOptions {
   sites: MapSite[];
   /** `focus=<id>`: that cat's trail, for "Where else it's been seen". */
   focus: MapTrail | null;
-  /** The button map's view. */
-  view: View;
   now: Date;
-  /**
-   * True: the scripted page (the GET), with the button map in <noscript>.
-   * False: the button map in the open and no script (after a button-map move).
-   */
-  scripted: boolean;
-  /** A note after a move that couldn't be read. */
-  note?: string;
 }
 
 /** The legend's words and shapes: the four marks, then the three kinds of site square. */
@@ -96,66 +79,6 @@ function legend(): string {
   );
 }
 
-/** Cells per map square when grouping nearby cats on the button map. */
-const CELLS_PER_SQUARE = 8;
-
-/**
- * The button map's markers: one per cat, or one group where several fall in
- * the same small cell at this zoom (about 32px at 256px squares). Each cat's
- * marker links to its page.
- */
-export function buttonMapMarkers(cats: CatListItem[], z: number, now: Date): MapMarker[] {
-  const cells = new Map<string, CatListItem[]>();
-  for (const c of cats) {
-    const key = `${Math.floor(lngToTileX(c.placedAt.lng, z) * CELLS_PER_SQUARE)}:${Math.floor(latToTileY(c.placedAt.lat, z) * CELLS_PER_SQUARE)}`;
-    const list = cells.get(key);
-    if (list) list.push(c);
-    else cells.set(key, [c]);
-  }
-  const out: MapMarker[] = [];
-  for (const group of cells.values()) {
-    if (group.length === 1) {
-      const c = group[0]!;
-      out.push({
-        lat: c.placedAt.lat,
-        lng: c.placedAt.lng,
-        look: c.mark,
-        href: `${PATH}/${c.id}`,
-        label: `${shownName(c)}: ${MARK_WORD[c.mark]}. ${lastSeenWords(c.lastSeenAt, now)}, ${c.place}.`,
-      });
-      continue;
-    }
-    const split: Partial<Record<SterilisedMark, number>> = {};
-    for (const c of group) split[c.mark] = (split[c.mark] ?? 0) + 1;
-    out.push({
-      lat: group.reduce((n, c) => n + c.placedAt.lat, 0) / group.length,
-      lng: group.reduce((n, c) => n + c.placedAt.lng, 0) / group.length,
-      look: "cluster",
-      cluster: { count: group.length, split },
-      label: `${group.length} cats here. Zoom in to see each one.`,
-    });
-  }
-  return out;
-}
-
-const dayMonth = (d: Date) =>
-  d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Athens" });
-
-/** The trail on the button map: numbered sighting markers, each with its date. */
-function trailMarkers(t: MapTrail): MapMarker[] {
-  return t.points.map((p, i) => ({
-    lat: p.lat,
-    lng: p.lng,
-    look: "sighting" as const,
-    label: `${i + 1}. ${p.first ? "First recorded" : "Seen"} ${dayMonth(p.at)}`,
-  }));
-}
-
-/** The data the script reads, as JSON in an attribute (escaped; parsed, never run). */
-function dataAttr(name: string, value: unknown): string {
-  return ` data-${name}="${esc(JSON.stringify(value))}"`;
-}
-
 function countLine(o: CatMapOptions): string {
   const filtered = Object.keys(o.filters).some((k) => k !== "page" && k !== "sort");
   const clear = filtered ? ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>` : "";
@@ -169,19 +92,6 @@ function countLine(o: CatMapOptions): string {
   return `<p class="count" id="mapcount" role="status"><span id="mapcountn">${n}</span>${clear}</p>`;
 }
 
-function buttonMap(o: CatMapOptions): string {
-  const markers = [...buttonMapMarkers(o.cats, o.view.z, o.now), ...(o.focus ? trailMarkers(o.focus) : [])];
-  const hidden: Record<string, string> = { filters: filtersToQuery({ ...o.filters, page: undefined }) };
-  if (o.focus) hidden["focus"] = String(o.focus.id);
-  return (
-    '<div class="mapfallback">' +
-    renderMap({ view: o.view, markers, mode: "view", moveAction: CAT_MAP_MOVE_PATH, hidden }) +
-    '<p class="hint">Tap a cat to open it. A circle with a number is a group of cats: zoom in to see each one.</p>' +
-    legend() +
-    "</div>"
-  );
-}
-
 /** The island Map page. Trusted HTML: fixed text, numbers, assetUrl() addresses and escapeHtml only. */
 export function renderCatMapPage(o: CatMapOptions): string {
   const intro = pageIntro(
@@ -193,18 +103,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
     viewRow(o, "map") +
-    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>` +
-    (o.note ? `<p class="warn" role="status">${esc(o.note)}</p>` : "");
-
-  if (!o.scripted) {
-    return renderPage({
-      title: "Map",
-      active: "map",
-      personName: o.personName,
-      mainClass: "wide",
-      body: top + buttonMap(o) + mapPrivacyNote(),
-    });
-  }
+    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>`;
 
   const focus = o.focus
     ? {
@@ -213,42 +112,49 @@ export function renderCatMapPage(o: CatMapOptions): string {
         points: o.focus.points.map((p) => ({ lat: p.lat, lng: p.lng, at: p.at.toISOString(), first: p.first })),
       }
     : null;
-  const areas = AREAS.map((a) => ({ key: a.key, label: a.label, lat: a.lat, lng: a.lng, zoom: a.zoom }));
-  const goTo =
-    '<div class="arearow" id="mapgoto" role="group" aria-label="Go to">' +
-    AREAS.map((a) => `<button type="button" data-area="${esc(a.key)}">${esc(a.label)}</button>`).join("") +
-    "</div>";
-  const scripted =
+  const areas = currentAreas().map((a) => ({ key: a.key, name: a.name, lat: a.lat, lng: a.lng }));
+  const map = renderMap({
+    mode: "view",
+    id: "island-map",
+    label: "Map of Syros with the cats on it",
+    centre: ISLAND_CENTRE,
+    zoom: START_ZOOM,
+    data: { sites: o.sites, areas, ...(focus ? { focus } : {}) },
+  });
+  // The map's credit line (renderMap's last part) goes under the Go to row.
+  const creditAt = map.lastIndexOf('<p class="attrib">');
+  const box = map.slice(0, creditAt);
+  const credit = map.slice(creditAt);
+  // Same fields as the Grid switch: the filters, never `view` or a position.
+  const gridHref = catsAddress({ ...o.filters, page: undefined });
+  const body =
+    top +
     // Shown by the script once the map is up; with no script it stays hidden.
-    '<div id="mapscripted" hidden>' +
-    '<fieldset class="maplayers" id="maplayers"><legend>Show on the map</legend>' +
+    '<fieldset class="maplayers" id="maplayers" hidden><legend>Show on the map</legend>' +
     '<label class="choicechip"><input type="checkbox" id="layer-cats" checked> Cats</label>' +
     '<label class="choicechip"><input type="checkbox" id="layer-sites"> Feeding sites</label>' +
     "</fieldset>" +
     '<div class="mapwrap">' +
-    `<div id="island-map" role="region" aria-label="Map of Syros with the cats on it"` +
-    ` data-minzoom="${MIN_ZOOM}" data-maxzoom="${MAX_ZOOM}"` +
-    dataAttr("sites", o.sites) +
-    dataAttr("areas", areas) +
-    dataAttr("outline", SYROS_OUTLINE) +
-    (focus ? dataAttr("focus", focus) : "") +
-    "></div>" +
+    box +
     legend() +
-    '<p class="mapnote" id="mapnote" role="status" hidden>Map pictures aren\'t loading. The cats are still shown.</p>' +
     '<div class="catsheet" id="catsheet" role="dialog" aria-label="Cat" hidden></div>' +
     "</div>" +
-    '<div class="mapmove"><p class="label">Go to</p>' +
-    goTo +
-    "</div>" +
-    `<p class="attrib">Map pictures © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a></p>` +
-    "</div>";
+    // No script, or the map can't start: the same cats as the grid.
+    `<p class="mapfallback" id="mapgrid"><a class="tap" id="map-gridlink" href="${esc(gridHref)}">${esc(tr("en", "map.catsAsGrid"))}</a></p>` +
+    // Every named area is a lot of buttons on a phone: folded until opened.
+    `<details class="mapmove" id="mapmove" hidden><summary>${esc(tr("en", "map.goToArea"))}</summary>` +
+    '<div class="arearow" id="mapgoto" role="group" aria-label="Go to">' +
+    areas.map((a) => `<button type="button" data-area="${esc(a.key)}">${esc(a.name)}</button>`).join("") +
+    "</div></details>" +
+    credit +
+    mapPrivacyNote();
   return renderPage({
     title: "Map",
     active: "map",
     personName: o.personName,
     mainClass: "wide",
-    body: top + scripted + `<noscript>${buttonMap(o)}</noscript>` + mapPrivacyNote(),
-    styles: [assetUrl("leaflet.css")],
-    script: [assetUrl("leaflet.js"), assetUrl("dashboard-map.js")],
+    body,
+    styles: [assetUrl("maplibre-gl.css")],
+    script: [assetUrl("pmtiles.js"), assetUrl("map-core.js"), assetUrl("dashboard-map.js")],
   });
 }
