@@ -17,6 +17,8 @@ const h = vi.hoisted(() => ({
   push: vi.fn(),
   openWeekly: vi.fn(),
   language: 'en' as 'en' | 'el' | 'fr',
+  // Most tests read the key itself in English; the merge lines read the real words.
+  realEnglish: false,
 }));
 
 vi.mock('@expo/vector-icons', () => ({ Feather: Object.assign(() => null, { glyphMap: {} }) }));
@@ -35,7 +37,7 @@ vi.mock('@/context/LanguageContext', async () => {
   const { TRANSLATIONS } = await import('@/lib/i18n');
   return {
     useLanguage: () => ({
-      t: (k: string) => (h.language === 'en' ? k : ((TRANSLATIONS as Record<string, Record<string, string>>)[h.language]?.[k] ?? k)),
+      t: (k: string) => (h.language === 'en' && !h.realEnglish ? k : ((TRANSLATIONS as Record<string, Record<string, string>>)[h.language]?.[k] ?? k)),
       language: h.language,
     }),
   };
@@ -65,6 +67,10 @@ vi.mock('@workspace/api-client-react', () => ({
 }));
 
 import NotificationsScreen from '../../app/notifications';
+import { TRANSLATIONS } from '@/lib/i18n';
+
+const mergeLine = (lang: 'el' | 'fr', key: string) =>
+  (TRANSLATIONS[lang][key] ?? '').split('{from}').join('Mimi').split('{to}').join('Agatha');
 
 beforeEach(() => {
   h.dismissTo.mockReset();
@@ -74,6 +80,7 @@ beforeEach(() => {
   h.loadFailed = false;
   h.profile = undefined;
   h.language = 'en';
+  h.realEnglish = false;
 });
 afterEach(cleanup);
 
@@ -150,5 +157,76 @@ describe('Notifications screen (SYC-508)', () => {
     ];
     render(<NotificationsScreen />);
     expect(screen.getByText('You came 2nd on Syros last week')).toBeTruthy();
+  });
+  describe('SYC-59: merge lines', () => {
+    beforeEach(() => {
+      h.realEnglish = true;
+    });
+
+    const merged = (over: Record<string, unknown> = {}) => ({
+      id: 21,
+      catId: null,
+      catUpdateId: null,
+      catName: null,
+      catPhotoUrl: null,
+      updateType: 'general',
+      message: 'Mimi and Agatha turned out to be the same cat. You now follow Agatha.',
+      place: null,
+      weekPoints: null,
+      kind: 'merged',
+      survivorCatId: 12,
+      survivorCatName: 'Agatha',
+      mergedCatName: 'Mimi',
+      read: false,
+      createdAt: new Date().toISOString(),
+      ...over,
+    });
+
+    it('a merged line is shown, and tapping it opens Agatha, not the Spotters board', () => {
+      h.notifications = [merged()];
+      h.push.mockClear();
+      h.openWeekly.mockClear();
+      render(<NotificationsScreen />);
+      fireEvent.click(screen.getByRole('button', { name: /Mimi and Agatha turned out to be the same cat/ }));
+      expect(h.push).toHaveBeenCalledWith({ pathname: '/cat/[id]', params: { id: '12' } });
+      expect(h.openWeekly).not.toHaveBeenCalled();
+    });
+
+    it('a duplicate-points line is shown like a week-result row (no cat of its own) and opens the cat that stays', () => {
+      h.notifications = [
+        merged({
+          id: 22,
+          kind: 'duplicate_points',
+          message: 'You spotted that Mimi and Agatha are the same cat. Syros Cats agreed. +10 points.',
+        }),
+      ];
+      h.push.mockClear();
+      render(<NotificationsScreen />);
+      expect(screen.getByText('You spotted that Mimi and Agatha are the same cat. Syros Cats agreed. +10 points.')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /Syros Cats agreed/ }));
+      expect(h.push).toHaveBeenCalledWith({ pathname: '/cat/[id]', params: { id: '12' } });
+    });
+
+    it.each(['el', 'fr'] as const)('the line is worded in %s from the names, not the server\'s English', (lang) => {
+      h.language = lang;
+      h.notifications = [merged()];
+      render(<NotificationsScreen />);
+      expect(screen.queryByText(/turned out to be/)).toBeNull();
+      expect(screen.getByText(mergeLine(lang, 'mergedLine'))).toBeTruthy();
+    });
+
+    it('a merge line from before the names were stored keeps the server\'s words and still goes to the weekly result', () => {
+      h.notifications = [merged({ survivorCatId: undefined, survivorCatName: undefined, mergedCatName: undefined })];
+      h.openWeekly.mockClear();
+      render(<NotificationsScreen />);
+      fireEvent.click(screen.getByRole('button', { name: /turned out to be the same cat/ }));
+      expect(h.openWeekly).toHaveBeenCalledTimes(1);
+    });
+
+    it('a kind this build does not know keeps the server\'s message', () => {
+      h.notifications = [merged({ kind: 'something_new', message: 'Brand new words' })];
+      render(<NotificationsScreen />);
+      expect(screen.getByText('Brand new words')).toBeTruthy();
+    });
   });
 });

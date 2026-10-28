@@ -186,6 +186,20 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('SYC-59: a merged record opened by its old id', () => {
+  it('says "Mimi is now part of Agatha\u2019s record", whichever tab is showing', () => {
+    page({ mergedFrom: { id: 3, name: 'Mimi' } });
+    expect(screen.getByTestId('cat-merged-note').textContent).toBe('Mimi is now part of Agatha\u2019s record');
+    switchTab('Photos');
+    expect(screen.getByTestId('cat-merged-note')).toBeTruthy();
+  });
+
+  it('says nothing on an ordinary page, or from a server that does not send mergedFrom', () => {
+    page();
+    expect(screen.queryByTestId('cat-merged-note')).toBeNull();
+  });
+});
+
 describe('the four tabs', () => {
   it('opens on About, with only its panel in the page', () => {
     page();
