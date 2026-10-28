@@ -7,7 +7,7 @@ import {
   profilesTable,
   sightingMatchesTable,
 } from "@workspace/db";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { canonicalCatOf, liveCats } from "./catIdentity";
 import { countingPhones } from "./countingPhone";
 
@@ -285,4 +285,33 @@ export async function addedWhileCheckDown(catIds: readonly number[]): Promise<Se
     .from(sightingMatchesTable)
     .where(and(eq(sightingMatchesTable.matcherFailed, true), eq(sightingMatchesTable.choice, "new_cat"), inArray(sightingMatchesTable.chosenCatId, [...catIds])));
   return new Set(rows.flatMap((r) => (r.catId === null ? [] : [r.catId])));
+}
+
+export interface DuplicateNote {
+  otherId: number;
+  otherName: string;
+  note: string;
+}
+
+/**
+ * The team's "not sure yet" notes about pairs this cat is in (§3.3: "That
+ * note shows on both cats' team pages"). Only where the pair's newest
+ * decision is the "not sure yet" one and has a note, and the other cat is
+ * still a cat of its own.
+ */
+export async function notSureNotesFor(catId: number): Promise<DuplicateNote[]> {
+  const rows = await db
+    .select()
+    .from(duplicateDecisionsTable)
+    .where(or(eq(duplicateDecisionsTable.catLow, catId), eq(duplicateDecisionsTable.catHigh, catId)))
+    .orderBy(asc(duplicateDecisionsTable.id));
+  const newest = new Map<number, (typeof rows)[number]>();
+  for (const r of rows) newest.set(r.catLow === catId ? r.catHigh : r.catLow, r);
+  const others = [...newest.keys()];
+  if (others.length === 0) return [];
+  const cats = await liveCats({ id: catsTable.id, name: catsTable.name, pending: catsTable.namePending }, { where: inArray(catsTable.id, others) });
+  const names = new Map(cats.map((c) => [c.id, c.pending ? `SYR-${String(c.id).padStart(4, "0")}` : c.name]));
+  return [...newest]
+    .flatMap(([otherId, d]) => (d.decision === "not_sure" && d.note !== null && names.has(otherId) ? [{ otherId, otherName: names.get(otherId)!, note: d.note }] : []))
+    .sort((a, b) => a.otherId - b.otherId);
 }
