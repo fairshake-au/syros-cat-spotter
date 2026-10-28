@@ -213,6 +213,17 @@ describe("the screen: the two cats, which record stays (D7)", () => {
     expect(res.text).toContain('name="n1" value="2"');
   });
 
+  it("shows every photo of each cat, however many (§4.1), not the first few", async () => {
+    const c = await pair();
+    for (let i = 0; i < 10; i++) await kit.sighting(c.mimi, kit.device(), daysAgo(3 + i / 10));
+    const total = (await teamCatView(c.mimi))!.photos.length;
+    expect(total).toBeGreaterThan(8);
+    const m = await catRow(c.mimi);
+    const res = await get(screen(c.mimi, c.agatha));
+    expect(res.text.split(`alt="A photo of ${esc(m.name)}"`).length - 1).toBe(total);
+    expect(res.text).not.toMatch(/and \d+ more photo/);
+  });
+
   it("the team can switch: the other record stays, and the preview follows", async () => {
     const c = await pair();
     const res = await get(screen(c.mimi, c.agatha, `&survivor=${c.mimi}`));

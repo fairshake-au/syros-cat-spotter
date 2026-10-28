@@ -45,7 +45,6 @@ export interface MergeSide {
   since: string;
   mainPhotoUrl: string | null;
   photoUrls: string[];
-  morePhotos: number;
   colony: string | null;
   sterilised: string;
   life: string;
@@ -83,7 +82,6 @@ export type MergeLoad =
   /** Nothing can be merged from this address. */
   | { kind: "stop"; status: number; message: string; link?: { href: string; label: string } };
 
-const PHOTOS_SHOWN = 8;
 const NEARBY_SHOWN = 8;
 
 export const nameOf = (v: Pick<TeamCatView, "cat">): string => (v.cat.namePending ? v.cat.syr : v.cat.name);
@@ -163,8 +161,7 @@ async function sideOf(v: TeamCatView): Promise<MergeSide> {
     namePending: v.cat.namePending,
     since: day(v.cat.createdAt),
     mainPhotoUrl: v.cat.mainPhotoUrl,
-    photoUrls: photos.slice(0, PHOTOS_SHOWN),
-    morePhotos: Math.max(0, photos.length - PHOTOS_SHOWN),
+    photoUrls: photos, // every photo of the cat (§4.1); the page wraps them
     colony: v.colony?.name ?? null,
     sterilised: sterilWords(v.records.sterilised),
     life: LIFE[v.records.lifeStatus.value ?? "street"],

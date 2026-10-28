@@ -36,8 +36,7 @@ function column(side: MergeSide, role: "stays" | "goes" | "here"): string {
     `<h3><a class="catlink" href="${esc(catHref(side.id))}">${esc(side.name)}</a> <span class="syr">${esc(side.syr)}</span></h3>` +
     `<p class="meta">${roleWords} · on our records since ${esc(side.since)}</p>` +
     (side.photoUrls.length > 0
-      ? `<div class="photos">${thumbs(side.photoUrls, `A photo of ${side.name}`)}</div>` +
-        (side.morePhotos > 0 ? `<p class="meta">and ${side.morePhotos} more ${side.morePhotos === 1 ? "photo" : "photos"}</p>` : "")
+      ? `<div class="photos">${thumbs(side.photoUrls, `A photo of ${side.name}`)}</div>`
       : '<p class="empty">No photos.</p>') +
     "<dl>" +
     fact("Sightings", String(side.sightings)) +
