@@ -8,11 +8,11 @@
 # Env:
 #   VERSION   N for out/v{N}; default = current version in OUT_DIR/current.json + 1 (or 1)
 #   DRY_RUN=1 skip the upload (the upload itself is done by the GitHub Action)
-#   PYTHON    python with pyosmium + pytest (default python3)
+#   PYTHON    python with scripts/map-data/requirements.txt (default python3)
 #   OSM_URL   override the Geofabrik URL (e.g. a dated greece-YYMMDD.osm.pbf for a repeat build)
 #   JAVA_HOME a Java 21 install (auto-detected from Homebrew openjdk@21 if unset)
 #
-# Needs: java 21, mvn, osmium (osmium-tool), curl, node + pnpm, python3 with pyosmium.
+# Needs: java 21, mvn, osmium (osmium-tool), curl, node + pnpm, python3 with requirements.txt.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -60,7 +60,12 @@ GREECE_SHA=$(shasum -a 256 "$GREECE" | cut -d' ' -f1)
 
 # ---- 2. Cut Syros out -------------------------------------------------------------
 echo "== 2. osmium extract --bbox $BBOX"
-osmium extract --bbox "$BBOX" --overwrite -o "$WORK_DIR/syros.osm.pbf" "$GREECE"
+osmium extract --bbox "$BBOX" --overwrite -o "$WORK_DIR/syros-box.osm.pbf" "$GREECE"
+# Drop the sea and ocean name areas (SYC-764). The box cuts the Aegean Sea down to the
+# box, and Protomaps then puts its label in the middle of what is left: on the island.
+# These carry only a name; the water itself comes from the coastline polygons.
+osmium tags-filter --invert-match --overwrite -o "$WORK_DIR/syros.osm.pbf" \
+  "$WORK_DIR/syros-box.osm.pbf" nwr/place=sea,ocean
 FILEINFO=$(osmium fileinfo "$GREECE")   # the extract drops the header timestamps; Geofabrik's file has them
 OSM_EXTRACT_DATE=$(printf '%s\n' "$FILEINFO" | sed -n 's/^ *osmosis_replication_timestamp=//p' | head -1)
 [[ -n "$OSM_EXTRACT_DATE" ]] || OSM_EXTRACT_DATE=$(printf '%s\n' "$FILEINFO" | sed -n 's/^ *timestamp=//p' | head -1)
@@ -102,6 +107,10 @@ mkdir -p "$WORK_DIR/planetiler"
     --output="$V_DIR/syros.pmtiles" \
     --download --force
 )
+
+# ---- 4c. Labels on the right side of the shore --------------------------------------
+echo "== 4c. check_labels.py"
+"$PYTHON" "$REPO/scripts/map-data/check_labels.py" "$V_DIR/syros.pmtiles"
 
 # ---- 5. Fonts and sprites from the pinned basemaps-assets commit -------------------------
 ASSETS="$WORK_DIR/basemaps-assets-$ASSETS_COMMIT"
