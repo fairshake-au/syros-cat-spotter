@@ -8,7 +8,6 @@ import {
 } from "@workspace/db";
 import { canonicalCatOf, liveCats } from "./catIdentity";
 import { isResolvedDeceased } from "./catHelpers";
-import { NEW_CAT_CHECK_MIN_SCORE } from "./newCatCheck";
 import { isTeamDesk } from "./teamDesk";
 import type { DbOrTx } from "./observations";
 
@@ -24,7 +23,7 @@ import type { DbOrTx } from "./observations";
 // it needs no table of its own and can never drift from the rule below.
 
 /** Both cats must have scored at least this: the same 0.4 the phone shows a suggestion at. */
-export const NEAR_TIE_MIN_SCORE = NEW_CAT_CHECK_MIN_SCORE;
+export const NEAR_TIE_MIN_SCORE = 0.4;
 
 /** ... and within this of each other (in thousandths, so 0.55 against 0.40 is a tie, not 0.15000000000000002). */
 export const NEAR_TIE_GAP_MILLI = 150;
