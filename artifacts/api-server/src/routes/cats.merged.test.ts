@@ -89,9 +89,10 @@ describe("GET /cats/:id for a merged-away cat (spec test 14's last clause)", () 
     expect(res.status).toBe(200);
     expect(res.body.mergedFrom).toEqual({ id: c.mimi, name: c.mimiName });
     expect(res.body.cat).toMatchObject({ id: c.agatha, name: c.agathaName, sightingsCount: 2 });
-    // An app that doesn't know the field: the schema it was built from
-    // parses the answer and drops `mergedFrom` (zod strips unknown keys).
-    const old = GetCatResponse.safeParse(res.body);
+    // An app that doesn't know the field (before PR 4.3 declared it): the
+    // schema it was built from parses the answer and drops `mergedFrom` (zod
+    // strips unknown keys).
+    const old = GetCatResponse.omit({ mergedFrom: true }).safeParse(res.body);
     expect(old.success, JSON.stringify(old.error?.issues)).toBe(true);
     expect((old.data as Record<string, unknown>)["mergedFrom"]).toBeUndefined();
     expect(old.data!.cat.id).toBe(c.agatha);
