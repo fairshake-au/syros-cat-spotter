@@ -46,7 +46,7 @@ vi.mock('@/hooks/useColors', () => ({
 }));
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => h.params,
-  useRouter: () => ({ canGoBack: () => false, back: () => {}, replace: () => {}, push: () => {} }),
+  useRouter: () => ({ canGoBack: () => false, back: () => {}, replace: h.replace, push: () => {} }),
 }));
 vi.mock('@/components/AppMap', () => ({
   AppMap: ({ interactive = true }: { interactive?: boolean }) => (
@@ -91,6 +91,7 @@ const h = vi.hoisted(() => ({
   notifications: [] as unknown[],
   data: undefined as unknown,
   scrollTo: vi.fn(),
+  replace: vi.fn(),
   markRead: vi.fn(),
   onScroll: undefined as undefined | ((e: unknown) => void),
 }));
@@ -192,6 +193,22 @@ describe('SYC-59: a merged record opened by its old id', () => {
     expect(screen.getByTestId('cat-merged-note').textContent).toBe('Mimi is now part of Agatha\u2019s record');
     switchTab('Photos');
     expect(screen.getByTestId('cat-merged-note')).toBeTruthy();
+  });
+
+  it('opened by Mimi\u2019s id it moves to Agatha\u2019s own address, carrying Mimi\u2019s name, so a claim or edit refreshes this page', () => {
+    h.params = { id: '3' };
+    h.replace.mockClear();
+    page({ mergedFrom: { id: 3, name: 'Mimi' } });
+    expect(h.replace).toHaveBeenCalledTimes(1);
+    expect(h.replace).toHaveBeenCalledWith({ pathname: '/cat/[id]', params: { id: '7', from: 'Mimi' } });
+  });
+
+  it('on Agatha\u2019s own address the note still shows, from the carried name, and the page does not move again', () => {
+    h.params = { id: '7', from: 'Mimi' };
+    h.replace.mockClear();
+    page();
+    expect(screen.getByTestId('cat-merged-note').textContent).toBe('Mimi is now part of Agatha\u2019s record');
+    expect(h.replace).not.toHaveBeenCalled();
   });
 
   it('says nothing on an ordinary page, or from a server that does not send mergedFrom', () => {

@@ -49,7 +49,7 @@ export type BellTap =
  */
 export function bellTap(n: AppNotification): BellTap {
   if (n.catId != null) return { to: 'cat', catId: n.catId, updateId: n.catUpdateId ?? null };
-  if ((n.kind === 'merged' || n.kind === 'duplicate_points') && n.survivorCatId != null) {
+  if ((n.kind === 'merged' || n.kind === 'duplicate_points') && n.survivorCatId != null && n.survivorCatName) {
     return { to: 'survivor', catId: n.survivorCatId };
   }
   return { to: 'weekly' };

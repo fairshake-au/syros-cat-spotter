@@ -122,6 +122,8 @@ describe('where a bell line goes', () => {
     expect(bellTap(row({ kind: 'week_result', survivorCatId: undefined }))).toEqual({ to: 'weekly' });
     expect(bellTap(row({ kind: undefined, survivorCatId: undefined, survivorCatName: undefined }))).toEqual({ to: 'weekly' });
     expect(bellTap(row({ survivorCatId: null }))).toEqual({ to: 'weekly' });
+    // The surviving cat no longer exists (the server found no name): nothing to open.
+    expect(bellTap(row({ survivorCatName: null }))).toEqual({ to: 'weekly' });
   });
 });
 

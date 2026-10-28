@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   refetch: vi.fn(async () => {}),
   profile: undefined as unknown,
   push: vi.fn(),
+  markRead: vi.fn(),
   openWeekly: vi.fn(),
   language: 'en' as 'en' | 'el' | 'fr',
   // Most tests read the key itself in English; the merge lines read the real words.
@@ -52,6 +53,7 @@ vi.mock('@/context/NotificationContext', () => ({
     loadFailed: h.loadFailed,
     refetch: h.refetch,
     markAllRead: vi.fn(),
+    markRead: h.markRead,
   }),
 }));
 // #301 imports IconButton from the purropolis index, which pulls in native
@@ -190,6 +192,27 @@ describe('Notifications screen (SYC-508)', () => {
       fireEvent.click(screen.getByRole('button', { name: /Mimi and Agatha turned out to be the same cat/ }));
       expect(h.push).toHaveBeenCalledWith({ pathname: '/cat/[id]', params: { id: '12' } });
       expect(h.openWeekly).not.toHaveBeenCalled();
+    });
+
+    it('tapping a merge line marks it read; an already-read one is left alone', () => {
+      h.markRead.mockClear();
+      h.notifications = [merged(), merged({ id: 23, read: true })];
+      render(<NotificationsScreen />);
+      const lines = screen.getAllByRole('button', { name: /turned out to be the same cat/ });
+      fireEvent.click(lines[0]!);
+      fireEvent.click(lines[1]!);
+      expect(h.markRead).toHaveBeenCalledTimes(1);
+      expect(h.markRead).toHaveBeenCalledWith(21);
+    });
+
+    it('a merge line whose surviving cat is gone (no name) does not open a missing cat: it takes the old weekly path', () => {
+      h.notifications = [merged({ survivorCatName: null })];
+      h.push.mockClear();
+      h.openWeekly.mockClear();
+      render(<NotificationsScreen />);
+      fireEvent.click(screen.getByRole('button', { name: /turned out to be the same cat/ }));
+      expect(h.push).not.toHaveBeenCalled();
+      expect(h.openWeekly).toHaveBeenCalledTimes(1);
     });
 
     it('a duplicate-points line is shown like a week-result row (no cat of its own) and opens the cat that stays', () => {

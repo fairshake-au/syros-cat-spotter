@@ -92,7 +92,7 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
-  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead } =
+  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead, markRead } =
     useNotifications();
   // SYC-508 §4.1: the profile Home already loads (same key), only to pick the
   // empty line.
@@ -177,6 +177,8 @@ export default function NotificationsScreen() {
             return;
           }
           if (tap.to === 'survivor') {
+            // Opening the cat it is about counts as reading it, as cat news does.
+            if (!n.read) markRead(n.id);
             router.push({ pathname: '/cat/[id]', params: { id: String(tap.catId) } });
             return;
           }

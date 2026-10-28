@@ -56,7 +56,7 @@ export default function CatDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
-  const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
+  const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string; from?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
   const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
@@ -140,6 +140,18 @@ export default function CatDetailScreen() {
     request: deviceId !== null ? { headers: { 'X-Device-Id': deviceId } } : undefined,
   });
 
+  // SYC-59: asked for by a merged-away id, the page moves to the survivor's own
+  // address, so a claim, rename or edit (which refresh the survivor) refresh
+  // this page too. The old record's name travels as `from` for the note.
+  const mergedFrom = query.data?.mergedFrom;
+  const survivorId = query.data?.cat.id;
+  React.useEffect(() => {
+    if (mergedFrom && survivorId !== undefined && survivorId !== catId) {
+      router.replace({ pathname: '/cat/[id]', params: { id: String(survivorId), from: mergedFrom.name } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedFrom, survivorId, catId]);
+
   const close = () => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)/cats');
@@ -184,7 +196,7 @@ export default function CatDetailScreen() {
   const careTimeline = data.careTimeline;
   // SYC-59 (which-cat-is-which.md §4.2): the page was asked for a record the
   // team merged into this cat (an old link, a notification, a cached list).
-  const mergedNote = mergedIntoNote(t, data.mergedFrom, sentenceName);
+  const mergedNote = mergedIntoNote(t, data.mergedFrom ?? (params.from ? { id: 0, name: params.from } : undefined), sentenceName);
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
   // the truth about who owns the cat now. The list saved on the phone can be
