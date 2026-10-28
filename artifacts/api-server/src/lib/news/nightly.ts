@@ -5,12 +5,14 @@ import {
   catSubscriptionsTable,
   catsTable,
   db,
+  sightingMovesTable,
   sightingsTable,
   type CatNewsBaseline,
 } from "@workspace/db";
 import type { Observation } from "@workspace/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { liveCats } from "../catIdentity";
+import { liveCats, mergeTimeline } from "../catIdentity";
+import { isMovedStatement } from "../movedStatements";
 import { loadCatRecords, type DbOrTx } from "../observations";
 import { pr3Recorded } from "../pr3Gate";
 import {
@@ -74,7 +76,28 @@ const BATCH = 200;
 const DAY_MS = 86_400_000;
 
 export type NewsChangeKind = "sterilised" | "homed" | "seen_again";
-export type SilencedReason = "import" | "legacy" | "old_news" | "first_seen" | "deceased" | "bulk";
+export type SilencedReason =
+  | "import"
+  | "legacy"
+  | "old_news"
+  | "first_seen"
+  | "deceased"
+  | "bulk"
+  | "moved"
+  | "merged";
+
+/**
+ * What the team corrected since a cat's baseline (which-cat-is-which.md
+ * §9.12): a move or a merge is a correction, never news.
+ */
+export interface Corrections {
+  /** Each sighting's newest move: when, and whether a merge or its undo made it. */
+  sightingMoves: ReadonlyMap<number, { at: Date; merge: boolean }>;
+  /** The newest merge or undo touching this cat or any cat linked to it by one. */
+  mergedAt: Date | null;
+}
+
+const NO_CORRECTIONS: Corrections = { sightingMoves: new Map(), mergedAt: null };
 
 /** One change found tonight, before it's written. */
 export interface FoundChange {
@@ -255,6 +278,7 @@ export function compareCat(
   sightings: readonly SightingRow[],
   baseline: CatNewsBaseline | undefined,
   walkedAt: Date,
+  corrections: Corrections = NO_CORRECTIONS,
 ): { changes: FoundChange[]; baseline: CatNewsBaseline } {
   const lastSightingAt = sightings.length ? sightings[sightings.length - 1]!.createdAt : status.lastSightingAt;
   // The ratchet: set the first time the check sees the status, whether that
@@ -320,6 +344,32 @@ export function compareCat(
     });
   }
 
+  // §9.12: a change that a move or a merge since the baseline made is a
+  // correction, never news. A merge since then silences everything (the
+  // combined timeline can look like a cat seen again). Otherwise a change
+  // whose newest evidence is a statement a move copied, or a sighting moved
+  // since, is silenced `moved` (`merged` when a merge's move made it).
+  const sinceBaseline = (at: Date) => at.getTime() > since - NEWER_MARGIN_MS;
+  for (const c of changes) {
+    if (c.silencedReason !== null) continue;
+    if (corrections.mergedAt && sinceBaseline(corrections.mergedAt)) {
+      c.silencedReason = "merged";
+      continue;
+    }
+    if (c.change === "seen_again") {
+      const moved = c.evidenceIds
+        .map((id) => corrections.sightingMoves.get(id))
+        .filter((m): m is { at: Date; merge: boolean } => m !== undefined && sinceBaseline(m.at));
+      if (moved.length > 0) c.silencedReason = moved.some((m) => m.merge) ? "merged" : "moved";
+    } else {
+      const newest = evidenceRows(c.evidenceIds, observations).reduce<Observation | null>(
+        (n, o) => (!n || o.createdAt.getTime() > n.createdAt.getTime() || (o.createdAt.getTime() === n.createdAt.getTime() && o.id > n.id) ? o : n),
+        null,
+      );
+      if (newest && isMovedStatement(newest)) c.silencedReason = "moved";
+    }
+  }
+
   // The blanket rule: a dead or presumed-dead cat gives no news of any kind.
   if (status.dead) {
     for (const c of changes) c.silencedReason = "deceased";
@@ -353,6 +403,7 @@ async function walk(
     const batch = catIds.slice(i, i + BATCH);
     const { statuses, observations } = await newsStatuses(batch, walkedAt, exec);
     const sightings = await loadSightings(batch, exec);
+    const corrections = await loadCorrections(batch, sightings, exec);
     const existing = await exec
       .select()
       .from(catNewsBaselineTable)
@@ -365,12 +416,80 @@ async function walk(
         sightings.get(catId) ?? [],
         byCat.get(catId),
         walkedAt,
+        corrections.get(catId),
       );
       baselines.push(out.baseline);
       changes.push(...out.changes);
     }
   }
   return { baselines, changes };
+}
+
+/**
+ * For each cat, the moves of its sightings and the newest merge or undo
+ * touching it (§9.12). Two queries per batch whatever its size.
+ */
+export async function loadCorrections(
+  catIds: readonly number[],
+  sightings: ReadonlyMap<number, SightingRow[]>,
+  exec: DbOrTx,
+): Promise<Map<number, Corrections>> {
+  const ids = [...sightings.values()].flat().map((s) => s.id);
+  const sightingMoves = new Map<number, { at: Date; merge: boolean }>();
+  if (ids.length > 0) {
+    const moves = await exec
+      .select({ sightingId: sightingMovesTable.sightingId, at: sightingMovesTable.createdAt, mergeId: sightingMovesTable.mergeId })
+      .from(sightingMovesTable)
+      .where(inArray(sightingMovesTable.sightingId, ids))
+      .orderBy(asc(sightingMovesTable.createdAt), asc(sightingMovesTable.id));
+    for (const m of moves) sightingMoves.set(m.sightingId, { at: m.at, merge: m.mergeId !== null });
+  }
+  const timeline = await mergeTimeline(catIds, {}, exec);
+  // The cats linked to each other by any merge row (one pass, union-find),
+  // and the newest row in each linked group.
+  const parent = new Map<number, number>();
+  const root = (c: number): number => {
+    let r = c;
+    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
+    parent.set(c, r);
+    return r;
+  };
+  for (const e of timeline) {
+    const a = root(e.catId);
+    const b = root(e.canonicalCatId);
+    if (a !== b) parent.set(a, b);
+  }
+  const newestOfGroup = new Map<number, Date>();
+  for (const e of timeline) {
+    const g = root(e.catId);
+    const was = newestOfGroup.get(g);
+    if (!was || e.createdAt.getTime() > was.getTime()) newestOfGroup.set(g, e.createdAt);
+  }
+  const out = new Map<number, Corrections>();
+  for (const catId of catIds) out.set(catId, { sightingMoves, mergedAt: newestOfGroup.get(root(catId)) ?? null });
+  return out;
+}
+
+/**
+ * After a move or a merge (§9.12): the affected cats' baselines become what
+ * they are now, recording nothing, so the next night sees no change caused
+ * by the correction. Only cats already walked: a cat nobody follows gets no
+ * baseline it didn't have. The ratchet is kept (a cat already announced
+ * stays announced). Called inside the move's or merge's transaction (PR 3.2,
+ * PR 4.1).
+ */
+export async function rebaselineNews(catIds: readonly number[], exec: DbOrTx = db, now: Date = new Date()): Promise<number> {
+  const ids = [...new Set(catIds)];
+  if (ids.length === 0) return 0;
+  const walked = await exec
+    .select({ catId: catNewsBaselineTable.catId })
+    .from(catNewsBaselineTable)
+    .where(inArray(catNewsBaselineTable.catId, ids));
+  return seedNewsBaseline(
+    walked.map((w) => w.catId),
+    exec,
+    now,
+  );
 }
 
 async function writeBaselines(rows: readonly CatNewsBaseline[], exec: DbOrTx): Promise<void> {

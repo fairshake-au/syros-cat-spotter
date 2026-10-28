@@ -73,6 +73,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/catNames.ts": ["catNamed: name taken; a merged-away cat's name stays taken (spec 4.2)"],
   "artifacts/api-server/src/lib/claiming.ts": [
     "claimEligibility: one cat by id; a merged-away cat is already refused through canonicalCatOf",
+    "hasMetCat: the canonical cat's name_pending, one cat by id (D3's naming exception)",
   ],
   "artifacts/api-server/src/lib/colonyCats.ts": ["placeCats: lock by id before a write"],
   "artifacts/api-server/src/lib/commitStatement.ts": ["commitStatement: lock by id before a write"],
@@ -97,7 +98,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "recentGuardianChanges: a log; each entry names the cat its own row is on",
   ],
   "artifacts/api-server/src/lib/sightingRoundUp.ts": [
-    "sendDailyRoundUp: followed cats' updates; moved rows and followers are PR 3.1 and PR 4.1",
+    "sendDailyRoundUp: followed cats' updates, only while the sighting is still filed under the cat (PR 3.1); followers are PR 4.1",
   ],
   "artifacts/api-server/src/lib/teamCatList.ts": ["catTrail: one cat by id; the merged-away team page is PR 4.2"],
   "artifacts/api-server/src/lib/teamCatView.ts": [

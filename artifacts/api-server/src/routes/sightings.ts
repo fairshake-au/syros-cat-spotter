@@ -19,7 +19,7 @@ import {
   type SuggestedMatch,
   type PICKED_FROM,
 } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, sql, type SQL } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -35,7 +35,7 @@ import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
 import { spottedAgainMessage } from "../lib/sightingMessage";
-import { writeObservation, type DbOrTx } from "../lib/observations";
+import { replacedByMove, writeObservation, type DbOrTx } from "../lib/observations";
 import { matchCatPhoto, type NewPhotoInput } from "../lib/matching";
 import { saveSpotWithPhotos, spotPhotoList, validateSpotPhotos } from "../lib/spotPhotos";
 import { containsOffensiveLanguage } from "../lib/moderation";
@@ -48,7 +48,7 @@ import {
 } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
-import { liveCats } from "../lib/catIdentity";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn, type Feeding } from "../lib/catIdentity";
 import { awardPoints } from "../lib/pointsLedger";
 import { placeFor } from "../lib/areas/placeFor";
 import {
@@ -173,8 +173,10 @@ function earTipAnswerOf(value: unknown): EarTipAnswer | null {
  *   of its answers (a team correction), or any `sterilised` statement about
  *   the cat (only staff, the legacy admin route and backfills ever write
  *   one).
+ *
+ * Exported for the move tests (SYC-150 PR 3.1).
  */
-async function earTipStateFor(
+export async function earTipStateFor(
   tx: DbOrTx,
   deviceId: string,
   catId: number,
@@ -183,20 +185,27 @@ async function earTipStateFor(
   | { state: "checked" }
   | { state: "answered"; current: { id: number; answer: EarTipAnswer | null } }
 > {
+  // Through the cat this one now is, with every cat merged into it, and
+  // leaving out answers a move took to another cat (which-cat-is-which.md
+  // §9.5): after a move each cat is as if the sighting had always been
+  // where it is now.
+  const feeding = await feedingOfCanonical(tx, catId);
   const mine = await tx
     .select({ id: observationsTable.id, value: observationsTable.value })
     .from(observationsTable)
     .where(
       and(
-        eq(observationsTable.catId, catId),
+        observationCatIn(feeding),
         eq(observationsTable.deviceId, deviceId),
         eq(observationsTable.kind, "ear_tip"),
+        not(replacedByMove(observationsTable.id)),
+        sightingStillHere(feeding),
       ),
     );
   const [sterilised] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
-    .where(and(eq(observationsTable.catId, catId), eq(observationsTable.kind, "sterilised")))
+    .where(and(observationCatIn(feeding), eq(observationsTable.kind, "sterilised")))
     .limit(1);
   // "Checked" only ever stops a change. A spotter with no answer yet can
   // always give a first one, on the reward screen or the cat's page, even
@@ -223,23 +232,49 @@ async function earTipStateFor(
  * superseded or not: being corrected by the team doesn't mean the spotter
  * should be asked again.
  */
-async function hasAnsweredEarTip(
+export async function hasAnsweredEarTip(
   tx: DbOrTx,
   deviceId: string,
   catId: number,
 ): Promise<boolean> {
+  // As earTipStateFor: through the cat this one now is, leaving out answers
+  // a move took to another cat.
+  const feeding = await feedingOfCanonical(tx, catId);
   const [row] = await tx
     .select({ id: observationsTable.id })
     .from(observationsTable)
     .where(
       and(
-        eq(observationsTable.catId, catId),
+        observationCatIn(feeding),
         eq(observationsTable.deviceId, deviceId),
         eq(observationsTable.kind, "ear_tip"),
+        not(replacedByMove(observationsTable.id)),
+        sightingStillHere(feeding),
       ),
     )
     .limit(1);
   return row != null;
+}
+
+/**
+ * SQL: the answer is about this cat's own sightings. An answer on a sighting
+ * now filed under a cat outside this group went with its sighting
+ * (which-cat-is-which.md §9.5), and so did every earlier answer of the same
+ * spotter on it, even one only their own change replaced (review of #380,
+ * R1). An answer with no sighting stays.
+ */
+function sightingStillHere(feeding: readonly Feeding[]): SQL {
+  const ids = [...new Set(feeding.flatMap((f) => f.ids))];
+  return sql`(${observationsTable.sightingId} is null or exists (
+    select 1 from sightings here
+     where here.id = ${observationsTable.sightingId}
+       and here.cat_id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})))`;
+}
+
+/** The cats whose statements count for the cat `catId` now is (itself if it's in a merge loop). */
+async function feedingOfCanonical(tx: DbOrTx, catId: number): Promise<Feeding[]> {
+  const canonical = (await canonicalCatOf([catId], {}, tx)).get(catId) ?? catId;
+  return [...(await catsFeeding([canonical], {}, tx)).values()];
 }
 
 /** Thrown inside the resolve transaction when another resolve got there first. */

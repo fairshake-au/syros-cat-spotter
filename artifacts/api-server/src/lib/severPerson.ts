@@ -100,6 +100,22 @@ export async function severPerson(
      where reporter_device = ${deviceId}
   `);
 
+  // 5a. Which cat is which (SYC-150; which-cat-is-which.md §9.11). Their
+  //     "same cat?" answers stay as evidence about the two cats, with nobody
+  //     on them (the table allows only this). The follows a merge copied
+  //     for them are deleted with their follows in step 6, so the record of
+  //     which ones it copied goes too. Statements a move copied carry their
+  //     device like any other, and step 2 has already cleared them; the
+  //     move takes this device's badges lock before copying (§9.7), so none
+  //     can be copied after this runs.
+  await tx.execute(sql`
+    update duplicate_reports
+       set device_id = null,
+           redacted_at = coalesce(redacted_at, now())
+     where device_id = ${deviceId}
+  `);
+  await tx.execute(sql`delete from merge_follow_changes where device_id = ${deviceId}`);
+
   // 5b. "Keep my spots safe" (SYC-3): the keep-safe row, its queued emails
   //     and link tokens go, and its consent events are redacted in place.
   //     SYC-3 built this to run inside deletion's transaction.
@@ -143,4 +159,44 @@ export async function severPerson(
     values (${deletedMarkerKey(deviceId)}, ${DELETED_SECRET_HASH})
     on conflict (device_id) do nothing
   `);
+}
+
+/**
+ * Severs a team member from the records of who moved, merged and decided
+ * (which-cat-is-which.md §9.11), and from their statements. The moves,
+ * merges, decisions and statements stay, as the cats' history, with nobody
+ * on them: each table's guard allows exactly this (clear who, stamp
+ * `redacted_at`).
+ *
+ * Runs inside the caller's transaction. Nothing deletes a team member's
+ * details yet (people are marked as left, never deleted); SYC-43's "Delete
+ * this person's details" calls this when it is built, beside its own work
+ * on the people tables. Like `severPerson`, safe to run twice.
+ */
+export async function severTeamMember(
+  tx: Tx,
+  { accountId, reason }: { accountId: string; reason: string },
+): Promise<void> {
+  // Their statements: the author goes, the value stays, as for a spotter.
+  await tx.execute(sql`
+    update observations
+       set account_id = null,
+           redacted_at = coalesce(redacted_at, now()),
+           redaction_reason = coalesce(redaction_reason, ${reason}),
+           value = case when kind = 'note' then '{}'::jsonb else value end
+     where account_id = ${accountId}
+  `);
+  for (const [table, column] of [
+    ["sighting_moves", "moved_by_account_id"],
+    ["cat_identity", "by_account_id"],
+    ["duplicate_decisions", "by_account_id"],
+    ["new_cat_checks", "by_account_id"],
+  ] as const) {
+    await tx.execute(sql`
+      update ${sql.identifier(table)}
+         set ${sql.identifier(column)} = null,
+             redacted_at = coalesce(redacted_at, now())
+       where ${sql.identifier(column)} = ${accountId}
+    `);
+  }
 }

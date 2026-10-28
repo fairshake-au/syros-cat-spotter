@@ -802,6 +802,12 @@ describe("GET /api/team/observations/review/likely", () => {
     // asks which cat each ear-tip cat is now (one canonicalCatOf query) and
     // reads the cats through liveCats instead of a join (one more query), so a
     // merged pair shows once. Fixed, and the same whatever the number of cats.
-    expect(queryCount).toBeLessThan(13);
+    //
+    // 13 at most since SYC-150 PR 3.1: when any cat's evidence was matched by
+    // hand, the list asks which cat each hand-picked choice is now (one
+    // canonicalCatOf query, whatever the number), so a sighting the team moved
+    // isn't called hand-picked for its new cat. The list reads every ear-tip
+    // cat on the island, so other test files' hand picks bring it in here.
+    expect(queryCount).toBeLessThan(14);
   });
 });

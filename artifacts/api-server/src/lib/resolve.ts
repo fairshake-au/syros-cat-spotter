@@ -314,6 +314,18 @@ function isActive(o: Observation, all: readonly Observation[]): boolean {
   return !all.some((other) => other.supersedesId === o.id);
 }
 
+/**
+ * A row `loadCatRecords` lists only because it replaces one of this cat's
+ * rows from another cat: a statement a move copied onto the cat its sighting
+ * moved to, or a welfare report re-tied to another cat (which-cat-is-which.md
+ * §9.5; `elsewhere: true`). It is there so the row it replaces stops counting
+ * here, by the ordinary supersession rules. It never counts for this cat
+ * itself: every resolver leaves it out of its folds.
+ */
+export function isElsewhere(o: object): boolean {
+  return (o as { elsewhere?: unknown }).elsewhere === true;
+}
+
 /** The kinds a vet visit writes, whose undo puts back what it replaced
  * (SYC-396 PR 3.0; plan Decision 6). */
 export type RestorableKind = "sterilised" | "vaccinated" | "vet_visit";
@@ -377,7 +389,7 @@ export function supersedeChains(observations: readonly Observation[], kind: Rest
     if ((supersededBy.get(o.id) ?? []).some((s) => s.kind !== kind || !isRetracted(s.id))) displaced.add(o.id);
   }
   return {
-    standing: rows.filter((o) => !displaced.has(o.id) && !isRetractionValue(o.value)),
+    standing: rows.filter((o) => !displaced.has(o.id) && !isRetractionValue(o.value) && !isElsewhere(o)),
     displaced,
     retracted,
   };
@@ -506,7 +518,7 @@ export function resolveSterilised(
   // puts back the statement it overruled); ear tips keep `isActive`.
   const standingSterilised = new Set(standingRows(observations, "sterilised").map((o) => o.id));
   const active = observations.filter((o) =>
-    o.kind === "sterilised" ? standingSterilised.has(o.id) : isActive(o, observations),
+    o.kind === "sterilised" ? standingSterilised.has(o.id) : isActive(o, observations) && !isElsewhere(o),
   );
 
   // Step 2: authoritative sterilised assertions (phase 1: observations only;
@@ -645,7 +657,7 @@ export function resolveSterilised(
  * whatever a later correction did to the level. */
 export function clippedTipCount(observations: readonly Observation[]): number {
   return observations.filter((o) => {
-    if (o.kind !== "ear_tip" || !isActive(o, observations)) return false;
+    if (o.kind !== "ear_tip" || !isActive(o, observations) || isElsewhere(o)) return false;
     const parsed = parseEarTip(o.value);
     return parsed?.clipped === true && o.photoId != null;
   }).length;
@@ -682,7 +694,7 @@ export function resolveLifeStatus(
   now: Date,
 ): LifeStatusResolved {
   const active = observations.filter(
-    (o) => o.kind === "life_status" && isActive(o, observations),
+    (o) => o.kind === "life_status" && isActive(o, observations) && !isElsewhere(o),
   );
   const parsed = active.flatMap((o) => {
     const v = parseLifeStatus(o.value);
@@ -925,7 +937,7 @@ export function standingAppearanceRows(
     if (replaces && !(keepOwnEarlierRows && isSpotterVoiceRow(target))) removed.add(target.id);
   }
 
-  return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value));
+  return rows.filter((o) => !removed.has(o.id) && !isRetractionValue(o.value) && !isElsewhere(o));
 }
 
 /**
@@ -1379,7 +1391,7 @@ function projectCoatRows(
   const coatRows = observations.filter((o) => o.kind === "coat");
   const standing = new Set(standingAppearanceRows(coatRows, "coat", false, ranking).map((o) => o.id));
   const kept = coatRows.filter(
-    (o) => standing.has(o.id) || isRetractionValue(o.value) || o.provenance === "machine",
+    (o) => !isElsewhere(o) && (standing.has(o.id) || isRetractionValue(o.value) || o.provenance === "machine"),
   );
   const project = (part: "colours" | "pattern"): Observation[] =>
     kept.flatMap((o): Observation[] => {

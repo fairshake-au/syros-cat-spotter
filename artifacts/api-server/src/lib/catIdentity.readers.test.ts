@@ -94,7 +94,7 @@ async function say(catId: number, kind: string, value: object) {
 
 // Mimi keeps her resolved sighting through the merge (the shape these
 // readers were written for until PR 3.1/4.1 record the merge's moves), so the
-// merge row goes in with migration 0054's "no sighting left" check off for
+// merge row goes in with migration 0053's "no sighting left" check off for
 // that one insert (test/merges.ts).
 async function merge(from: number, into: number): Promise<number> {
   const row = await mergeKeepingSightings({ catId: from, canonicalCatId: into, reason: "vitest readers" });
@@ -227,7 +227,7 @@ describe.each(CASES)("every reader of merges: $name", ({ build, expected }) => {
 
   it("hasMetCat: the phone that met Mimi has met every cat she was merged into, and nobody else", async () => {
     for (const id of [c.agatha, c.dora]) {
-      expect(await hasMetCat(db, id, c.device), `cat ${id}`).toBe(e.fedByMimi.includes(id));
+      expect(await hasMetCat(db, id, c.device, "claim"), `cat ${id}`).toBe(e.fedByMimi.includes(id));
     }
   });
 

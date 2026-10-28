@@ -17,8 +17,8 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
 }));
 
-import { deleteTestSightings } from "../test/sightings";
 import { mergeKeepingSightings } from "../test/merges";
+import { deleteTestSightings } from "../test/sightings";
 import { newColony } from "../test/roleKit";
 import { visibleColonyIds } from "./guardianView";
 import { letGoWithinDays, removedByTeamWithinDays } from "./claiming";
@@ -118,9 +118,10 @@ async function cat(name: string): Promise<{ id: number; name: string }> {
   return { id: c!.id, name: full };
 }
 
-// Mimi keeps her resolved sighting here (the readers below are still written for
-// that shape until PR 3.1 / 4.1), which migration 0054 refuses at commit; so the
-// merge is written through the test helper that switches that one trigger off.
+// Mimi and Lola keep their resolved sightings through the merge (the shape
+// these readers were written for until PR 3.1/4.1 record the merge's moves),
+// so the merge row goes in with migration 0053's "no sighting left" check off
+// for that one insert (test/merges.ts).
 async function merge(from: number, into: number): Promise<number> {
   const row = await mergeKeepingSightings({ catId: from, canonicalCatId: into, reason: "vitest live cats" });
   return row.id;

@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { canonicalCatOf, liveCats } from "./catIdentity";
 import { loadCatRecords } from "./observations";
-import { resolveCat } from "./resolve";
+import { isElsewhere, resolveCat } from "./resolve";
 import { newestActiveClip } from "./teamCorrections";
 import { TEAM_ROLES } from "./teamRoles";
 
@@ -87,7 +87,7 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
     evidenceSightingIds.length === 0
       ? []
       : await db
-          .select({ sightingId: sightingMatchesTable.sightingId })
+          .select({ sightingId: sightingMatchesTable.sightingId, chosenCatId: sightingMatchesTable.chosenCatId })
           .from(sightingMatchesTable)
           .where(
             and(
@@ -95,7 +95,15 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
               eq(sightingMatchesTable.choice, "hand_pick"),
             ),
           );
-  const handPickedSightings = new Set(handPickRows.map((r) => r.sightingId));
+  // Hand-picked for a cat only when the spotter picked that cat, or a cat
+  // merged into it: a sighting the team moved here was hand-picked for
+  // another cat (which-cat-is-which.md §9.5).
+  const chosenCanonical = await canonicalCatOf(
+    handPickRows.flatMap((r) => (r.chosenCatId == null ? [] : [r.chosenCatId])),
+  );
+  const handPickedFor = new Map<number, number | null>(
+    handPickRows.map((r) => [r.sightingId, r.chosenCatId == null ? null : (chosenCanonical.get(r.chosenCatId) ?? null)]),
+  );
 
   const drafts: (Omit<LikelyCat, "evidence"> & {
     evidence: Omit<LikelyEvidence, "photoUrl">[];
@@ -116,7 +124,7 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
     );
     const evidence = record.observations
       .filter((o) => {
-        if (o.kind !== "ear_tip" || replaced.has(o.id)) return false;
+        if (o.kind !== "ear_tip" || replaced.has(o.id) || isElsewhere(o)) return false;
         const v = o.value as { clipped?: unknown };
         return v?.clipped === true && o.photoId != null;
       })
@@ -129,7 +137,7 @@ export async function listLikelyForReview(now = new Date()): Promise<LikelyCat[]
           typeof (o.value as { side?: unknown })?.side === "string"
             ? (o.value as { side: string }).side
             : null,
-        matchedByHand: o.sightingId != null && handPickedSightings.has(o.sightingId),
+        matchedByHand: o.sightingId != null && handPickedFor.get(o.sightingId) === cat.id,
       }));
 
     drafts.push({

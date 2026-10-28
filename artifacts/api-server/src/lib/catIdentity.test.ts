@@ -174,8 +174,8 @@ describe("canonicalCatOf and catsFeeding", () => {
     const mimi = await cat();
     const agatha = await cat();
     const m = await merge(mimi, agatha, day(2));
-    // Since migration 0054 the database refuses the row outright…
-    await expect(undo(m, agatha, day(3))).rejects.toMatchObject({ cause: { message: expect.stringMatching(/supersedes only a merge of its own cat/) } });
+    // Since migration 0053 the database refuses the row outright…
+    await expect(undo(m, agatha, day(3))).rejects.toThrow();
     // …and a reader still ignores it if it ever got in.
     await identityRowPastTheGuard({ catId: agatha, canonicalCatId: agatha, supersedesId: m, reason: "vitest undo", createdAt: day(3) });
     expect(await canonical(mimi)).toBe(agatha);

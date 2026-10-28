@@ -5,6 +5,7 @@ import { actingRole, can, type Capability } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
 import {
   isWithdrawal,
+  replacedByMove,
   loadCatRecords,
   ObservationRefused,
   WITHDRAWN,
@@ -18,6 +19,7 @@ import { isOwnerHomed } from "./teamCatView";
 import { orderColours, partsToValue, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
+  isElsewhere,
   resolveCoatParts,
   resolveLifeStatus,
   resolveMarkings,
@@ -922,25 +924,33 @@ export async function agreeWithClip(
     }
     // Agreeing with the team's own answer adds nothing.
     if (TEAM_ROLES.has(spotter.roleAtTime)) return "already";
+    // A move took this answer to another cat (which-cat-is-which.md §9.5):
+    // the copy there is the one to agree with, from that cat's list.
+    const [moved] = await tx
+      .select({ id: observationsTable.id })
+      .from(observationsTable)
+      .where(and(eq(observationsTable.id, spotter.id), replacedByMove(observationsTable.id)));
+    if (moved) throw new ObservationRefused("MOVED", "this answer was moved to another cat with its sighting");
+    // The cat the answer is about now: its own, or the cat it was merged
+    // into (§9.3), locked. A move or a merge takes the same cat lock, so the
+    // check below can't go stale under it.
+    const catId = (await canonicalCatOf([spotter.catId], {}, tx)).get(spotter.catId);
+    if (catId == null) return "already";
+    await lockCat(tx, catId);
     // Serialise every agreement about this cat, so two people tapping
     // "Looks right" on two of its answers can't both pass the check below.
     await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext('likely-review'), ${spotter.catId})`,
+      sql`select pg_advisory_xact_lock(hashtext('likely-review'), ${catId})`,
     );
 
     // Everything below reads through `tx`, never the global `db`: a second
     // pool connection taken while this transaction holds one (and others
     // queue on the advisory lock holding theirs) can exhaust the pool and
-    // hang every request (pre-merge review of #99, S1).
-    const catObservations = await tx
-      .select()
-      .from(observationsTable)
-      .where(
-        and(
-          eq(observationsTable.catId, spotter.catId),
-          inArray(observationsTable.kind, ["ear_tip", "sterilised"]),
-        ),
-      );
+    // hang every request (pre-merge review of #99, S1). The cat's records as
+    // every screen reads them: merged-in cats, and moved statements, included.
+    const catObservations = ((await loadCatRecords([catId], tx)).get(catId)?.observations ?? []).filter(
+      (o) => o.kind === "ear_tip" || o.kind === "sterilised",
+    );
     const earTips = catObservations.filter((o) => o.kind === "ear_tip");
     if (newestActiveClip(earTips)?.id !== spotter.id) return "already";
     // A stale list page: the cat may have been confirmed, or marked not
@@ -950,7 +960,7 @@ export async function agreeWithClip(
     if (resolveSterilised(catObservations, []).confidence !== "likely") return "already";
 
     return writeObservation(tx, {
-      catId: spotter.catId,
+      catId,
       kind: "ear_tip",
       value: {
         clipped: true,
@@ -959,7 +969,7 @@ export async function agreeWithClip(
         reason: LOOKS_RIGHT_REASON,
       },
       accountId: person.id,
-      roleAtTime: actingRole(person, "set_sterilisation", await catTarget(spotter.catId, tx)),
+      roleAtTime: actingRole(person, "set_sterilisation", await catTarget(catId, tx)),
       observedAt: spotter.observedAt,
       sightingId: spotter.sightingId,
     });
@@ -978,7 +988,7 @@ export function newestActiveClip(observations: readonly Observation[]): Observat
   );
   let newest: Observation | null = null;
   for (const o of observations) {
-    if (o.kind !== "ear_tip" || replaced.has(o.id)) continue;
+    if (o.kind !== "ear_tip" || replaced.has(o.id) || isElsewhere(o)) continue;
     const v = o.value as { clipped?: unknown; agreesWith?: unknown } | null;
     if (v?.clipped !== true) continue;
     // An agreement with an answer that has since been replaced (the spotter

@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, sightingMatchesTable, type Observation } from "@workspace/db";
+import { canonicalCatOf } from "./catIdentity";
 import { readCoatValue, type CoatColour, type CoatPattern } from "./appearance";
 import {
   appearanceAuthorityLevel,
@@ -14,18 +15,19 @@ import {
 // the Colour check list (lib/colourCheck.ts) and the team cat page
 // (lib/teamCatView.ts).
 
-/** Of the sightings these colour answers came from, the ones matched by hand. */
+/**
+ * Of these colour answers, the ones whose sighting the spotter matched by
+ * hand to the answer's own cat (or a cat merged into the same one): their
+ * observation ids. A sighting the team moved to another cat was hand-picked
+ * for a different cat, so its copied answer isn't (which-cat-is-which.md
+ * §9.5).
+ */
 export async function handPickedAmong(observations: readonly Observation[]): Promise<Set<number>> {
-  const sightingIds = [
-    ...new Set(
-      observations
-        .filter((o) => o.kind === "coat" && o.roleAtTime === "public" && o.sightingId != null)
-        .map((o) => o.sightingId!),
-    ),
-  ];
+  const answers = observations.filter((o) => o.kind === "coat" && o.roleAtTime === "public" && o.sightingId != null);
+  const sightingIds = [...new Set(answers.map((o) => o.sightingId!))];
   if (sightingIds.length === 0) return new Set();
   const rows = await db
-    .select({ sightingId: sightingMatchesTable.sightingId })
+    .select({ sightingId: sightingMatchesTable.sightingId, chosenCatId: sightingMatchesTable.chosenCatId })
     .from(sightingMatchesTable)
     .where(
       and(
@@ -33,7 +35,19 @@ export async function handPickedAmong(observations: readonly Observation[]): Pro
         eq(sightingMatchesTable.choice, "hand_pick"),
       ),
     );
-  return new Set(rows.map((r) => r.sightingId));
+  const chosen = new Map(rows.map((r) => [r.sightingId, r.chosenCatId]));
+  const canonical = await canonicalCatOf([
+    ...rows.flatMap((r) => (r.chosenCatId == null ? [] : [r.chosenCatId])),
+    ...answers.map((o) => o.catId),
+  ]);
+  const out = new Set<number>();
+  for (const o of answers) {
+    const picked = chosen.get(o.sightingId!);
+    if (picked == null) continue;
+    const pickedCat = canonical.get(picked);
+    if (pickedCat != null && pickedCat === canonical.get(o.catId)) out.add(o.id);
+  }
+  return out;
 }
 
 /**
@@ -55,7 +69,7 @@ export async function handPickedAmong(observations: readonly Observation[]): Pro
 export function handPickDisagrees(
   observations: readonly Observation[],
   coat: { colours: AppearanceResolved<CoatColour[]>; pattern: AppearanceResolved<CoatPattern | null> },
-  handPickedSightings: ReadonlySet<number>,
+  handPickedAnswers: ReadonlySet<number>,
 ): boolean {
   const resolved: readonly CoatColour[] = coat.colours.value ?? [];
   const resolvedPattern = coat.pattern.value;
@@ -66,7 +80,7 @@ export function handPickDisagrees(
     .reduce((t, o) => Math.max(t, o.createdAt.getTime()), -Infinity);
   return standing.some((o) => {
     if (o.roleAtTime !== "public" || o.sightingId == null) return false;
-    if (!handPickedSightings.has(o.sightingId)) return false;
+    if (!handPickedAnswers.has(o.id)) return false;
     const said = readCoatValue(o.value);
     if (!said || said.notSure) return false;
     if (lookedAt > o.createdAt.getTime()) return false;

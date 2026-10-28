@@ -12,6 +12,7 @@
  * Round-up dates are in 2031 so they never meet a real evening's claim row.
  */
 import { deleteTestSightings } from "../test/sightings";
+import { moveSighting } from "../test/moves";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   db,
@@ -469,5 +470,26 @@ describe("no round-up text contains a time", () => {
     for (const s of ["seen at 18:42", "at 7", "6.15", "7pm", "5 minutes ago", "an hour", "8 o'clock", "18h30"]) {
       expect(s).toMatch(TIME_RE);
     }
+  });
+});
+
+describe("a sighting the team moved to another cat (SYC-150 PR 3.1; which-cat-is-which.md §5.8)", () => {
+  it("is no longer news of the cat it left: a move is a correction, never news", async () => {
+    const watcher = device("watcher");
+    const left = await seedCat({ name: "Mimi" });
+    const right = await seedCat({ name: "Dora" });
+    const stays = await seedCat({ name: "Lola" });
+    await follow(watcher, left.id);
+    await follow(watcher, stays.id);
+
+    const wrong = await sighting(left, athens("02-10", "09:15"));
+    await sighting(stays, athens("02-10", "10:30"));
+    await moveSighting(wrong.triggerSightingId!, right.id);
+    await settle();
+    sendPushNotificationMock.mockClear();
+
+    await sendDailyRoundUp(athens("02-10", "20:30"));
+    expect(pushesTo(watcher)).toHaveLength(1);
+    expect(pushesTo(watcher)[0]![3]).toEqual({ type: "sighting_round_up", catIds: [stays.id] });
   });
 });

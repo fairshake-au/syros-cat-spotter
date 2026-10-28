@@ -77,7 +77,7 @@ export async function claimEligibility(
   if (status?.lifeStatus !== "street") return { ok: false, code: "NOT_ON_STREET" };
 
   // Rule 2: this phone has met the cat (hasMetCat, below).
-  return (await hasMetCat(exec, catId, deviceId)) ? { ok: true } : { ok: false, code: "NOT_MET" };
+  return (await hasMetCat(exec, catId, deviceId, "claim")) ? { ok: true } : { ok: false, code: "NOT_MET" };
 }
 
 /**
@@ -85,25 +85,49 @@ export async function claimEligibility(
  * a spotter naming a cat Syros Cats left unnamed (SYC-709), so both read
  * "met" the same way, merges and moved sightings included.
  */
-export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): Promise<boolean> {
-  // A resolved sighting from this phone (a sighting unlinked by
-  // deletion has no device, so never matches), of this cat or of a cat merged
-  // into it by a merge nothing has undone, through chains (§10.3;
-  // `catsFeeding`, lib/catIdentity.ts), and either:
-  // - with no match record, which only a sighting from before records were
-  //   kept has (it is `unlabelled`; nothing backfilled them); or
-  // - with a match record whose choice wasn't recorded (the label is written
-  //   after the resolve, best effort), which counts like `unlabelled`
-  //   (Samuel, 14 Oct 2026), unless it names a chosen cat other than the
-  //   sighting's; or
-  // - with a match record that is still on the cat chosen at match time
-  //   (a sighting the team later moved doesn't count for its new cat), and
-  //   whose choice is one of MET_MATCH_CHOICES.
+export type MetPurpose = "name" | "claim";
+
+export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string, purpose: MetPurpose): Promise<boolean> {
+  // The cat this one now is (which-cat-is-which.md §9.9): both sides are
+  // compared as canonical cats. A cat in a merge loop has none, and nobody
+  // has met it (fail closed, as the claim's merged-away refusal does).
+  const canonical = (await canonicalCatOf([catId], {}, exec)).get(catId);
+  if (canonical == null) return false;
+  // Its cat and every cat merged into it, through chains (§10.3;
+  // `catsFeeding`, lib/catIdentity.ts): an id among these has the same
+  // canonical cat.
+  const feeding = (await catsFeeding([canonical], {}, exec)).get(canonical)?.ids ?? [canonical];
+  const same = sql.join(
+    feeding.map((id) => sql`${id}`),
+    sql`, `,
+  );
   const choices = sql.join(
     MET_MATCH_CHOICES.map((c) => sql`${c}`),
     sql`, `,
   );
-  const feeding = (await catsFeeding([catId], {}, exec)).get(catId)?.ids ?? [catId];
+  // A resolved sighting from this phone (a sighting unlinked by deletion has
+  // no device, so never matches), filed under this cat (or one merged into
+  // it), and either:
+  // - with no match record, which only a sighting from before records were
+  //   kept has (it is `unlabelled`; nothing backfilled them), or a record
+  //   whose choice wasn't recorded and names no cat (the label is written
+  //   after the resolve, best effort; it counts like `unlabelled`, Samuel,
+  //   14 Oct 2026): unless the team moved it here. Only a merge's moves
+  //   (`merged`, `merge_undone`) count like its first filing, and a
+  //   sighting the team moved away and back counts again once its newest
+  //   move files it under the cat it started on (Samuel's decision, 27 Oct
+  //   2026, review R4), as a hand-picked one does;
+  // - with a match record whose choice wasn't recorded, naming this cat; or
+  // - with a match record whose choice is one of MET_MATCH_CHOICES, naming
+  //   this cat: a sighting the team later moved doesn't count for its new
+  //   cat (claiming-a-cat.md §16), and one the spotter matched to Mimi still
+  //   counts for Agatha once Mimi is merged into her.
+  //
+  // `name` adds one more (D3): after "It's a new cat" with "Let spotters
+  // name it", the spotter whose photo started the cat may name it. The
+  // sighting's newest move made the cat, let spotters name it, and filed it
+  // where it still is. Only while the cat's name is pending, read here
+  // rather than left to the callers (review of #380, finding 4).
   const met = await exec.execute<{ met: boolean }>(sql`
     select exists (
       select 1
@@ -111,15 +135,35 @@ export async function hasMetCat(exec: DbOrTx, catId: number, deviceId: string): 
         left join sighting_matches m on m.sighting_id = s.id
        where s.device_id = ${deviceId}
          and s.status = 'resolved'
-         and s.cat_id in (${sql.join(
-           feeding.map((id) => sql`${id}`),
-           sql`, `,
-         )})
-         and (m.sighting_id is null
-              or (m.choice is null
-                  and (m.chosen_cat_id is null or m.chosen_cat_id = s.cat_id))
-              or (m.choice in (${choices}) and m.chosen_cat_id = s.cat_id))
-    ) as met`);
+         and s.cat_id in (${same})
+         and (((m.sighting_id is null or (m.choice is null and m.chosen_cat_id is null))
+               and (not exists (select 1 from sighting_moves mv
+                                 where mv.sighting_id = s.id
+                                   and mv.reason not in ('merged', 'merge_undone'))
+                    -- Filed back under the cat it started on (Samuel, 27 Oct 2026).
+                    or (select back.to_cat_id from sighting_moves back
+                         where back.sighting_id = s.id order by back.id desc limit 1)
+                       = (select began.from_cat_id from sighting_moves began
+                           where began.sighting_id = s.id order by began.id asc limit 1)))
+              or (m.choice is null and m.chosen_cat_id in (${same}))
+              or (m.choice in (${choices}) and m.chosen_cat_id in (${same})))
+    ) or (${purpose} = 'name'
+      and exists (select 1 from cats named where named.id = ${canonical} and named.name_pending)
+      and exists (
+      select 1
+        from sightings s
+        join lateral (select mv.made_new_cat, mv.let_spotters_name, mv.to_cat_id
+                        from sighting_moves mv
+                       where mv.sighting_id = s.id
+                       order by mv.id desc
+                       limit 1) newest on true
+       where s.device_id = ${deviceId}
+         and s.status = 'resolved'
+         and s.cat_id in (${same})
+         and newest.made_new_cat
+         and newest.let_spotters_name
+         and newest.to_cat_id = s.cat_id
+    )) as met`);
   return met.rows[0]?.met === true;
 }
 

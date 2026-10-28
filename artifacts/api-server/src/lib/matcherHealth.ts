@@ -164,7 +164,7 @@ export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<N
   // A cat merged into another is no longer a new cat to check (spec §9.3).
   const rows = await liveCats(
     {
-      catId: sightingsTable.catId,
+      catId: catsTable.id,
       photoId: sightingsTable.photoId,
       at: sightingMatchesTable.chosenAt,
       name: catsTable.name,
@@ -180,8 +180,10 @@ export async function newCatsAfterFailedCheck(now: Date = new Date()): Promise<N
       ),
     },
   )
-    .innerJoin(sightingsTable, eq(sightingsTable.catId, catsTable.id))
-    .innerJoin(sightingMatchesTable, eq(sightingMatchesTable.sightingId, sightingsTable.id))
+    // The cat the spotter made, from the match record: the sighting may
+    // have been moved to another cat since (which-cat-is-which.md §9.5).
+    .innerJoin(sightingMatchesTable, eq(sightingMatchesTable.chosenCatId, catsTable.id))
+    .innerJoin(sightingsTable, eq(sightingsTable.id, sightingMatchesTable.sightingId))
     .orderBy(desc(sightingMatchesTable.chosenAt));
   const photoIds = rows.map((r) => r.photoId);
   const photos = photoIds.length

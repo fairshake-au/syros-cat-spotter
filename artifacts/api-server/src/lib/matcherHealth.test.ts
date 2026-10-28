@@ -64,7 +64,8 @@ async function seedSighting(opts: { failed: boolean; at: Date; choice?: "new_cat
     sightingId: s!.id,
     matcherFailed: opts.failed,
     matchedAt: opts.at,
-    ...(opts.choice ? { choice: opts.choice, chosenAt: opts.at } : {}),
+    // As resolve records it: the cat the spotter made is the chosen cat.
+    ...(opts.choice ? { choice: opts.choice, chosenAt: opts.at, chosenCatId: catId } : {}),
   });
   return { sightingId: s!.id, catId };
 }
