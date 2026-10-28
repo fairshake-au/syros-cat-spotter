@@ -6,7 +6,10 @@ import { Card } from '@/components/purropolis/Card';
 import { displayUpperCase } from '@/lib/displayUpperCase';
 import { EAR_TIP_EXAMPLE_PHOTO } from '@/lib/earTipExample';
 import { factById } from '@/lib/starterFacts';
-import type { WaitChoice } from '@/lib/waitingCard';
+import type { FactProgress, WaitChoice } from '@/lib/waitingCard';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { TopicCat } from '@/components/waitingCats/TopicCat';
+import { FactProgressBar } from '@/components/FactProgressBar';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 
 /**
@@ -17,16 +20,21 @@ import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
  * transition, so "reduce motion" needs nothing extra.
  *
  * A fact: "While we look…", then the fact; the ear-tip fact shows Syros
- * Cats' example photo above its words. The feeding nudge (from PR 2): its own
+ * Cats' example photo above its words. SYC-772 (spec §3.1): a fact also shows
+ * its topic (a small cat picture and the topic's name) under the eyebrow, and
+ * "Cat fact n of N" with a walking cat after its words. A picture that can't be
+ * drawn is left out; the name and the fact always show. The feeding nudge (from PR 2): its own
  * heading and its words, no buttons during the wait.
  */
 export interface WaitingCardProps {
   choice: WaitChoice;
   t: (key: string) => string;
   examplePhoto?: ImageSourcePropType | null;
+  /** The count under the fact (SYC-772); null or missing when none is shown. */
+  progress?: FactProgress | null;
 }
 
-export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }: WaitingCardProps) {
+export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO, progress = null }: WaitingCardProps) {
   const colors = useColors();
   const announce = choice.kind === 'nudge' ? t('feedNudgeA11yLabel') : t('waitingFactA11yLabel');
 
@@ -61,6 +69,19 @@ export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }:
         <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>
           {displayUpperCase(t('waitingEyebrow'))}
         </Text>
+        {fact?.strand ? (
+          <View style={styles.topicRow}>
+            <ErrorBoundary FallbackComponent={() => null}>
+              <TopicCat strand={fact.strand} />
+            </ErrorBoundary>
+            <Text
+              testID="waiting-card-topic"
+              style={[styles.topic, { color: colors.mutedForeground }]}
+            >
+              {t(`factTopic${fact.strand}`)}
+            </Text>
+          </View>
+        ) : null}
         {fact?.photo && examplePhoto ? (
           <Image
             testID="waiting-card-photo"
@@ -75,6 +96,11 @@ export function WaitingCard({ choice, t, examplePhoto = EAR_TIP_EXAMPLE_PHOTO }:
             {t(fact.id)}
           </Text>
         ) : null}
+        {fact && progress ? (
+          <ErrorBoundary FallbackComponent={() => null}>
+            <FactProgressBar progress={progress} t={t} />
+          </ErrorBoundary>
+        ) : null}
       </Card>
     </View>
   );
@@ -86,6 +112,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes['2xs'],
     letterSpacing: 0.6,
+  },
+  topicRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  topic: {
+    flex: 1,
+    flexShrink: 1,
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.sm,
+    lineHeight: fontSizes.sm * 1.35,
   },
   title: { fontFamily: fonts.displaySemiBold, fontSize: fontSizes.lg, lineHeight: fontSizes.lg * 1.3 },
   body: { fontFamily: fonts.body, fontSize: fontSizes.md, lineHeight: fontSizes.md * 1.45 },
