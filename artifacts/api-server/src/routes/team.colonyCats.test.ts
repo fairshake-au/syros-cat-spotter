@@ -1145,23 +1145,19 @@ describe("SYC-619 §7.2 (D3) and SYC-396 PR 2.3: a colony's page is its trapping
     expect(row).not.toContain("<summary>More<");
   });
 
-  it("a merged-away record the colony still lists keeps its row under Not on the street, with no mark", async () => {
+  it("a colony statement on a merged-away record lists the cat she is now, once, and not the merged-away one (SYC-410)", async () => {
     const colony = await makeColony(unique("Merged"));
     const away = await seedCat("Merged-away");
     const into = await seedCat("Merged-into");
     await addCats(colony, [away]);
     await db.insert(catIdentityTable).values({ catId: away, canonicalCatId: into, reason: `${P}merge` });
     const view = await get(`/api/team/colonies/${colony}`).set("Accept", "application/json");
-    expect((view.body.cats as { id: number }[]).map((c) => c.id)).toContain(away);
+    const listed = (view.body.cats as { id: number }[]).map((c) => c.id);
+    expect(listed).toContain(into);
+    expect(listed).not.toContain(away);
     const html = (await get(`/api/team/colonies/${colony}`)).text;
-    expect(html).toContain("<summary>Not on the street (1)</summary>");
-    const row = [...html.matchAll(/<li class="colonycat">[\s\S]*?<\/li>/g)].map((m) => m[0]).find((r) => r.includes(`/api/team/cats/${away}"`));
-    expect(row, "the merged-away cat keeps its row").toBeTruthy();
-    expect(row).toContain("Merged into another cat&#39;s record");
-    expect(row).not.toContain('class="mark ');
-    expect(row).not.toContain("Last seen");
-    expect(row).not.toContain("Never seen");
-    // It keeps its own "Take out of this colony".
-    expect(row).toContain(`action="/api/team/cats/${away}/colony"`);
+    expect(html).not.toContain("Merged into another cat&#39;s record");
+    expect(html).not.toContain(`/api/team/cats/${away}"`);
+    expect(html).toContain(`/api/team/cats/${into}"`);
   });
 });

@@ -1,6 +1,7 @@
 import { catsTable, coloniesTable, db, foldName, photosTable } from "@workspace/db";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { actingRole, can } from "./capabilities";
+import { liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { colonyFilter, covers, type Visible } from "./guardianView";
 import { ObservationRefused, writeObservation } from "./observations";
@@ -162,22 +163,24 @@ export async function searchCatsToAdd(visible: Visible, rawQuery: string): Promi
   const syrId = syr ? Number(syr[1]) : null;
 
   // strpos, not LIKE: a % or _ typed into the box means itself.
-  const rows = await db
-    .select({
+  // A merged-away cat is not offered: she counts as the cat she was merged
+  // into (spec §4.2; "also known as" is PR 4.1).
+  const rows = await liveCats(
+    {
       id: catsTable.id,
       name: catsTable.name,
       namePending: catsTable.namePending,
       primaryPhotoId: catsTable.primaryPhotoId,
       photoPublicId: photosTable.publicId,
-    })
-    .from(catsTable)
-    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
-    .where(
-      or(
+    },
+    {
+      where: or(
         sql`strpos(${catsTable.normalisedName}, ${q}) > 0`,
         syrId !== null ? eq(catsTable.id, syrId) : undefined,
       ),
-    )
+    },
+  )
+    .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
     .orderBy(
       sql`(case
         when ${syrId !== null ? sql`${catsTable.id} = ${syrId}` : sql`false`} then 0

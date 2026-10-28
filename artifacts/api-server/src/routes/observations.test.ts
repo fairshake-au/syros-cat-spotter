@@ -797,6 +797,11 @@ describe("GET /api/team/observations/review/likely", () => {
     // 11, not 10, since SYC-43 part 2 PR 5: loadCatRecords gained one batched
     // query (welfare reports replaced by a row on another cat), a fixed cost
     // that does not grow with the number of cats.
-    expect(queryCount).toBeLessThan(11);
+    //
+    // 12 measured (the bound is "less than 13"), since SYC-410 PR 1.2: the list
+    // asks which cat each ear-tip cat is now (one canonicalCatOf query) and
+    // reads the cats through liveCats instead of a join (one more query), so a
+    // merged pair shows once. Fixed, and the same whatever the number of cats.
+    expect(queryCount).toBeLessThan(13);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { deriveCatStatuses, toPublicDay } from "./catHelpers";
+import { liveCats } from "./catIdentity";
 import type { CoatColour, CoatPattern, LegacyPublicCode, Mark } from "./appearance";
 import { hiddenPhotoIds } from "./photoVisibility";
 import { loadCatRecords } from "./observations";
@@ -124,8 +125,8 @@ export async function guardianCats(
 ): Promise<GuardianCat[]> {
   const ids = [...new Set(catIds)];
   if (ids.length === 0) return [];
-  const cats = await db
-    .select({
+  const cats = await liveCats(
+    {
       id: catsTable.id,
       name: catsTable.name,
       namePending: catsTable.namePending,
@@ -134,9 +135,9 @@ export async function guardianCats(
       lng: catsTable.lng,
       ownerDeviceId: catsTable.ownerDeviceId,
       primaryPhotoId: catsTable.primaryPhotoId,
-    })
-    .from(catsTable)
-    .where(inArray(catsTable.id, ids));
+    },
+    { where: inArray(catsTable.id, ids) },
+  );
   if (cats.length === 0) return [];
 
   const colonyIds = [...new Set(cats.map((c) => colonyOf.get(c.id)).filter((c): c is number => c !== undefined))];

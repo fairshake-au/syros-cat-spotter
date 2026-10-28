@@ -1,5 +1,6 @@
-import { db } from "@workspace/db";
-import { sql, type SQL } from "drizzle-orm";
+import { catsTable, db, observationsTable } from "@workspace/db";
+import { and, inArray, sql, type SQL, type SQLWrapper } from "drizzle-orm";
+import type { SelectedFields } from "drizzle-orm/pg-core";
 
 /**
  * The one reader of merges (SYC-410; which-cat-is-which.md §9.3).
@@ -142,6 +143,8 @@ export interface Feeding {
    * counts for Dora from the 5th). The cat itself isn't listed.
    */
   since: ReadonlyMap<number, Date>;
+  /** How many merges away each merged-in cat is (1 = merged straight into this cat). */
+  hops: ReadonlyMap<number, number>;
   /** Whether a statement on `catId` of `kind` counts for this cat (`excludeKinds`). */
   counts(row: { catId: number; kind: string }): boolean;
 }
@@ -166,7 +169,7 @@ export async function catsFeeding(
   // Walk the standing merges backwards from each cat asked about. Each cat
   // has at most one standing row, so a cat found here passes through the
   // target on its one way forward.
-  const r = await q.execute<{ target: number; cat: number; since: Date | string }>(sql`
+  const r = await q.execute<{ target: number; cat: number; since: Date | string; depth: number }>(sql`
     with recursive standing as (${standing(opts.asOf)}),
     back (target, at, depth, path, since) as (
       select t, t, 0, array[t], null::timestamptz
@@ -178,11 +181,11 @@ export async function catsFeeding(
        where b.depth < ${MAX_MERGE_HOPS}
          and not (m.cat_id = any (b.path))
     )
-    select target, at as cat, since from back where depth > 0`);
+    select target, at as cat, since, depth from back where depth > 0`);
 
   // Only a cat whose whole chain ends at a real cat feeds anything: a cat
   // whose chain loops, or runs too deep, keeps its records to itself.
-  const found = r.rows.map((row) => ({ target: Number(row.target), cat: Number(row.cat), since: new Date(row.since) }));
+  const found = r.rows.map((row) => ({ target: Number(row.target), cat: Number(row.cat), since: new Date(row.since), depth: Number(row.depth) }));
   const canonical = await canonicalCatOf(
     found.map((f) => f.cat),
     opts,
@@ -192,13 +195,81 @@ export async function catsFeeding(
   const excluded = new Set(opts.excludeKinds ?? []);
   for (const id of ids) {
     const since = new Map<number, Date>();
-    for (const f of found) if (f.target === id && canonical.get(f.cat) != null) since.set(f.cat, f.since);
+    const hops = new Map<number, number>();
+    for (const f of found) {
+      if (f.target !== id || canonical.get(f.cat) == null) continue;
+      since.set(f.cat, f.since);
+      hops.set(f.cat, f.depth);
+    }
     out.set(id, {
       catId: id,
       ids: [id, ...since.keys()],
       since,
+      hops,
       counts: (row) => row.catId === id || (since.has(row.catId) && !excluded.has(row.kind)),
     });
   }
   return out;
+}
+
+/**
+ * SQL that is true when `catId` names a cat that is not merged away (as of
+ * `asOf`): the same answer as {@link catsMergedAway} for every id (the same
+ * standing merges, the same {@link MAX_MERGE_HOPS}-hop walk, a loop or a chain
+ * too deep is not merged away), in one fixed subquery whatever the number of
+ * cats. For a query that already reads cats through {@link liveCats}, or one
+ * that starts from another table and filters on its cat id column.
+ */
+export function notMergedAway(catId: SQLWrapper, opts: MergeReadOptions = {}): SQL {
+  return sql`${catId} not in (
+    with recursive standing as (${standing(opts.asOf)}),
+    walk (start, at, depth, path) as (
+      select s.cat_id, s.cat_id, 0, array[s.cat_id] from standing s
+      union all
+      select w.start, m.canonical_cat_id, w.depth + 1, w.path || m.canonical_cat_id
+        from walk w
+        join standing m on m.cat_id = w.at
+       where w.depth < ${MAX_MERGE_HOPS}
+         and not (m.canonical_cat_id = any (w.path))
+    ),
+    deepest as (
+      select distinct on (start) start, at from walk order by start, depth desc
+    )
+    select d.start from deepest d
+     where d.at <> d.start
+       and not exists (select 1 from standing m where m.cat_id = d.at))`;
+}
+
+/**
+ * Cats that are not merged away: `select <fields> from cats where
+ * notMergedAway(cats.id) and <where>`. The only way to list or count cats
+ * (spec §9.3): a merged-away cat counts for the cat it was merged into, so
+ * it is not a cat of its own in any list, count, pool or search. The caller
+ * may still join, group, order, page and lock after it. Loading one cat by
+ * id for a page or an action is not this (it names `catsTable` and is on the
+ * liveCatsGuard allowlist, with its reason).
+ */
+export function liveCats<F extends SelectedFields>(
+  fields: F,
+  opts: MergeReadOptions & { where?: SQL } = {},
+  q: Pick<typeof db, "select"> = db,
+) {
+  const live = notMergedAway(catsTable.id, opts);
+  return q
+    .select(fields)
+    .from(catsTable)
+    .where(opts.where ? and(live, opts.where) : live);
+}
+
+/**
+ * SQL: the statement's cat is one of the cats feeding these (see
+ * {@link catsFeeding}). `col` defaults to `observationsTable.catId`; a
+ * raw-SQL reader passes its own column (`sql.raw("w.cat_id")`). An empty set
+ * matches nothing. Keep only the rows whose feeding `counts(row)`.
+ */
+export function observationCatIn(feedings: Iterable<Feeding>, col: SQLWrapper = observationsTable.catId): SQL {
+  const ids = new Set<number>();
+  for (const f of feedings) for (const id of f.ids) ids.add(id);
+  if (ids.size === 0) return sql`false`;
+  return inArray(col, [...ids]);
 }

@@ -19,7 +19,7 @@ import {
   type SuggestedMatch,
   type PICKED_FROM,
 } from "@workspace/db";
-import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -48,6 +48,7 @@ import {
 } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
 import { selectCandidateCats } from "../lib/candidateSelection";
+import { liveCats } from "../lib/catIdentity";
 import { awardPoints } from "../lib/pointsLedger";
 import { placeFor } from "../lib/areas/placeFor";
 import {
@@ -255,6 +256,9 @@ const ALREADY_RESOLVED = new Error("Sighting already resolved");
 // SYC-415 (spec §5.2): `photos` is every photo of the spot, in position
 // order, and the record also notes "no cat in any photo" and "may be more
 // than one cat".
+/** The cats a photo check compares against: every live cat (exported for the merge tests). */
+export const matcherPool = () => liveCats(getTableColumns(catsTable));
+
 async function computeMatchCandidates(
   req: Request,
   sightingId: number,
@@ -264,7 +268,9 @@ async function computeMatchCandidates(
 ): Promise<MatchAnswer> {
   // SYC-39: only cats within 500 m (exact positions), nearest first — see
   // selectCandidateCats and DECISIONS.md Part 2h.
-  const cats = await db.select().from(catsTable);
+  // A merged-away cat is part of the cat she was merged into, so she is not a
+  // candidate of her own (spec §9.3).
+  const cats = await matcherPool();
   const nearest = selectCandidateCats(cats, lat, lng);
 
   let isCatPhoto = true;
@@ -739,7 +745,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
  * best first, with the photo the catalogue shows. The model's reasoning
  * isn't stored, so it is empty.
  */
-async function storedAnswer(stored: {
+export async function storedAnswer(stored: {
   suggested: SuggestedMatch[] | null;
   noCatInAnyPhoto: boolean | null;
 }): Promise<MatchAnswer> {
@@ -748,10 +754,7 @@ async function storedAnswer(stored: {
     .sort((a, b) => a.rank - b.rank);
   const cats =
     shown.length > 0
-      ? await db
-          .select()
-          .from(catsTable)
-          .where(inArray(catsTable.id, shown.map((m) => m.catId)))
+      ? await liveCats(getTableColumns(catsTable), { where: inArray(catsTable.id, shown.map((m) => m.catId)) })
       : [];
   const byId = new Map(cats.map((c) => [c.id, c]));
   const present = shown.filter((m) => byId.has(m.catId));

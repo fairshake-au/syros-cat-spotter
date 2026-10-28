@@ -162,7 +162,7 @@ describe("To do, Done and Not on the street", () => {
     );
   });
 
-  it("keeps a merged-away half in the colony as Not on the street", async () => {
+  it("lists a merged pair once, as the cat she is now (SYC-410: the colony counts both records as one)", async () => {
     const c = await newColony("plan-merged");
     const keep = await cat();
     await into(keep, c);
@@ -171,7 +171,18 @@ describe("To do, Done and Not on the street", () => {
     await db.insert(catIdentityTable).values({ catId: half, canonicalCatId: keep, createdBy: "vitest-plan" });
     const plan = (await trappingPlan(TEAM, c, { island: true }, NOW))!;
     expect(ids(plan.toDo)).toEqual([keep]);
-    expect(plan.other).toEqual([expect.objectContaining({ id: half, why: "merged" })]);
+    expect(plan.other).toEqual([]);
+  });
+
+  it("a colony statement on the merged-away cat alone puts the cat she is now in the colony", async () => {
+    const c = await newColony("plan-merged-only");
+    const keep = await cat();
+    const half = await cat();
+    await into(half, c);
+    await db.insert(catIdentityTable).values({ catId: half, canonicalCatId: keep, createdBy: "vitest-plan" });
+    const plan = (await trappingPlan(TEAM, c, { island: true }, NOW))!;
+    expect(ids(plan.toDo)).toEqual([keep]);
+    expect(plan.other).toEqual([]);
   });
 
   it("never cuts the list short", async () => {

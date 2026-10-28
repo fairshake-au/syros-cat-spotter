@@ -1,6 +1,6 @@
 import { catsTable, db, foldName, photosTable, sightingsTable } from "@workspace/db";
 import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
-import { catsMergedAway } from "./catIdentity";
+import { liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
@@ -199,24 +199,18 @@ export interface TeamCat extends CatListItem {
 export async function loadTeamCats(now?: Date, opts: { asOf?: Date } = {}): Promise<TeamCat[]> {
   const asOf = opts.asOf;
   const at = now ?? asOf ?? new Date();
-  const rows = await db
-      .select({
-        id: catsTable.id,
-        name: catsTable.name,
-        namePending: catsTable.namePending,
-        lat: catsTable.lat,
-        lng: catsTable.lng,
-        createdAt: catsTable.createdAt,
-        photoPublicId: photosTable.publicId,
-      })
-      .from(catsTable)
-      .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
-      .where(asOf ? lte(catsTable.createdAt, asOf) : undefined);
-  const away = await catsMergedAway(
-    rows.map((c) => c.id),
-    { asOf },
-  );
-  const cats = rows.filter((c) => !away.has(c.id));
+  const cats = await liveCats(
+    {
+      id: catsTable.id,
+      name: catsTable.name,
+      namePending: catsTable.namePending,
+      lat: catsTable.lat,
+      lng: catsTable.lng,
+      createdAt: catsTable.createdAt,
+      photoPublicId: photosTable.publicId,
+    },
+    { asOf, where: asOf ? lte(catsTable.createdAt, asOf) : undefined },
+  ).leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId));
   const ids = cats.map((c) => c.id);
 
   const [records, colonies, seen] = await Promise.all([

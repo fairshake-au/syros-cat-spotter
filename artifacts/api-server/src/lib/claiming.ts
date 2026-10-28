@@ -2,7 +2,7 @@ import { catsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { haversineKm } from "@workspace/geo";
 import { blurPosition } from "./blur";
-import { canonicalCatOf, catsFeeding } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
 import { deriveCatStatuses } from "./catHelpers";
 import { pr3Recorded } from "./pr3Gate";
 import type { DbOrTx } from "./observations";
@@ -187,10 +187,13 @@ export async function letGoWithinDays(
   deviceId: string,
   days: number,
 ): Promise<boolean> {
+  // A withdrawal on any record that counts for this cat counts (SYC-410,
+  // spec §4.2: "checked against both records").
+  const feeding = (await catsFeeding([catId], {}, exec)).get(catId)!;
   const r = await exec.execute<{ found: boolean }>(sql`
     select exists (
       select 1 from observations
-       where cat_id = ${catId}
+       where ${observationCatIn([feeding], sql.raw("cat_id"))}
          and kind = 'life_status'
          and device_id = ${deviceId}
          and value = '{"withdrawn": true}'::jsonb
@@ -213,17 +216,18 @@ export async function removedByTeamWithinDays(
   deviceId: string,
   days: number,
 ): Promise<boolean> {
+  const feeding = (await catsFeeding([catId], {}, exec)).get(catId)!;
   const r = await exec.execute<{ found: boolean }>(sql`
     select exists (
       select 1
         from observations w
         join observations h on h.id = w.supersedes_id
-       where w.cat_id = ${catId}
+       where ${observationCatIn([feeding], sql.raw("w.cat_id"))}
          and w.kind = 'life_status'
          and w.account_id is not null
          and w.value = '{"withdrawn": true}'::jsonb
          and w.created_at > now() - make_interval(days => ${days}::int)
-         and h.cat_id = ${catId}
+         and ${observationCatIn([feeding], sql.raw("h.cat_id"))}
          and h.kind = 'life_status'
          and h.value->>'status' = 'homed'
          and h.device_id = ${deviceId}

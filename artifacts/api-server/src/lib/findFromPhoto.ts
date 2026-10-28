@@ -1,5 +1,6 @@
 import { catsTable, db, photosTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
+import { liveCats } from "./catIdentity";
 import { MAX_CANDIDATES } from "./candidateSelection";
 import { fillMissing, fingerprintsFor, rank } from "./fingerprint";
 import { fingerprintOf } from "./fingerprint/model";
@@ -108,10 +109,10 @@ export const isWholeIsland = (f: FindFilters): boolean => f.area === undefined &
 export async function displayPhotoOf(catIds: number[]): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (catIds.length === 0) return out;
-  const rows = await db
-    .select({ id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId })
-    .from(catsTable)
-    .where(inArray(catsTable.id, catIds));
+  const rows = await liveCats(
+    { id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId },
+    { where: inArray(catsTable.id, catIds) },
+  );
   for (const [catId, photoId] of await catDisplayPhotoIds(rows)) if (photoId !== null) out.set(catId, photoId);
   return out;
 }
@@ -318,10 +319,10 @@ function best(
  * can't be compared and is left out.
  */
 async function referencePhotos(cats: { id: number; name: string }[]): Promise<Candidate[]> {
-  const rows = await db
-    .select({ id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId })
-    .from(catsTable)
-    .where(inArray(catsTable.id, cats.map((c) => c.id)));
+  const rows = await liveCats(
+    { id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId },
+    { where: inArray(catsTable.id, cats.map((c) => c.id)) },
+  );
   const shown = await catDisplayPhotoIds(rows);
   const shownIds = [...new Set([...shown.values()].filter((id): id is number => id !== null))];
   const publicIds = new Map(

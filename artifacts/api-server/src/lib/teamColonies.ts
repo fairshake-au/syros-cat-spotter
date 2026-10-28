@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catIdentity";
 import { catsByColony, catsInColony } from "./colonyMembership";
 import { colonyFilter, covers, nameLabeller, type Visible } from "./guardianView";
 import { recordMappingEvent } from "./mappingEvents";
@@ -189,9 +190,14 @@ async function catHistoryEntries(visible: Visible, colonyId: number): Promise<Co
     .from(observationsTable)
     .where(and(standing, sql`${observationsTable.value}->>'colonyId' = ${String(colonyId)}`));
   if (touched.length === 0) return [];
-  const catIds = touched.map((t) => t.catId);
+  // The history is the combined record of the cat each one is now (SYC-410,
+  // spec §4.2): a cat merged into another is listed once, as that cat, with
+  // every colony statement of both records walked in time order.
+  const canonical = await canonicalCatOf(touched.map((t) => t.catId));
+  const catIds = [...new Set(touched.map((t) => canonical.get(t.catId) ?? t.catId))].sort((a, b) => a - b);
+  const feeding = await catsFeeding(catIds);
 
-  const rows = await db
+  const raw = await db
     .select({
       id: observationsTable.id,
       catId: observationsTable.catId,
@@ -200,18 +206,27 @@ async function catHistoryEntries(visible: Visible, colonyId: number): Promise<Co
       createdAt: observationsTable.createdAt,
     })
     .from(observationsTable)
-    .where(and(standing, inArray(observationsTable.catId, catIds)))
-    .orderBy(
-      asc(observationsTable.catId),
-      asc(observationsTable.observedAt),
-      asc(observationsTable.id),
-    );
+    .where(and(standing, observationCatIn(feeding.values())))
+    .orderBy(asc(observationsTable.observedAt), asc(observationsTable.id));
+  // Each statement, filed under the cat it now counts for, cat by cat.
+  const order = new Map(raw.map((r, i) => [r, i]));
+  const rawByCat = new Map<number, typeof raw>();
+  for (const r of raw) {
+    const list = rawByCat.get(r.catId);
+    if (list) list.push(r);
+    else rawByCat.set(r.catId, [r]);
+  }
+  const rows = catIds.flatMap((target) => {
+    const f = feeding.get(target)!;
+    return f.ids
+      .flatMap((feeder) => rawByCat.get(feeder) ?? [])
+      .filter((r) => f.counts({ catId: r.catId, kind: "colony" }))
+      .sort((a, b) => order.get(a)! - order.get(b)!)
+      .map((r) => ({ ...r, catId: target }));
+  });
 
   const [cats, label] = await Promise.all([
-    db
-      .select({ id: catsTable.id, name: catsTable.name })
-      .from(catsTable)
-      .where(inArray(catsTable.id, catIds)),
+    liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, catIds) }),
     nameLabeller(
       visible,
       rows.map((r) => (r.accountId && isPersonId(r.accountId) ? r.accountId : null)),
@@ -333,15 +348,15 @@ export async function colonyView(visible: Visible, id: number): Promise<ColonyVi
     catIds.length === 0
       ? []
       : (
-          await db
-            .select({
+          await liveCats(
+            {
               id: catsTable.id,
               name: catsTable.name,
               photoPublicId: photosTable.publicId,
-            })
-            .from(catsTable)
+            },
+            { where: inArray(catsTable.id, catIds) },
+          )
             .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
-            .where(inArray(catsTable.id, catIds))
             .orderBy(asc(catsTable.name), asc(catsTable.id))
         ).map((c) => ({
           id: c.id,

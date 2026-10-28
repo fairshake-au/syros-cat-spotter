@@ -9,6 +9,7 @@ import {
   personEventsTable,
   type Observation,
 } from "@workspace/db";
+import { catsFeeding, observationCatIn } from "./catIdentity";
 import { authorityLevel, supersedeChains } from "./resolve";
 import { readCoatValue } from "./appearance";
 
@@ -240,28 +241,46 @@ export async function listGuardianChanges(
   const catIds = [
     ...new Set([...statements.map((s) => s.catId), ...overrules.map((o) => o.row.catId)]),
   ];
+  // Whether a statement still stands is judged over the same rows the cat's
+  // page reads: every record that counts for her, a merged-in cat's coat and
+  // markings left out (SYC-410, spec §4.2).
+  const feeding = await catsFeeding(catIds, { excludeKinds: ["coat", "markings"] });
   const sameKindRows =
     catIds.length === 0
       ? []
-      : await db
-          .select()
-          .from(observationsTable)
-          .where(
-            and(
-              inArray(observationsTable.catId, catIds),
-              inArray(
-                observationsTable.kind,
-                [...new Set([...statements.map((s) => s.kind), ...overrules.map((o) => o.row.kind)])].concat("_none"),
+      : (
+          await db
+            .select()
+            .from(observationsTable)
+            .where(
+              and(
+                observationCatIn(feeding.values()),
+                inArray(
+                  observationsTable.kind,
+                  [...new Set([...statements.map((s) => s.kind), ...overrules.map((o) => o.row.kind)])].concat("_none"),
+                ),
               ),
-            ),
-          );
+            )
+        ).filter((o) => [...feeding.values()].some((f) => f.counts(o)));
 
+  // Each cat asked about, by kind: her rows and those of every cat feeding her.
   const rowsByCatKind = new Map<string, Observation[]>();
+  const sameKindByCat = new Map<number, Observation[]>();
   for (const o of sameKindRows) {
-    const key = `${o.catId}:${o.kind}`;
-    const list = rowsByCatKind.get(key) ?? [];
-    list.push(o);
-    rowsByCatKind.set(key, list);
+    const list = sameKindByCat.get(o.catId);
+    if (list) list.push(o);
+    else sameKindByCat.set(o.catId, [o]);
+  }
+  for (const [target, f] of feeding) {
+    for (const feeder of f.ids) {
+      for (const o of sameKindByCat.get(feeder) ?? []) {
+        if (!f.counts(o)) continue;
+        const key = `${target}:${o.kind}`;
+        const list = rowsByCatKind.get(key) ?? [];
+        list.push(o);
+        rowsByCatKind.set(key, list);
+      }
+    }
   }
   // What no longer stands. For the kinds a vet visit writes, by the
   // resolver's restore rule (SYC-396 PR 3.0): her statement overruled by a

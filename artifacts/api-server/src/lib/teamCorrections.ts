@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { catsTable, db, observationsTable, type Observation } from "@workspace/db";
 import { actingRole, can, type Capability } from "./capabilities";
@@ -26,6 +26,8 @@ import {
   supersedeChains,
   type RestorableKind,
 } from "./resolve";
+import { canonicalCatOf, catsFeeding, observationCatIn } from "./catIdentity";
+import { pickColonyRow } from "./colonyMembership";
 import { catNamed, isBlankName, isSyrShapedName, isUniqueViolation } from "./catNames";
 import { containsOffensiveLanguage } from "./moderation";
 import { TEAM_ROLES } from "./teamRoles";
@@ -96,14 +98,25 @@ export const SUPERSEDE_CAPABILITIES: readonly Capability[] = [
  * taken from a form or a JSON body: whoever marks a statement wrong chooses
  * nothing about where the cat goes instead.
  */
-async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
+export async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{ colonyId: number | null }> {
   const replacer = alias(observationsTable, "replacer");
-  const [next] = await tx
-    .select({ value: observationsTable.value })
+  // "The other statements" are those of every record that counts for the cat
+  // she is now (SYC-410, spec §4.2), so the colony she goes back to matches
+  // what her page shows.
+  const now = (await canonicalCatOf([original.catId], {}, tx)).get(original.catId) ?? original.catId;
+  const feeding = (await catsFeeding([now], {}, tx)).get(now)!;
+  // Each record's newest other statement; colonyMembership's one rule picks.
+  const candidates = await tx
+    .selectDistinctOn([observationsTable.catId], {
+      id: observationsTable.id,
+      catId: observationsTable.catId,
+      observedAt: observationsTable.observedAt,
+      value: observationsTable.value,
+    })
     .from(observationsTable)
     .where(
       and(
-        eq(observationsTable.catId, original.catId),
+        observationCatIn([feeding]),
         eq(observationsTable.kind, "colony"),
         isNull(observationsTable.redactedAt),
         // Only ORIGINAL statements say where the cat goes back to. A row that
@@ -124,8 +137,8 @@ async function colonyAfterMarkingWrong(tx: Tx, original: Observation): Promise<{
         ),
       ),
     )
-    .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id))
-    .limit(1);
+    .orderBy(asc(observationsTable.catId), desc(observationsTable.observedAt), desc(observationsTable.id));
+  const next = pickColonyRow(feeding, new Map(candidates.map((r) => [r.catId, r])));
   const colonyId = (next?.value as { colonyId?: unknown } | undefined)?.colonyId;
   return { colonyId: typeof colonyId === "number" ? colonyId : null };
 }

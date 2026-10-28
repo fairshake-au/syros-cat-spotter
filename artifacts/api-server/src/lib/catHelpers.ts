@@ -16,6 +16,7 @@ import {
   streakFromDays,
   todayInStreakTimezone,
 } from "./streak";
+import { catsFeeding, liveCats } from "./catIdentity";
 import { loadCatRecords, type DbOrTx } from "./observations";
 import { resolveCat, type Confidence, type LifeStatusValue } from "./resolve";
 import {
@@ -370,16 +371,20 @@ export async function deriveCatStatuses(
     // Legacy fallback (plan, PR 4): hasHome from owner_device_id, the
     // sterilised line from the legacy `desexed` cat_updates row. One
     // batched query for every id in the page, never one per cat (§2.3).
+    // A cat merged into another counts for her (SYC-410).
+    const feeding = await catsFeeding(catIds, {}, exec);
+    const feedingIds = [...new Set([...feeding.values()].flatMap((f) => f.ids))];
     const desexedRows = await exec
       .select({ catId: catUpdatesTable.catId })
       .from(catUpdatesTable)
       .where(
         and(
-          inArray(catUpdatesTable.catId, catIds),
+          inArray(catUpdatesTable.catId, feedingIds),
           eq(catUpdatesTable.updateType, "desexed"),
         ),
       );
-    const desexedCatIds = new Set(desexedRows.map((r) => r.catId));
+    const desexedOn = new Set(desexedRows.map((r) => r.catId));
+    const desexedCatIds = new Set(catIds.filter((id) => feeding.get(id)!.ids.some((f) => desexedOn.has(f))));
 
     for (const cat of cats) {
       const hasHome = cat.ownerDeviceId !== null;
@@ -513,14 +518,14 @@ export async function listCatsWithStats(
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   const viewer: Viewer = { tier: "public", from: opts.from };
 
-  const order = await db
-    .select({
-      id: catsTable.id,
-      lat: catsTable.lat,
-      lng: catsTable.lng,
-      lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'Europe/Athens', 'YYYY-MM-DD')`,
-    })
-    .from(catsTable)
+  // A merged-away cat is part of the cat she was merged into, so she is not
+  // listed or counted here (spec §9.3).
+  const order = await liveCats({
+    id: catsTable.id,
+    lat: catsTable.lat,
+    lng: catsTable.lng,
+    lastSeenDay: sql<string>`to_char(coalesce(max(${sightingsTable.createdAt}), ${catsTable.createdAt}) at time zone 'Europe/Athens', 'YYYY-MM-DD')`,
+  })
     .leftJoin(
       sightingsTable,
       and(eq(sightingsTable.catId, catsTable.id), eq(sightingsTable.status, "resolved")),
@@ -540,8 +545,8 @@ export async function listCatsWithStats(
   const nextPage = page * pageSize < total ? page + 1 : null;
   if (pageIds.length === 0) return { cats: [], page, pageSize, total, nextPage };
 
-  const rows = await db
-    .select({
+  const rows = await liveCats(
+    {
       cat: catsTable,
       sightingsCount: sql<number>`count(${sightingsTable.id})::int`,
       lastSeenAt: sql<string | null>`to_char(max(${sightingsTable.createdAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
@@ -553,8 +558,9 @@ export async function listCatsWithStats(
         select ${profilesTable.username} from ${profilesTable}
         where ${profilesTable.deviceId} = ${catsTable.discovererDeviceId}
       )`,
-    })
-    .from(catsTable)
+    },
+    { where: inArray(catsTable.id, pageIds) },
+  )
     .leftJoin(
       sightingsTable,
       and(
@@ -562,7 +568,6 @@ export async function listCatsWithStats(
         eq(sightingsTable.status, "resolved"),
       ),
     )
-    .where(inArray(catsTable.id, pageIds))
     .groupBy(catsTable.id);
 
   // §2.3: this page's derived status and photos in one batch each, never one
@@ -718,9 +723,7 @@ export async function fansCount(catId: number): Promise<number> {
 
 /** Size of the whole cat-alog — the denominator in "12 of 142 cats spotted". */
 export async function totalCatCount(): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(catsTable);
+  const [row] = await liveCats({ n: sql<number>`count(*)::int` });
   return row?.n ?? 0;
 }
 

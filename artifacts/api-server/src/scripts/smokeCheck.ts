@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { catsTable, db, photosTable, pool, sightingsTable } from "@workspace/db";
 import { areaFor } from "../lib/areas/namedAreas";
+import { liveCats } from "../lib/catIdentity";
 import { makeVariant } from "../lib/photoVariants";
 import { catDisplayPhotoIds, hiddenPhotoIds } from "../lib/photoVisibility";
 import { allTeamCats } from "../lib/teamCatList";
@@ -124,10 +125,10 @@ export async function runSmokeCheck(
   // paid matching service, which needs its keys to even load.
   const active = (await allTeamCats({})).cats.filter((c) => opts.onlyCats?.(c) ?? true);
   const rows = active.length
-    ? await db
-        .select({ id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId })
-        .from(catsTable)
-        .where(inArray(catsTable.id, active.map((c) => c.id)))
+    ? await liveCats(
+        { id: catsTable.id, primaryPhotoId: catsTable.primaryPhotoId },
+        { where: inArray(catsTable.id, active.map((c) => c.id)) },
+      )
     : [];
   const shown = await catDisplayPhotoIds(rows);
 

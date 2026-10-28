@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   catsTable,
   catUpdatesTable,
@@ -7,6 +7,7 @@ import {
   type CatUpdate,
   type Observation,
 } from "@workspace/db";
+import { catsFeeding } from "./catIdentity";
 import { fanOutNotifications, insertCatUpdate } from "./notificationFanout";
 import { logger } from "./logger";
 import {
@@ -100,10 +101,13 @@ export async function commitStatement(
   const after = await sterilisedAnswer(tx, cat.id);
   if (confirmedSterilised(before) || !confirmedSterilised(after)) return row;
 
+  // Announced once per animal, ever: a cat merged into this one that was
+  // announced already counts (SYC-410, spec 4.2).
+  const feedingIds = (await catsFeeding([cat.id], {}, tx)).get(cat.id)!.ids;
   const [already] = await tx
     .select({ one: sql<number>`1` })
     .from(catUpdatesTable)
-    .where(and(eq(catUpdatesTable.catId, cat.id), eq(catUpdatesTable.updateType, "desexed")))
+    .where(and(inArray(catUpdatesTable.catId, feedingIds), eq(catUpdatesTable.updateType, "desexed")))
     .limit(1);
   if (already) return row;
 

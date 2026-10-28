@@ -1,5 +1,6 @@
 import { catsTable, coloniesTable, db, feedingSitesTable, photosTable } from "@workspace/db";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { liveCats } from "../catIdentity";
 import { catsInColony } from "../colonyMembership";
 import { colonyFilter, type Visible } from "../guardianView";
 import { placeLabel, publicLabelOf, type PublicLabel } from "../areas/placeLabel";
@@ -182,23 +183,22 @@ export async function trappingPlan(
   const missing = ids.filter((id) => !seen.has(id));
 
   // Where a guardian's cat was first found, and the records loadTeamCats
-  // leaves out (merged-away halves): one query for both.
+  // leaves out: one query for both.
   const needRows = opts.island ? missing : ids;
   const rows =
     needRows.length === 0
       ? []
-      : await db
-          .select({
+      : await liveCats(
+          {
             id: catsTable.id,
             name: catsTable.name,
             namePending: catsTable.namePending,
             lat: catsTable.lat,
             lng: catsTable.lng,
             photoPublicId: photosTable.publicId,
-          })
-          .from(catsTable)
-          .leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId))
-          .where(inArray(catsTable.id, needRows));
+          },
+          { where: inArray(catsTable.id, needRows) },
+        ).leftJoin(photosTable, eq(photosTable.id, catsTable.primaryPhotoId));
   const found = new Map(rows.map((r) => [r.id, r]));
 
   // A cat guardian's cats are sorted by where they were first found, never by

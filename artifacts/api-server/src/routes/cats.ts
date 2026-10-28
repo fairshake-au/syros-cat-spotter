@@ -33,6 +33,7 @@ import {
   type DerivedCatStatus,
   type Viewer,
 } from "../lib/catHelpers";
+import { catsFeeding, observationCatIn } from "../lib/catIdentity";
 import { notifyCatFollowers } from "../lib/notifications";
 import { catDisplayPhoto, hiddenPhotoIds, publicPhotoUrl, removedPhotoIds } from "../lib/photoVisibility";
 import { suggestCatNames } from "../lib/nameSuggestions";
@@ -284,12 +285,13 @@ router.get("/cats/:catId", async (req, res) => {
   // Care timeline: the cat's own update history, newest first. Sighting-type
   // updates are excluded — the sightings list below already covers those, and
   // repeating them would drown the care events the timeline exists to show.
+  const feeding = (await catsFeeding([catId])).get(catId)!;
   const updates = await db
     .select()
     .from(catUpdatesTable)
     .where(
       and(
-        eq(catUpdatesTable.catId, catId),
+        inArray(catUpdatesTable.catId, feeding.ids),
         ne(catUpdatesTable.updateType, "sighting"),
       ),
     )
@@ -493,9 +495,11 @@ router.post("/cats/:catId/claim", async (req, res) => {
     const again = await claimEligibility(tx, { catId, deviceId });
     if (again.ok !== true) return again;
     // §8: the "has a home" message goes out on a cat's first claim only.
+    // First claim of the animal: a claim on a cat merged into this one counts (SYC-410).
+    const feeding = (await catsFeeding([catId], {}, tx)).get(catId)!;
     const prior = await tx.execute<{ n: number }>(sql`
       select count(*)::int as n from observations
-       where cat_id = ${catId}
+       where ${observationCatIn([feeding], sql.raw("cat_id"))}
          and kind = 'life_status'
          and authority_scope = 'owner_of_this_cat'
          and value->>'status' = 'homed'`);

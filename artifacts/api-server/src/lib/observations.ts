@@ -31,7 +31,7 @@ import {
   type Vaccine,
 } from "./resolve";
 import { TEAM_ROLES, isTeamRole } from "./teamRoles";
-import { catsFeeding } from "./catIdentity";
+import { catsFeeding, observationCatIn } from "./catIdentity";
 
 /**
  * Phase-1 observation vocabulary (§10.1), plus `coat` (Part 2i, resolved as
@@ -1437,8 +1437,10 @@ export async function loadCatRecords(
   const asOf = opts.asOf;
 
   // Every cat merged into each one, through chains, as of `asOf`: the one
-  // reader of merges (SYC-410). An undone merge feeds nothing.
-  const feeding = await catsFeeding(uniqueIds, { asOf }, exec);
+  // reader of merges (SYC-410). An undone merge feeds nothing. A merged-in
+  // cat's coat and markings stay its own: the staying record keeps its own
+  // look (spec §4.2).
+  const feeding = await catsFeeding(uniqueIds, { asOf, excludeKinds: ["coat", "markings"] }, exec);
   const idsForCanonical = new Map<number, number[]>();
   const mergedAtByCanonical = new Map<number, ReadonlyMap<number, Date>>();
   for (const id of uniqueIds) {
@@ -1453,7 +1455,7 @@ export async function loadCatRecords(
     .from(observationsTable)
     .where(
       and(
-        inArray(observationsTable.catId, allCatIds),
+        observationCatIn(feeding.values()),
         asOf ? lte(observationsTable.createdAt, asOf) : undefined,
       ),
     );
@@ -1472,7 +1474,7 @@ export async function loadCatRecords(
     .where(
       and(
         eq(observationsTable.kind, "welfare_report"),
-        inArray(observationsTable.catId, allCatIds),
+        observationCatIn(feeding.values()),
         asOf ? lte(replacer.createdAt, asOf) : undefined,
       ),
     );
@@ -1530,7 +1532,8 @@ export async function loadCatRecords(
     if (asOf && ownCreatedAt && ownCreatedAt.getTime() > asOf.getTime()) continue;
 
     const feedingIds = idsForCanonical.get(canonicalId) ?? [canonicalId];
-    const observations = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []);
+    const f = feeding.get(canonicalId);
+    const observations = feedingIds.flatMap((id) => obsByCatId.get(id) ?? []).filter((o) => (f ? f.counts(o) : true));
     const lastSightingAt = newestOf(feedingIds.flatMap((id) => sightingsByCatId.get(id) ?? []));
     const createdAt = earliestOf(
       feedingIds.map((id) => createdAtByCatId.get(id)).filter((d): d is Date => d != null),

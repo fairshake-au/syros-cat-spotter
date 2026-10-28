@@ -2,6 +2,7 @@ import { catsTable, db, observationsTable } from "@workspace/db";
 import { and, desc, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { CapabilityHolder } from "./capabilities";
+import { canonicalCatOf, catsFeeding, liveCats, observationCatIn } from "./catIdentity";
 import { visibleColonyIds } from "./guardianView";
 
 // "Mimi has moved to another colony" (SYC-209 PR 4.2; feeding-sites spec
@@ -69,6 +70,12 @@ export async function movedAwayNotices(
     );
   if (candidates.length === 0) return [];
 
+  // A move is read off the combined colony history of the cat she is now
+  // (SYC-410, spec §4.2): a candidate merged into another is that cat.
+  const canonical = await canonicalCatOf(candidates.map((c) => c.catId));
+  const survivors = [...new Set(candidates.map((c) => canonical.get(c.catId) ?? c.catId))];
+  const feeding = await catsFeeding(survivors);
+
   const rows = await db
     .select({
       catId: observationsTable.catId,
@@ -77,15 +84,16 @@ export async function movedAwayNotices(
       observedAt: observationsTable.observedAt,
     })
     .from(observationsTable)
-    .where(and(standing, inArray(observationsTable.catId, candidates.map((c) => c.catId))))
-    .orderBy(
-      observationsTable.catId,
-      desc(observationsTable.observedAt),
-      desc(observationsTable.id),
-    );
+    .where(and(standing, observationCatIn(feeding.values())))
+    .orderBy(desc(observationsTable.observedAt), desc(observationsTable.id));
 
+  // A move is an event in one cat's own history, newest first. A cat merged
+  // into another puts her statements in the other's colony (colonyMembership's
+  // rule: the cat she is now keeps her own), but a merge is never a move, so
+  // her statements make no move for the cat she is now.
   const byCat = new Map<number, typeof rows>();
   for (const r of rows) {
+    if (!feeding.has(r.catId)) continue;
     const list = byCat.get(r.catId);
     if (list) list.push(r);
     else byCat.set(r.catId, [r]);
@@ -112,10 +120,7 @@ export async function movedAwayNotices(
 
   const names = new Map(
     (
-      await db
-        .select({ id: catsTable.id, name: catsTable.name })
-        .from(catsTable)
-        .where(inArray(catsTable.id, found.map((f) => f.catId)))
+      await liveCats({ id: catsTable.id, name: catsTable.name }, { where: inArray(catsTable.id, found.map((f) => f.catId)) })
     ).map((c) => [c.id, c.name]),
   );
   return found

@@ -1,6 +1,7 @@
 import { catsTable, coloniesTable, db, sightingsTable } from "@workspace/db";
 import { and, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { namedAreasAt } from "../areas/areaHistory";
+import { liveCats } from "../catIdentity";
 import { areaForIn, type NamedArea } from "../areas/namedAreas";
 import { currentColonyOf } from "../colonyMembership";
 import { wholePct } from "../dashboard/colonyFigures";
@@ -73,7 +74,7 @@ export async function loadProgressInputs(now: Date): Promise<ProgressInputs> {
     loadCatRecords(ids, db, { withHistory: true }),
     ids.length === 0
       ? Promise.resolve([])
-      : db.select({ id: catsTable.id, lat: catsTable.lat, lng: catsTable.lng }).from(catsTable).where(inArray(catsTable.id, ids)),
+      : liveCats({ id: catsTable.id, lat: catsTable.lat, lng: catsTable.lng }, { where: inArray(catsTable.id, ids) }),
     ids.length === 0
       ? Promise.resolve([])
       : db

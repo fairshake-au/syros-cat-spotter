@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import type { Observation } from "@workspace/db/schema";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { liveCats } from "../catIdentity";
 import { loadCatRecords, type DbOrTx } from "../observations";
 import { pr3Recorded } from "../pr3Gate";
 import {
@@ -333,10 +334,10 @@ export function compareCat(
  * months later its baseline is last night's, not months old (review of this
  * PR, finding 6).
  */
-async function catsToWalk(exec: DbOrTx): Promise<number[]> {
+export async function catsToWalk(exec: DbOrTx): Promise<number[]> {
   const rows = await exec.execute<{ cat_id: number }>(
     sql`select cat_id from (select cat_id from ${catSubscriptionsTable} union select cat_id from ${catNewsBaselineTable}) walked
-        where cat_id in (select id from ${catsTable}) order by cat_id`,
+        where ${inArray(sql.raw("cat_id"), liveCats({ id: catsTable.id }))} order by cat_id`,
   );
   return rows.rows.map((r) => Number(r.cat_id));
 }
