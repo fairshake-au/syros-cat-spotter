@@ -1,6 +1,7 @@
 import { catIdentityTable, db, sightingMovesTable, sightingsTable, type CatIdentity } from "@workspace/db";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
+import { mergeCats, undoMerge, type MergeDone, type UndoDone } from "../lib/mergeCats";
 
 // Tests only: this switches a database guard off. Refuse to load anywhere else.
 if (!process.env["VITEST"]) {
@@ -86,6 +87,35 @@ export async function recordedMerge(mergedId: number, survivorId: number, create
     }
     return merge!.id;
   });
+}
+
+/** Tests only (SYC-59 PR 4.1): a team member who may merge, for calling the lib without a session. */
+export const TEST_MERGER = { id: "vitest-merger", scopes: [{ role: "staff", colonyId: null, reach: "island" }] };
+
+/**
+ * Tests only (SYC-59 PR 4.1). A merge through the route's own lib
+ * (`mergeCats`, lib/mergeCats.ts), with the counts as they stand: every
+ * step of §9.7, every lock and check. Throws on a refusal.
+ */
+export async function libMerge(mergedId: number, survivorId: number, reasonText = "Same face, vitest"): Promise<MergeDone> {
+  const counts = async (catId: number) =>
+    (await db.select({ id: sightingsTable.id }).from(sightingsTable).where(and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")))).length;
+  const out = await mergeCats(TEST_MERGER, {
+    survivorId,
+    mergedId,
+    expectedSightingCounts: [await counts(survivorId), await counts(mergedId)],
+    reasonText,
+    survivorChosen: "default",
+  });
+  if (!out.ok) throw out.refused;
+  return out;
+}
+
+/** Tests only (SYC-59 PR 4.1). Undo through the route's own lib (`undoMerge`). Throws on a refusal. */
+export async function libUndo(mergeId: number, alsoMoveSightingIds: number[] = [], reasonText = "Not the same, vitest"): Promise<UndoDone> {
+  const out = await undoMerge(TEST_MERGER, mergeId, { reasonText, alsoMoveSightingIds });
+  if (!out.ok) throw out.refused;
+  return out;
 }
 
 /** Tests only (SYC-150 PR 3.1). The undo of a recorded merge: the undo row, then its `merge_undone` moves back. */

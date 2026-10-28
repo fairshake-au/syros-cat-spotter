@@ -599,14 +599,26 @@ export async function undoMergeIn(tx: Tx, person: Person, mergeId: number, input
   return { undoId, mergeId, catId: mimi, survivorId: agatha, batchId, movedBack: own, alsoMoved: tickedNow.map((s) => s.id).sort((a, b) => a - b), followsRemoved };
 }
 
-/** The sightings whose newest move is this merge's `merged` move (§9.7 undo). */
+/**
+ * The sightings this merge filed under the survivor that are still there
+ * as it left them (§9.7 undo: "every sighting whose newest move row is this
+ * merge's `merged` move"): moved by this merge, filed under the survivor
+ * now, and moved since only by later merges and their undos (Agatha merged
+ * into Dora and undone again puts them back where this merge left them;
+ * §4.5). A sighting the team moved since, even back again, is not: it is
+ * listed for ticking instead.
+ */
 async function ownMoves(tx: DbOrTx, merge: MergeRecord): Promise<number[]> {
   const r = await tx.execute<{ sighting_id: number }>(sql`
     select m.sighting_id from sighting_moves m
+      join sightings s on s.id = m.sighting_id
      where m.merge_id = ${merge.id}
        and m.reason = 'merged'
+       and s.cat_id = m.to_cat_id
        and not exists (select 1 from sighting_moves later
-                        where later.sighting_id = m.sighting_id and later.id > m.id)
+                        where later.sighting_id = m.sighting_id
+                          and later.id > m.id
+                          and later.merge_id is null)
      order by m.sighting_id`);
   return r.rows.map((row) => Number(row.sighting_id));
 }
