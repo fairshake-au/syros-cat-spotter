@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db, pool, catsTable, catIdentityTable, observationsTable, sightingsTable, type Observation } from "@workspace/db";
 import { like } from "drizzle-orm";
 import { loadCatRecords, resolveAt } from "./observations";
-import { mergeKeepingSightings } from "../test/merges";
+import { recordedMerge } from "../test/merges";
 import { resolveCat } from "./resolve";
 import { currentColonyOf } from "./colonyMembership";
 import { loadTeamCats } from "./teamCatList";
@@ -255,7 +255,10 @@ describe("resolveAt", () => {
     await row(b.id, "sterilised", { sterilised: true }, day(2));
     await row(c.id, "sterilised", { sterilised: true }, day(2));
     await sighting(b.id, day(3));
-    await mergeKeepingSightings({ catId: b.id, canonicalCatId: a.id, createdBy: "vitest-asof", createdAt: day(5) });
+    // A recorded merge dated 5 Oct (the route's steps, with B's sighting moved
+    // to A), not one keeping B's sightings: the route never dates a merge, so
+    // the test writes the same rows itself.
+    await recordedMerge(b.id, a.id, day(5), "vitest-asof");
     const [merge] = await db
       .insert(catIdentityTable)
       .values({ catId: c.id, canonicalCatId: d.id, createdBy: "vitest-asof", createdAt: day(5) })

@@ -8,7 +8,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 
 import { daysAgo, moveKit } from "../test/moveKit";
 import { moveSighting } from "../test/moves";
-import { mergeKeepingSightings } from "../test/merges";
+import { libMerge } from "../test/merges";
 import { earTipStateFor, hasAnsweredEarTip } from "../routes/sightings";
 import { catsOfPhoto } from "./capabilityTargets";
 import { handPickedAmong } from "./handPick";
@@ -63,7 +63,7 @@ describe("spec test 5: ear-tip state after a move is right on both cats", () => 
   it("reads through the cat a merged-away id now is", async () => {
     const c = await scene();
     const dora = await kit.cat();
-    await mergeKeepingSightings({ catId: c.mimi, canonicalCatId: dora, reason: "vitest move readers" });
+    await libMerge(c.mimi, dora);
     expect(await earTipStateFor(db, c.spotter, dora)).toMatchObject({ state: "answered", current: { id: c.ear.id } });
     expect(await hasAnsweredEarTip(db, c.spotter, dora)).toBe(true);
   });
@@ -91,7 +91,7 @@ describe("spec test 4: a team agreement on the moved photo is withdrawn, and is 
   it("agreeing with a merged-away cat's answer writes on the cat it is now", async () => {
     const c = await scene();
     const dora = await kit.cat();
-    await mergeKeepingSightings({ catId: c.mimi, canonicalCatId: dora, reason: "vitest move readers" });
+    await libMerge(c.mimi, dora);
     const agreed = await agreeWithClip(STAFF, c.ear.id);
     expect(agreed).toMatchObject({ catId: dora, value: { agreesWith: c.ear.id } });
   });
@@ -162,7 +162,7 @@ describe("writeObservation's same-cat checks compare canonical cats", () => {
       .insert(observationsTable)
       .values({ catId: mimi, kind: "sterilised", value: { sterilised: false }, accountId: "vitest-a", roleAtTime: "staff", observedAt: daysAgo(5) })
       .returning();
-    await mergeKeepingSightings({ catId: mimi, canonicalCatId: agatha, reason: "vitest move readers" });
+    await libMerge(mimi, agatha);
     const write = (catId: number) =>
       writeObservation(db, { catId, kind: "sterilised", value: { sterilised: true }, accountId: "vitest-b", roleAtTime: "staff", observedAt: daysAgo(1), supersedesId: row!.id });
     await expect(write(stranger)).rejects.toMatchObject({ code: "INVALID_SUPERSESSION" });
