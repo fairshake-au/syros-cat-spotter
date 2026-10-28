@@ -1,6 +1,6 @@
 # While we look: a topic, a count, and "your next spot brings a new fact"
 
-**Status:** Draft for Samuel's approval, 27 October 2026. An independent adversarial review (Sonnet, 27 October) found 4 major and 6 minor issues. All are folded in below, and how each was handled is in §10.
+**Status:** Draft for Samuel's approval, 27 October 2026. An independent adversarial review (Sonnet, 27 October) found 4 major and 6 minor issues. All are folded in below, and how each was handled is in §10. Updated the same day for Samuel's animated cat pictures (Decision 2).
 **Owner:** Samuel
 **Ticket:** SYC-772. Builds on the waiting card (SYC-48, [`starter-facts.md`](./starter-facts.md)). Works with or without editable facts (SYC-754, [`editable-starter-facts.md`](./editable-starter-facts.md)). The facts page in Profile is SYC-773, later.
 
@@ -10,7 +10,7 @@
 
 Two small changes make the cat facts feel like a set you're working through, not a loading message:
 
-1. **The waiting card** shows the fact's **topic**, with a small icon (for example *Reading a cat*), and **how far through the facts you are**: a progress bar and *"Cat fact 3 of 11"*.
+1. **The waiting card** shows the fact's **topic** with a cute animated cat picture (for example, a ginger cat swishing its tail for *Reading a cat*). It also shows **how far through the facts you are**: a progress bar with a little cat walking along it, and *"Cat fact 3 of 11"*. Once every fact has been seen, the cat curls up asleep at the end.
 2. **The thanks screen**, after a spot is confirmed, says under the points: *"Your next spot brings a new cat fact."* It shows only when that's true.
 
 When the card appears, what it says, and the order of the facts all stay as they are, with one exception. A fact this phone has never seen now comes before a repeat (§3.5). This only makes a difference once the team adds a fact or switches one back on after a phone has seen them all.
@@ -36,27 +36,45 @@ The proposal to Syros Cats (§13, 27 August) also promised a fact *"where possib
 From top to bottom:
 
 - **Eyebrow:** *While we look…* (unchanged).
-- **Topic** (new): a small icon and the topic's name, in the eyebrow's muted colour, on one line.
+- **Topic** (new): one row with the topic's cat picture (48 × 48) on the left and the topic's name beside it, in the eyebrow's muted colour.
 - **The ear-tip photo**, for the ear-tip fact only (unchanged).
 - **The fact** (unchanged).
-- **Progress** (new): the app's usual progress bar (`ProgressBar`), with *"Cat fact 3 of 11"* under it, filled to 3/11.
+- **Progress** (new): the app's usual progress bar (`ProgressBar`), filled to 3/11, with a small walking cat (about 24 points tall) standing on the bar at the end of the filled part. *"Cat fact 3 of 11"* sits under it.
 
-There are still no buttons, nothing to tap and no transition. The card still takes the map's place only while a sighting is being sent.
+There are still no buttons and nothing to tap. The card itself still appears without a transition; only the pictures inside it move. The card still takes the map's place only while a sighting is being sent.
 
-**The six topics.** These are the six strands from the proposal (§13), already recorded against each fact in `lib/starterFacts.ts` (`strand`):
+**The six topics and their pictures.** The topics are the six strands from the proposal (§13), already recorded against each fact in `lib/starterFacts.ts` (`strand`). The first set of pictures is in [`assets/while-we-look/`](./assets/while-we-look/). Samuel will refine them with Gemini (see "The pictures" below).
 
-| Strand | Topic shown | Icon (Feather) |
+| Strand | Topic shown | The picture, and how it moves |
 |---|---|---|
-| 1 | Reading a cat | `eye` |
-| 2 | Life in a colony | `users` |
-| 3 | Why sterilisation works | `heart` |
-| 4 | Being around a street cat | `map` |
-| 5 | When a cat needs help | `life-buoy` |
-| 6 | You're doing science | `bar-chart-2` |
+| 1 | Reading a cat | A ginger cat with its tail held up (a friendly hello); the tail swishes, and it blinks slowly |
+| 2 | Life in a colony | A grey cat and a ginger kitten side by side; they nod in turn |
+| 3 | Why sterilisation works | A black-and-white cat with a clipped left ear tip; a small heart rises beside the ear |
+| 4 | Being around a street cat | A ginger-and-white cat beside a water bowl; its tail sways and the water ripples |
+| 5 | When a cat needs help | A grey cat with a bandaged front paw; a first-aid sign pulses and an ear twitches |
+| 6 | You're doing science | A black cat peering through a magnifying glass that glides across its face |
 
 With today's 11 facts switched on, *Reading a cat* comes up 6 times out of 11. That's expected: strand 1 has the most facts that don't need Syros Cats' yes.
 
-**A fact with no topic.** A fact the team adds once SYC-754 is built has no topic; the originals all have one. Such a fact shows no topic line. Everything else is the same.
+**A fact with no topic.** A fact the team adds once SYC-754 is built has no topic; the originals all have one. Such a fact shows no topic row, so no picture and no name. Everything else is the same.
+
+**The walking cat.**
+
+- When the card appears, the cat walks along the bar from where it stood last time to where it stands now, in about a second. For example, on the third fact it walks from 2/11 to 3/11, then stays there, walking on the spot.
+- On a phone's first fact it walks in from the start of the bar.
+- It walks only when the fact on screen is one the phone hasn't seen. A repeat in a later round shows the cat standing at its spot, walking on the spot. A fact cut short is still unseen, so next time the cat walks the same step again.
+- **Once every fact has been seen** (*"All 11 cat facts seen"*), the walking cat is replaced by a **sleeping cat**, curled up at the end of a full bar, breathing gently while a small "z" drifts up.
+- When no progress is shown (§3.2), there's no cat either.
+
+#### The pictures: how they're made and how they move
+
+- **Format.** Each picture is a flat SVG drawing, in the same style as the app's existing drawn cat (`components/coat/DrawnCat.tsx`): simple shapes, the same outline colour and the same coat fills. The first set includes eight drawings: the six topic cats, the walking cat and the sleeping cat.
+- **Refinement.** Samuel refines the drawings with Gemini. Gemini may change the shapes, colours and details. It must keep each file's drawing area (viewBox), every named part (`id`), and each part's pivot point (`transform-origin`), because the app moves those parts by name. Each file says this in a comment at the top, and lists its motion.
+- **In the app**, each drawing becomes a small component, as `DrawnCat` is. Its named parts are moved with `react-native-reanimated`, which the app already has, using the same motions as the SVG files. The SVG files' own CSS motion is only there for previewing and for Gemini; the app doesn't use it.
+- **Built in.** The pictures are part of the app, so they appear with no signal, and nothing is downloaded.
+- **Gentle and small.** Motions loop slowly (about 2–4 seconds), stay inside the picture, and never flash. Nothing moves faster than the walking cat's steps. Only one card shows at a time, and its motion stops when the card goes.
+- **"Reduce motion" on.** Every picture stays still in its resting pose. The walking cat is placed straight at its spot, without walking, and the sleeping cat doesn't breathe. The app checks this setting with Reanimated's `useReducedMotion`.
+- **If a picture can't be drawn** (an unexpected error), the card shows the topic name, the bar and the words without it. The fact always shows.
 
 ### 3.2 How the count works
 
@@ -103,10 +121,10 @@ It doesn't appear on any other screen. The matches, naming, no-cat and couldn't-
 ### 3.4 Screen readers, text size, small phones
 
 - The card still announces only *"While we look, a cat fact"* when it appears. Focus stays on the spotter's button.
-- The topic is read as plain text, without the icon.
+- The topic is read as plain text. The cat pictures, the walking cat and the sleeping cat are decoration, so screen readers skip them: the topic name and the progress words already say what they show.
 - The bar is read as a progress bar whose words are *"Cat fact 3 of 11"* (or *"All 11 cat facts seen"*), not as a percentage. The words under it are hidden from screen readers, so they aren't read twice.
 - The thanks-screen line is plain text, read in order. Its icon is hidden from screen readers.
-- **Fit.** The existing rule stands: the card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. The topic adds one line above the fact. The progress sits below it and may scroll out of view on a long French fact, which is fine. The tallest card is the ear-tip fact with its photo, so the plan must check that one on a real small phone in all three languages. At the largest text size the screen scrolls, as now.
+- **Fit.** The existing rule stands: the card's top must be in view when it appears on an iPhone SE (375 × 667) at the default text size, in all three languages. The topic row (48-point picture and name) sits above the fact. The progress, with its walking cat, sits below and may scroll out of view on a long French fact, which is fine. If the topic row pushes the card's top out of view anywhere, the picture shrinks to 40 points before anything else changes. The tallest card is the ear-tip fact with its photo, so the plan must check that one on a real small phone in all three languages. At the largest text size the screen scrolls, as now.
 
 ### 3.5 One change to the order: unseen facts first
 
@@ -152,7 +170,15 @@ For "spot", the Greek and French follow the app's own words: *παρατήρησ
 - `factProgress(record, settings, shownId)` returns `{ n, total }`, `{ done: true, total }` or `null`, as in §3.2.
 - `nextSpotBringsNewFact(record, settings, ctx)` returns a boolean, as in §3.3. It uses the same "is the nudge due" test as `chooseForWait`. Both should share one small helper, so the two can't drift apart.
 
-**The topic** comes from `factById(id)?.strand` in `lib/starterFacts.ts`. No strand means no topic line.
+**The topic** comes from `factById(id)?.strand` in `lib/starterFacts.ts`. No strand means no topic row.
+
+**The pictures** go in `components/waitingCats/`, one component per drawing (six topic cats, `WalkingCat`, `SleepingCat`), each a port of its SVG file in `docs/specs/assets/while-we-look/` (as refined by Samuel), drawn with `react-native-svg`.
+
+- Each component moves its named parts with `react-native-reanimated`, following the motion written in the file's comment.
+- Each one checks `useReducedMotion()` and holds still when it's on.
+- Each one is decorative: `accessible={false}`, and hidden from screen readers.
+- `WaitingCard` picks the topic picture by strand. It places the walking cat on the bar at `n / total`, walking in from `(n − 1) / total` when the fact on screen is unseen (§3.1), and shows `SleepingCat` at the end for *done*.
+- The walk takes about 1 second with easing. Ports should keep the drawings' look, so the app matches what Samuel approved.
 
 **The waiting card** (`components/WaitingCard.tsx`) gets the progress as a new prop. The spot screen works it out in `startWaitingCard` (`app/(tabs)/spot.tsx`), from the choice and record it already has.
 
@@ -199,6 +225,14 @@ Component:
   - no progress for the nudge or the empty card;
   - the bar's accessible label and value text, with the visible words hidden from screen readers;
   - the announcement is unchanged.
+- The pictures:
+  - the right topic picture for each strand, and none for a fact with no strand;
+  - the walking cat sits at 3/11 for *"3 of 11"*;
+  - it walks in from 2/11 when the fact is unseen, and stands still for a repeat;
+  - the sleeping cat, and no walking cat, for *done*;
+  - no cat when there's no progress;
+  - with "reduce motion" on, nothing animates and the walking cat is placed straight at its spot;
+  - each picture renders in the web build too.
 - `ProgressBar`: `hideValue` drops "3/11", and `accessibilityText` sets the label and value text. Without them it renders as today.
 - A new `ReviewScreen.nextFact.test.tsx`, where the line:
   - shows on a live send's thanks screen when an unseen fact remains;
@@ -226,23 +260,22 @@ Every new string is in all three languages (the existing i18n completeness test 
 | C. A looser line | *"Keep spotting to see more cat facts."* | No order change needed | Weaker, and still untrue once every fact has been seen |
 | D. Nothing | Only the waiting card changes | Simplest | Nothing pulls people to spot again |
 
-### Decision 2 · How progress looks on the card
+### Decision 2 · Pictures on the card
 
-**Recommendation: A.**
+**Decided by Samuel, 27 October 2026:** both of the options he was shown.
 
-| Option | Looks like | Benefits | Risks |
-|---|---|---|---|
-| **A. Bar plus words** *(recommended)* | ▬▬▬▭▭▭▭ *Cat fact 3 of 11* | Uses the existing `ProgressBar`, with two small props added. Easy to read at a glance | Two elements in a small card |
-| B. Words only | *Cat fact 3 of 11* | Smallest | Less feeling of progress |
-| C. A dot per fact | ●●●○○○○○○○○ | The most "collectable" | Twenty dots are tight on a small phone in large text, and the number of dots changes as facts are added |
+- A cute animated cat picture for each topic, in place of the plain icons.
+- A cat that walks along the progress bar.
+
+Samuel refines the first set of drawings with Gemini (§3.1, "The pictures").
 
 ### Decision 3 · When every fact has been seen
 
-**Recommendation: A.**
+**Recommendation: A.** The sleeping cat comes from Decision 2.
 
 | Option | What it says | Benefits | Risks |
 |---|---|---|---|
-| **A. "All 11 cat facts seen"** *(recommended)* | A full bar and those words, on every wait from then on | A small reward for finishing, and honest about repeats | The same words on every wait for heavy spotters |
+| **A. "All 11 cat facts seen"** *(recommended)* | A full bar with the cat curled up asleep at the end, and those words, on every wait from then on | A small reward for finishing, and honest about repeats | The same words on every wait for heavy spotters |
 | B. Hide the progress | Only the topic and the fact | Quieter | Finishing goes unmarked |
 
 ---
@@ -257,6 +290,7 @@ Nothing here changes how Syros Cats work or what the facts say, so there are no 
 
 - **Post-launch hold, 1–14 November 2026.** This is a new feature, so it's built during the hold only if Samuel says so for it. Otherwise it's built after 14 November.
 - Greek and French wait for Johnny's review, as for the facts themselves.
+- **Pictures:** Samuel refines the first set with Gemini before the build starts. The build ports whatever is in `docs/specs/assets/while-we-look/` at that point. A picture changed after that is a small follow-up, not a blocker.
 
 ---
 
