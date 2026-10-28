@@ -11,12 +11,10 @@ import { loadTeamCats } from "../lib/teamCatList";
 import { isActive } from "../lib/dashboard/countedCats";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 import { renderPage } from "../lib/teamPages/layout";
-import { applyMove } from "../lib/mapTiles/mapForms";
-import { viewAround, type View } from "../lib/mapTiles/geometry";
 import { renderPicker } from "../lib/teamPages/siteFormPages";
 import { renderCentreConfirm } from "../lib/teamPages/centrePages";
 import { whatHappens } from "../lib/teamPages/help";
-import { ERMOUPOLI_VIEW, readCentrePick } from "./centrePick";
+import { CENTRE_ZOOM, ERMOUPOLI_START, readCentrePick } from "./centrePick";
 import { t } from "../lib/teamPages/words";
 import {
   AREAS_DONE,
@@ -213,7 +211,9 @@ async function newAreaOf(
 const AREA_CENTRE_WHAT =
   "A place takes the name of the area whose centre is nearest (more than 2 km from every centre is Off Syros), so setting this centre can relabel nearby places.";
 
-function newAreaPickerPage(res: Response, status: number, a: { key: string; name: string }, view: View, note?: string): void {
+function newAreaPickerPage(res: Response, status: number, a: { key: string; name: string }, note?: string): void {
+  // The map's own scripts: the wider header for the 200 page only (SYC-705 Task 2b.7).
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -222,12 +222,14 @@ function newAreaPickerPage(res: Response, status: number, a: { key: string; name
         personName: teamPerson(res).name,
         active: "settings",
         title: `Where is ${a.name}?`,
-        intro: `Tap the centre of ${a.name}. You will see the spot before anything is saved.`,
+        intro: `Move the map until the pin is on the centre of ${a.name}. You will see the spot before anything is saved.`,
         back: { href: AREAS_PATH, label: "Back to the areas" },
-        view,
-        tapAction: `${NEW_PATH}/pick`,
-        moveAction: `${NEW_PATH}/map`,
+        ...ERMOUPOLI_START,
+        pickAction: `${NEW_PATH}/pick`,
         carry: { name: a.name, key: a.key },
+        // An area's own centre is never chosen from the list of areas.
+        areas: false,
+        map: status === 200,
         note,
         below: whatHappens(AREA_CENTRE_WHAT),
       }),
@@ -236,49 +238,39 @@ function newAreaPickerPage(res: Response, status: number, a: { key: string; name
 
 router.post("/team/areas/new", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
   const a = await newAreaOf(req, res);
-  if (a) newAreaPickerPage(res, 200, a, ERMOUPOLI_VIEW);
-});
-
-router.post("/team/areas/new/map", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
-  const a = await newAreaOf(req, res);
-  if (!a) return;
-  const view = applyMove(req.body);
-  if (!view) return void newAreaPickerPage(res, 400, a, ERMOUPOLI_VIEW, "That didn't work, so the map is back at the start.");
-  newAreaPickerPage(res, 200, a, view);
+  if (a) newAreaPickerPage(res, 200, a);
 });
 
 router.post("/team/areas/new/pick", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
   const a = await newAreaOf(req, res);
   if (!a) return;
   const person = teamPerson(res);
-  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, ERMOUPOLI_VIEW, {
-    requireArea: false,
-  });
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, { requireArea: false, allowArea: false });
   if (!picked.ok) {
     if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-    return void newAreaPickerPage(res, picked.status, a, picked.view, picked.note);
+    return void newAreaPickerPage(res, picked.status, a, picked.note);
   }
   if (wantsJson(req)) return void res.json(picked.spot);
-  res.type("html").send(
-    renderCentreConfirm({
-      personName: person.name,
-      island: isIslandWide(person),
-      active: "settings",
-      title: `Where is ${a.name}?`,
-      question: () => `Make this the centre of ${a.name}?`,
-      saveLabel: "Add the area",
-      spot: picked.spot,
-      zoom: picked.zoom,
-      nowLabel: "",
-      newLabel: `The centre of ${a.name}`,
-      tapAction: `${NEW_PATH}/pick`,
-      carry: { name: a.name, key: a.key },
-      saveAction: AREAS_PATH,
-      saveFields: { op: "add", name: a.name, key: a.key },
-      back: { href: AREAS_PATH, label: "Back to the areas" },
-      help: AREA_CENTRE_WHAT,
-    }),
-  );
+  // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+  // Built first, then the wider header: an error answer keeps the strict one.
+  const html = renderCentreConfirm({
+    personName: person.name,
+    island: isIslandWide(person),
+    active: "settings",
+    title: `Where is ${a.name}?`,
+    question: () => `Make this the centre of ${a.name}?`,
+    saveLabel: "Add the area",
+    spot: picked.spot,
+    zoom: CENTRE_ZOOM,
+    nowLabel: "",
+    newLabel: `The centre of ${a.name}`,
+    saveAction: AREAS_PATH,
+    saveFields: { op: "add", name: a.name, key: a.key },
+    back: { href: AREAS_PATH, label: "Back to the areas" },
+    help: AREA_CENTRE_WHAT,
+  });
+  setTeamHeaders(res, { scripts: true });
+  res.type("html").send(html);
 });
 
 // ── An area's centre, by tapping a map (SYC-517, 517-B) ────────────────────
@@ -298,8 +290,6 @@ async function areaOf(req: Request): Promise<{ key: string; name: string; lat: n
   return areaByKey(key) ?? null;
 }
 
-const centreAreaStart = (a: { lat: number; lng: number }): View => viewAround(a, AREA_ZOOM);
-
 function noSuchArea(res: Response): void {
   res
     .status(404)
@@ -318,10 +308,11 @@ function areaPickerPage(
   res: Response,
   status: number,
   a: { key: string; name: string; lat: number; lng: number },
-  view: View,
   note?: string,
 ): void {
   const base = `${AREAS_PATH}/${a.key}/centre`;
+  // The map's own scripts: the wider header for the 200 page only (SYC-705 Task 2b.7).
+  if (status === 200) setTeamHeaders(res, { scripts: true });
   res
     .status(status)
     .type("html")
@@ -330,12 +321,15 @@ function areaPickerPage(
         personName: teamPerson(res).name,
         active: "settings",
         title: `Move the centre of ${a.name}`,
-        intro: "Tap where the centre of this area should be. You will see the spot before anything is saved.",
+        intro: "Move the map until the pin is where the centre of this area should be. You will see the spot before anything is saved.",
         back: { href: AREAS_PATH, label: "Back to the areas" },
-        view,
+        centre: a,
+        zoom: AREA_ZOOM,
         markers: [{ lat: a.lat, lng: a.lng, label: "The centre now", look: "retired" }],
-        tapAction: `${base}/pick`,
-        moveAction: `${base}/map`,
+        pickAction: `${base}/pick`,
+        // An area's own centre is never chosen from the list of areas.
+        areas: false,
+        map: status === 200,
         note,
         below: whatHappens(AREA_CENTRE_WHAT),
       }),
@@ -346,51 +340,42 @@ router.get("/team/areas/:key/centre", requireTeam("edit_named_areas"), async (re
   setTeamHeaders(res);
   const a = await areaOf(req);
   if (!a) return noSuchArea(res);
-  areaPickerPage(res, 200, a, centreAreaStart(a));
-});
-
-router.post("/team/areas/:key/centre/map", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
-  const a = await areaOf(req);
-  if (!a) return noSuchArea(res);
-  const view = applyMove(req.body);
-  if (!view) return void areaPickerPage(res, 400, a, centreAreaStart(a), "That didn't work, so the map is back on this area.");
-  areaPickerPage(res, 200, a, view);
+  areaPickerPage(res, 200, a);
 });
 
 router.post("/team/areas/:key/centre/pick", ...formRoute("edit_named_areas"), async (req: Request, res: Response) => {
   const a = await areaOf(req);
   if (!a) return noSuchArea(res);
   const person = teamPerson(res);
-  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, centreAreaStart(a), {
-    requireArea: false,
-  });
+  const picked = readCentrePick((req.body ?? {}) as Record<string, unknown>, undefined, { requireArea: false, allowArea: false });
   if (!picked.ok) {
     if (wantsJson(req)) return void res.status(400).json({ error: "Invalid request", fields: picked.fields });
-    return void areaPickerPage(res, picked.status, a, picked.view, picked.note);
+    return void areaPickerPage(res, picked.status, a, picked.note);
   }
   if (wantsJson(req)) return void res.json(picked.spot);
   const base = `${AREAS_PATH}/${a.key}/centre`;
-  res.type("html").send(
-    renderCentreConfirm({
-      personName: person.name,
-      island: isIslandWide(person),
-      active: "settings",
-      title: `Move the centre of ${a.name}`,
-      question: () => `Move the centre of ${a.name} here?`,
-      saveLabel: "Move the centre here",
-      spot: picked.spot,
-      zoom: picked.zoom,
-      now: a,
-      nowInWords: false,
-      nowLabel: "The centre now",
-      newLabel: "The new centre",
-      tapAction: `${base}/pick`,
-      saveAction: AREAS_PATH,
-      saveFields: { op: "move", key: a.key },
-      back: { href: `${base}`, label: "Start again on this area's map" },
-      help: AREA_CENTRE_WHAT,
-    }),
-  );
+  // The confirmation carries its small map (Samuel, 26 Oct 2026): the wider header for this 200.
+  // Built first, then the wider header: an error answer keeps the strict one.
+  const html = renderCentreConfirm({
+    personName: person.name,
+    island: isIslandWide(person),
+    active: "settings",
+    title: `Move the centre of ${a.name}`,
+    question: () => `Move the centre of ${a.name} here?`,
+    saveLabel: "Move the centre here",
+    spot: picked.spot,
+    zoom: CENTRE_ZOOM,
+    now: a,
+    nowInWords: false,
+    nowLabel: "The centre now",
+    newLabel: "The new centre",
+    saveAction: AREAS_PATH,
+    saveFields: { op: "move", key: a.key },
+    back: { href: `${base}`, label: "Start again on this area's map" },
+    help: AREA_CENTRE_WHAT,
+  });
+  setTeamHeaders(res, { scripts: true });
+  res.type("html").send(html);
 });
 
 export default router;

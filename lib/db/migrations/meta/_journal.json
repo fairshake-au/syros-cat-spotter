@@ -372,6 +372,20 @@
       "when": 1793033586347,
       "tag": "0052_map_data_files",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793085938330,
+      "tag": "0053_drop_map_tile_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793090000000,
+      "tag": "0054_moves_merges_duplicates",
+      "breakpoints": true
     }
   ]
 }

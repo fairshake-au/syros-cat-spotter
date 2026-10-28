@@ -8,6 +8,7 @@ import { en } from "./strings/en";
 import { el } from "./strings/el";
 import { fr } from "./strings/fr";
 import type { ProgressReport } from "../reports/progress";
+import { catMapRig, posCat } from "./__fixtures__/catMapRig";
 
 // SYC-601 / SYC-600: a cat whose sterilisation isn't known never reads as a
 // bare "Not known yet" where a reader could take it to mean "nobody knows
@@ -27,6 +28,15 @@ describe("sterilisation not known, in words that say what isn't known", () => {
 
   it("uses the same word on the island map's script legend", () => {
     expect(read("..", "..", "..", "assets", "dashboard-map.js")).toContain(`not_known: "${MARK_WORD.not_known}"`);
+  });
+
+  it("the island map's marker and card say it, as drawn on the map", async () => {
+    const t = await catMapRig();
+    await t.answer(0, [posCat(1, 37.44, 24.94, "not_known")]);
+    const [pin] = t.markers("catdot");
+    expect(pin.getAttribute("aria-label")).toBe(`Cat ba: ${MARK_WORD.not_known}`);
+    pin.click();
+    expect(t.document.querySelector("#catsheet .mark-word").textContent).toBe(MARK_WORD.not_known);
   });
 
   it("labels the guardian colony bar and rows in all three languages", () => {

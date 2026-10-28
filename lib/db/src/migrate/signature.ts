@@ -182,8 +182,16 @@ export async function schemaSignature(
  */
 const MODELLED = /^(table|column|index|constraint|enum|sequence) /;
 
+/**
+ * A constraint trigger (CREATE CONSTRAINT TRIGGER, e.g. migration 0054's
+ * deferred cat_identity check) is listed in pg_constraint with type `t`, but
+ * it is a trigger: only migration SQL can make it, and it is compared with
+ * the triggers.
+ */
+const CONSTRAINT_TRIGGER = /^constraint \S+ t /;
+
 export function modelledOnly(signature: string[]): string[] {
-  return signature.filter((l) => MODELLED.test(l));
+  return signature.filter((l) => MODELLED.test(l) && !CONSTRAINT_TRIGGER.test(l));
 }
 
 /** Lines present in one signature and not the other, labelled by side. */

@@ -13,7 +13,7 @@ export interface NamedArea {
 }
 
 export const SEED_AREAS: readonly NamedArea[] = [
-  // The first 7 are copied exactly from lib/mapTiles/areas.ts (checked 15 Oct 2026).
+  // The first 7 are the town and village centres the old picture map used (namedAreas.test.ts pins them).
   { key: "ermoupoli", name: "Ermoupoli", lat: 37.4447, lng: 24.9417 },
   { key: "vaporia", name: "Vaporia", lat: 37.4447, lng: 24.9475 },
   { key: "kini", name: "Kini", lat: 37.4436, lng: 24.8889 },

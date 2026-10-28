@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { addPerson, pool } from "@workspace/db";
+import { addPerson, db, feedingSitesTable, photosTable, pool, sightingsTable } from "@workspace/db";
 import app from "../app";
+import { setMapSourceForTests } from "./teamMapData";
 import { claimsFor, makeKey, mint } from "../lib/teamAuth/__fixtures__/mint";
 import {
   clearWelfareTables,
@@ -27,6 +28,8 @@ let reportPhotoId: string;
 let catId: number;
 
 beforeAll(async () => {
+  // SYC-705 2b.3: the map-data routes ask the map host through the store; here it is unreachable.
+  setMapSourceForTests({ fetch: (async () => { throw new Error("offline"); }) as typeof fetch });
   process.env["TEAM_HANDOFF_PUBLIC_KEYS"] = handoffKey.publicRaw;
   process.env["TEAM_SESSION_KEYS"] = KEY;
   await removeTestPerson(EMAIL);
@@ -59,6 +62,7 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  setMapSourceForTests(undefined);
   delete process.env["TEAM_HANDOFF_PUBLIC_KEYS"];
   delete process.env["TEAM_SESSION_KEYS"];
   await clearWelfareTables();
@@ -193,21 +197,25 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "GET /api/team/sites",
   ],
   [
-    "the map page",
+    "the old map address (a redirect)",
     () => request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html"),
     "GET /api/team/map",
   ],
-  // SYC-396 PR 1.5: the island map's square tokens and squares (JSON and
-  // pictures, so the strict header, never the Cats page's wider one).
+  // SYC-705 2b.3: the dashboard's own map files are JSON or bytes, so the strict header.
   [
-    "the island map's square tokens",
-    () =>
-      request(app)
-        .post("/api/team/map-squares")
-        .set("Origin", TEAM)
-        .set("Cookie", cookie)
-        .send({ z: 14, xMin: 0, xMax: 1, yMin: 0, yMax: 1 }),
-    "POST /api/team/map-squares",
+    "the map's version",
+    () => request(app).get("/api/team/map-data/current").set("Cookie", cookie),
+    "GET /api/team/map-data/current",
+  ],
+  [
+    "a map file of a version that does not exist",
+    () => request(app).get("/api/team/map-data/v999999999/syros.pmtiles").set("Cookie", cookie),
+    "GET /api/team/map-data/v:version/syros.pmtiles",
+  ],
+  [
+    "a map symbol that is not one",
+    () => request(app).get("/api/team/map-data/v1/sprites/nope.json").set("Cookie", cookie),
+    "GET /api/team/map-data/v:version/sprites/:file",
   ],
   [
     "the island Map (the Cats page as a map)",
@@ -249,11 +257,6 @@ const RESPONSES: [string, () => request.Test, string?][] = [
     "an unmatched dashboard path, as data (SYC-516 C1)",
     () => request(app).get("/api/team/nope"),
     "GET /api/team/nope",
-  ],
-  [
-    "an island map square with a bad token",
-    () => request(app).get("/api/team/map-square/nope").set("Cookie", cookie),
-    "GET /api/team/map-square/:token",
   ],
   ["My page", () => request(app).get("/api/team/my").set("Cookie", cookie), "GET /api/team/my"],
   ["GET /me", () => request(app).get("/api/team/me").set("Cookie", cookie)],
@@ -302,9 +305,76 @@ describe("P1-5: every dashboard response has the team headers", () => {
 });
 
 // SYC-396 PR 1.3.4: the one exemption, pinned exactly.
-describe("the wider header is the Cats grid's and the Find from a photo form's alone, and exactly this", () => {
-  it("the exemption names one route", () => {
-    expect([...WIDE_CSP_ROUTES]).toEqual(["GET /api/team/cats", "GET /api/team/cats/find"]);
+describe("the wider header is the named pages' alone, and exactly this", () => {
+  it("the exemption names exactly these routes", () => {
+    expect([...WIDE_CSP_ROUTES]).toEqual([
+      "GET /api/team/cats",
+      "GET /api/team/cats/find",
+      // SYC-705 Task 2b.5: the pages with a MapLibre view map.
+      "GET /api/team/sites",
+      "GET /api/team/sites/:id",
+      "GET /api/team/colonies/:id",
+      "GET /api/team/cats/:id",
+      // SYC-705 Task 2b.7: the place pages and their confirmations.
+      "GET /api/team/sites/new",
+      "GET /api/team/sites/:id/move",
+      "POST /api/team/sites/pick",
+      "POST /api/team/sites/:id/move/pick",
+      "POST /api/team/sites/from-sighting",
+      "POST /api/team/sites/map-at-sighting",
+      "GET /api/team/colonies/:id/centre",
+      "POST /api/team/colonies/:id/centre/pick",
+      "POST /api/team/areas/new",
+      "POST /api/team/areas/new/pick",
+      "GET /api/team/areas/:key/centre",
+      "POST /api/team/areas/:key/centre/pick",
+    ]);
+  });
+
+  // SYC-705 2b.5 review: a cat's or colony's page loads the map, and gets the
+  // wider header, only when it draws a map (sightings; sites).
+  it("a cat's page and a colony's page are wide only when they draw a map", async () => {
+    const page = (path: string) => request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
+    const scriptsOf = (html: string) => html.match(/<script\b/gi)?.length ?? 0;
+    // No sightings, no sites: no map, no script, the strict header.
+    const bareCol = await newColony("headers-bare");
+    const bareCat = (await seedCat(bareCol)).id;
+    for (const path of [`/api/team/cats/${bareCat}`, `/api/team/colonies/${bareCol}`]) {
+      const res = await page(path);
+      expect(res.status, path).toBe(200);
+      expect(res.headers["content-security-policy"], path).toBe(STRICT_CSP);
+      expect(scriptsOf(res.text), path).toBe(0);
+      expect(res.text, path).not.toContain('class="map"');
+    }
+    // With a sighting, and with a site: the map, its scripts, the wider header.
+    const mapCol = await newColony("headers-map");
+    const mapCat = (await seedCat(mapCol)).id;
+    const [photo] = await db.insert(photosTable).values({ data: "AAAA", mime: "image/jpeg" }).returning();
+    await db.insert(sightingsTable).values({ deviceId: "vt-headers-device", photoId: photo!.id, catId: mapCat, lat: 37.44, lng: 24.94, status: "resolved" });
+    await db.insert(feedingSitesTable).values({ name: "vt-headers site", lat: 37.445, lng: 24.94, colonyId: mapCol });
+    for (const path of [`/api/team/cats/${mapCat}`, `/api/team/colonies/${mapCol}`]) {
+      const res = await page(path);
+      expect(res.status, path).toBe(200);
+      expect(res.headers["content-security-policy"], path).toBe(WIDE_CSP);
+      expect(scriptsOf(res.text), path).toBe(3);
+      expect(res.text, path).toContain(' data-map="');
+    }
+  });
+
+  // SYC-705 Task 2b.5: a map page's own 200 carries the wider header; its JSON
+  // answer, its not-found page and "Show on our map" (still the old picture
+  // map until Task 2b.7) keep the strict one.
+  it("the Feeding sites page carries the wider header; its JSON and the map pages' not-found answers the strict one", async () => {
+    const sites = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "text/html");
+    expect(sites.status).toBe(200);
+    expect(sites.headers["content-security-policy"]).toBe(WIDE_CSP);
+    const json = await request(app).get("/api/team/sites").set("Cookie", cookie).set("Accept", "application/json");
+    expect(json.headers["content-security-policy"]).toBe(STRICT_CSP);
+    for (const path of ["/api/team/sites/999999999", "/api/team/colonies/999999999", "/api/team/cats/999999999"]) {
+      const nf = await request(app).get(path).set("Cookie", cookie).set("Accept", "text/html");
+      expect(nf.status, path).toBe(404);
+      expect(nf.headers["content-security-policy"], path).toBe(STRICT_CSP);
+    }
   });
 
   it("the Cats grid page carries exactly the wider header", async () => {
@@ -347,22 +417,20 @@ describe("the wider header is the Cats grid's and the Find from a photo form's a
   // SYC-396 PR 1.5: the island Map is the Cats route's own page (?view=map),
   // so it carries the same wider header and no other; the exemption still
   // names one route. Its no-script move page and its JSON answers are strict.
-  it("the island Map carries exactly the wider header; its move page and JSON answers the strict one", async () => {
+  it("the island Map carries exactly the wider header; its JSON answers the strict one", async () => {
     const map = await request(app).get("/api/team/cats?view=map").set("Cookie", cookie).set("Accept", "text/html");
     expect(map.status).toBe(200);
     expect(map.headers["content-security-policy"]).toBe(WIDE_CSP);
-    const move = await request(app)
-      .post("/api/team/cats/map")
-      .set("Origin", TEAM)
-      .set("Cookie", cookie)
-      .type("form")
-      .send({ vz: "12", vx: "0", vy: "0" });
-    expect(move.status).toBe(200);
-    expect(move.headers["content-security-policy"]).toBe(STRICT_CSP);
-    for (const post of ["/api/team/cats/positions", "/api/team/map-squares"]) {
+    for (const post of ["/api/team/cats/positions"]) {
       const res = await request(app).post(post).set("Origin", TEAM).set("Cookie", cookie).send({});
       expect(res.headers["content-security-policy"], post).toBe(STRICT_CSP);
     }
+  });
+
+  it("the old /api/team/map address sends a team caller on to the Cats map view (SYC-705 2b.8)", async () => {
+    const res = await request(app).get("/api/team/map").set("Cookie", cookie).set("Accept", "text/html");
+    expect(res.status).toBe(303);
+    expect(res.headers["location"]).toBe("/api/team/cats?view=map");
   });
 
   it("every other page keeps today's header, byte for byte", async () => {

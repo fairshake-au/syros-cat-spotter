@@ -1,0 +1,2748 @@
+{
+ "summary": {
+  "total": 184,
+  "passed": 184,
+  "failed": 0,
+  "coldLoads": [
+   {
+    "engine": "chromium",
+    "width": 390,
+    "page": "cats map, fresh context",
+    "msToLive": 1909,
+    "serverCold": true,
+    "mapDataRequests": 8,
+    "totalRequests": 17,
+    "mapRequests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "chromium",
+    "width": 1280,
+    "page": "cats map, fresh context",
+    "msToLive": 1330,
+    "serverCold": false,
+    "mapDataRequests": 8,
+    "totalRequests": 17,
+    "mapRequests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "webkit",
+    "width": 390,
+    "page": "cats map, fresh context",
+    "msToLive": 318,
+    "serverCold": false,
+    "mapDataRequests": 8,
+    "totalRequests": 19,
+    "mapRequests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "webkit",
+    "width": 1280,
+    "page": "cats map, fresh context",
+    "msToLive": 259,
+    "serverCold": false,
+    "mapDataRequests": 8,
+    "totalRequests": 19,
+    "mapRequests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   }
+  ],
+  "mapFile": [
+   {
+    "engine": "chromium",
+    "width": 390,
+    "requests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "chromium",
+    "width": 1280,
+    "requests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "webkit",
+    "width": 390,
+    "requests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   },
+   {
+    "engine": "webkit",
+    "width": 1280,
+    "requests": [
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     },
+     {
+      "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+      "status": 200,
+      "range": null,
+      "bytes": 1473392,
+      "contentLength": "1473392",
+      "encoding": null
+     }
+    ]
+   }
+  ],
+  "maplibreLoads": [],
+  "versions": {
+   "chromium": "156.0.8078.4",
+   "webkit": "27.2"
+  }
+ },
+ "checks": [
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 5258,
+    "landPx": 281492,
+    "seaPx": 348202,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 1909
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: nothing scrolls sideways",
+   "ok": true,
+   "detail": {
+    "overflowPx": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: cat markers present",
+   "ok": true,
+   "detail": {
+    "count": 5,
+    "labels": [
+     "14 cats here. Zoom in to see each one.",
+     "Portokali: Sterilised",
+     "Gata: Probably sterilised",
+     "Tigris: Sterilised: not known yet",
+     "Kyma: Not sterilised"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: group count in Ermoupoli at island view",
+   "ok": true,
+   "detail": [
+    "14 cats here. Zoom in to see each one."
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 31,
+     "y": 29.234375,
+     "width": 24.171875,
+     "height": 36,
+     "top": 29.234375,
+     "right": 55.171875,
+     "bottom": 65.234375,
+     "left": 31
+    },
+    "plus": {
+     "x": 325,
+     "y": 27.234375,
+     "width": 44,
+     "height": 44,
+     "top": 27.234375,
+     "right": 369,
+     "bottom": 71.234375,
+     "left": 325
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: markers' bounding boxes are 44x44",
+   "ok": true,
+   "detail": {
+    "checked": 5
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: tapping a cat opens its card",
+   "ok": true,
+   "detail": {
+    "text": "Portokali\n\nSterilised\n\n×\n\nHarbour steps\n\nNever seen since first recorded · Galissas\n\nShow where else it's been seen\nOpen the cat",
+    "links": [
+     "Show where else it's been seen",
+     "Open the cat"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "1 cats map: card closes with Escape",
+   "ok": true
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "2 focus trail: map draws and numbered trail markers present",
+   "ok": true,
+   "detail": {
+    "numbers": [
+     "1",
+     "2",
+     "3"
+    ],
+    "distinct": 6161,
+    "landPx": 216191,
+    "seaPx": 102469,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 855
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 public site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7163,
+    "landPx": 146628,
+    "seaPx": 49321,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 357
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 public site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-public"
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 public site: \"Position approximate\" note absent",
+   "ok": true,
+   "detail": {
+    "note": false
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 approximate site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 1620,
+    "landPx": 499479,
+    "seaPx": 0,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 227
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 approximate site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-private"
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "3 approximate site: \"Position approximate\" note shows",
+   "ok": true,
+   "detail": {
+    "note": true
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 add a site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 4532,
+    "landPx": 221319,
+    "seaPx": 271764,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 239
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 add a site: \"Use this spot\" appears",
+   "ok": true
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 add a site: dragging the map moves the pin's position (hidden inputs change)",
+   "ok": true,
+   "detail": {
+    "before": {
+     "lat": "37.445",
+     "lng": "24.93"
+    },
+    "pre": {
+     "lat": "37.448744",
+     "lng": "24.938488"
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 \"Check the spot\" page: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 4858,
+    "landPx": 342351,
+    "seaPx": 18,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 327
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 \"Check the spot\" page: title and carried position",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "mid": {
+     "lat": "37.448744",
+     "lng": "24.938488"
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "4 add a site: saved position within 30 m of the pin at submit; not approximate",
+   "ok": true,
+   "detail": {
+    "name": "Pincb",
+    "siteId": 11,
+    "pin": {
+     "lat": "37.448744",
+     "lng": "24.938488"
+    },
+    "saved": [
+     "37.448744",
+     "24.938488",
+     "f"
+    ],
+    "metresApart": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8999,
+    "landPx": 151698,
+    "seaPx": 69974,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 317
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
+   "ok": true,
+   "detail": {
+    "centreMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ],
+    "hiddenInputs": [
+     "lat=37.4445",
+     "lng=24.942"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444878",
+    "lng": "24.942714"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7391,
+    "landPx": 147796,
+    "seaPx": 49339,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 256
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
+   "ok": true,
+   "detail": {
+    "siteMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444489",
+    "lng": "24.942857"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "7 \"Show on our map\": button found on the cat page",
+   "ok": true,
+   "detail": {
+    "found": true
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "7 \"Show on our map\": map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 6431,
+    "landPx": 171501,
+    "seaPx": 78,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 583
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "7 \"Show on our map\": the sighting marker is centred in the map",
+   "ok": true,
+   "detail": {
+    "dx": 0,
+    "dy": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "8 no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "8 no CSP violations",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "8 no request left localhost (none blocked, none recorded outside)",
+   "ok": true,
+   "detail": {
+    "blocked": [],
+    "nonLocal": [],
+    "requests": 173
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "8 no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "8 syros.pmtiles: requested, no Range header, status 200",
+   "ok": true,
+   "detail": [
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
+   "ok": true,
+   "detail": {
+    "noMapLine": true,
+    "areaList": true,
+    "areas": 21,
+    "useSpotVisible": false
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: area pick leads to \"Check the spot\" carrying approximate=1",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "approxHidden": "1"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: saved site page says \"Position approximate\"",
+   "ok": true,
+   "detail": {
+    "name": "Areacc",
+    "siteId": 12,
+    "dbApproximate": "t"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: nothing left localhost; no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "outside": [],
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "5 no JS: no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "9 Greek style (style-el.json served in place of style-en.json): style-el.json answered 200 and the map draws",
+   "ok": true,
+   "detail": {
+    "elStyle": [
+     {
+      "status": 200,
+      "bytes": 45101
+     }
+    ],
+    "areaBtn": "BUTTON visible=true",
+    "distinct": 12021,
+    "landPx": 277624,
+    "seaPx": 211847,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 686
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "9 Greek style: no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 390,
+   "what": "9 Greek style: nothing left localhost",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7738,
+    "landPx": 282317,
+    "seaPx": 237408,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 1330
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: nothing scrolls sideways",
+   "ok": true,
+   "detail": {
+    "overflowPx": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: cat markers present",
+   "ok": true,
+   "detail": {
+    "count": 6,
+    "labels": [
+     "13 cats here. Zoom in to see each one.",
+     "Portokali: Sterilised",
+     "Gata: Probably sterilised",
+     "Tigris: Sterilised: not known yet",
+     "Thalassa: Sterilised",
+     "Kyma: Not sterilised"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: group count in Ermoupoli at island view",
+   "ok": true,
+   "detail": [
+    "13 cats here. Zoom in to see each one."
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 111,
+     "y": 70.9375,
+     "width": 180.9375,
+     "height": 36,
+     "top": 70.9375,
+     "right": 291.9375,
+     "bottom": 106.9375,
+     "left": 111
+    },
+    "plus": {
+     "x": 1135,
+     "y": 68.9375,
+     "width": 44,
+     "height": 44,
+     "top": 68.9375,
+     "right": 1179,
+     "bottom": 112.9375,
+     "left": 1135
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: markers' bounding boxes are 44x44",
+   "ok": true,
+   "detail": {
+    "checked": 6
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: tapping a cat opens its card",
+   "ok": true,
+   "detail": {
+    "text": "Portokali\n\nSterilised\n\n×\n\nHarbour steps\n\nNever seen since first recorded · Galissas\n\nShow where else it's been seen\nOpen the cat",
+    "links": [
+     "Show where else it's been seen",
+     "Open the cat"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "1 cats map: card closes with Escape",
+   "ok": true
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "2 focus trail: map draws and numbered trail markers present",
+   "ok": true,
+   "detail": {
+    "numbers": [
+     "1",
+     "2",
+     "3"
+    ],
+    "distinct": 10240,
+    "landPx": 389708,
+    "seaPx": 30379,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 412
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 public site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7251,
+    "landPx": 74976,
+    "seaPx": 36864,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 264
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 public site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-public"
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 public site: \"Position approximate\" note absent",
+   "ok": true,
+   "detail": {
+    "note": false
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 approximate site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 1471,
+    "landPx": 196327,
+    "seaPx": 47981,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 235
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 approximate site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-private"
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "3 approximate site: \"Position approximate\" note shows",
+   "ok": true,
+   "detail": {
+    "note": true
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 add a site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 3659,
+    "landPx": 67086,
+    "seaPx": 206310,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 324
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 add a site: \"Use this spot\" appears",
+   "ok": true
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 add a site: dragging the map moves the pin's position (hidden inputs change)",
+   "ok": true,
+   "detail": {
+    "before": {
+     "lat": "37.445",
+     "lng": "24.93"
+    },
+    "pre": {
+     "lat": "37.44827",
+     "lng": "24.937413"
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 \"Check the spot\" page: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 6232,
+    "landPx": 162868,
+    "seaPx": 41,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 223
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 \"Check the spot\" page: title and carried position",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "mid": {
+     "lat": "37.44827",
+     "lng": "24.937413"
+    }
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "4 add a site: saved position within 30 m of the pin at submit; not approximate",
+   "ok": true,
+   "detail": {
+    "name": "Pincd",
+    "siteId": 13,
+    "pin": {
+     "lat": "37.44827",
+     "lng": "24.937413"
+    },
+    "saved": [
+     "37.44827",
+     "24.937413",
+     "f"
+    ],
+    "metresApart": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8438,
+    "landPx": 80318,
+    "seaPx": 78048,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 238
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
+   "ok": true,
+   "detail": {
+    "centreMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ],
+    "hiddenInputs": [
+     "lat=37.4445",
+     "lng=24.942"
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444878",
+    "lng": "24.942714"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7521,
+    "landPx": 75055,
+    "seaPx": 38834,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 238
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
+   "ok": true,
+   "detail": {
+    "siteMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44449",
+    "lng": "24.942858"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "7 \"Show on our map\": button found on the cat page",
+   "ok": true,
+   "detail": {
+    "found": true
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "7 \"Show on our map\": map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8366,
+    "landPx": 92459,
+    "seaPx": 507,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 371
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "7 \"Show on our map\": the sighting marker is centred in the map",
+   "ok": true,
+   "detail": {
+    "dx": 0,
+    "dy": 0
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "8 no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "8 no CSP violations",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "8 no request left localhost (none blocked, none recorded outside)",
+   "ok": true,
+   "detail": {
+    "blocked": [],
+    "nonLocal": [],
+    "requests": 175
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "8 no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "8 syros.pmtiles: requested, no Range header, status 200",
+   "ok": true,
+   "detail": [
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
+   "ok": true,
+   "detail": {
+    "noMapLine": true,
+    "areaList": true,
+    "areas": 21,
+    "useSpotVisible": false
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: area pick leads to \"Check the spot\" carrying approximate=1",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "approxHidden": "1"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: saved site page says \"Position approximate\"",
+   "ok": true,
+   "detail": {
+    "name": "Areacf",
+    "siteId": 14,
+    "dbApproximate": "t"
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: nothing left localhost; no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "outside": [],
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "5 no JS: no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "9 Greek style (style-el.json served in place of style-en.json): style-el.json answered 200 and the map draws",
+   "ok": true,
+   "detail": {
+    "elStyle": [
+     {
+      "status": 200,
+      "bytes": 45101
+     }
+    ],
+    "areaBtn": "BUTTON visible=true",
+    "distinct": 9546,
+    "landPx": 248642,
+    "seaPx": 293382,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 440
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "9 Greek style: no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "chromium",
+   "width": 1280,
+   "what": "9 Greek style: nothing left localhost",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 5364,
+    "landPx": 280105,
+    "seaPx": 348159,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 318
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: nothing scrolls sideways",
+   "ok": true,
+   "detail": {
+    "overflowPx": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: cat markers present",
+   "ok": true,
+   "detail": {
+    "count": 5,
+    "labels": [
+     "14 cats here. Zoom in to see each one.",
+     "Portokali: Sterilised",
+     "Gata: Probably sterilised",
+     "Tigris: Sterilised: not known yet",
+     "Kyma: Not sterilised"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: group count in Ermoupoli at island view",
+   "ok": true,
+   "detail": [
+    "14 cats here. Zoom in to see each one."
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 31,
+     "y": 29.234375,
+     "width": 24.171875,
+     "height": 36,
+     "top": 29.234375,
+     "right": 55.171875,
+     "bottom": 65.234375,
+     "left": 31
+    },
+    "plus": {
+     "x": 325,
+     "y": 27.234375,
+     "width": 44,
+     "height": 44,
+     "top": 27.234375,
+     "right": 369,
+     "bottom": 71.234375,
+     "left": 325
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: markers' bounding boxes are 44x44",
+   "ok": true,
+   "detail": {
+    "checked": 5
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: tapping a cat opens its card",
+   "ok": true,
+   "detail": {
+    "text": "Portokali\n\nSterilised\n\n×\n\nHarbour steps\n\nNever seen since first recorded · Galissas\n\nShow where else it's been seen\nOpen the cat",
+    "links": [
+     "Show where else it's been seen",
+     "Open the cat"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "1 cats map: card closes with Escape",
+   "ok": true
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "2 focus trail: map draws and numbered trail markers present",
+   "ok": true,
+   "detail": {
+    "numbers": [
+     "1",
+     "2",
+     "3"
+    ],
+    "distinct": 6212,
+    "landPx": 217231,
+    "seaPx": 102649,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 253
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 public site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 6959,
+    "landPx": 146789,
+    "seaPx": 49324,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 249
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 public site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-public"
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 public site: \"Position approximate\" note absent",
+   "ok": true,
+   "detail": {
+    "note": false
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 approximate site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 1610,
+    "landPx": 499569,
+    "seaPx": 0,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 233
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 approximate site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-private"
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "3 approximate site: \"Position approximate\" note shows",
+   "ok": true,
+   "detail": {
+    "note": true
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 add a site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 4380,
+    "landPx": 221405,
+    "seaPx": 271739,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 232
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 add a site: \"Use this spot\" appears",
+   "ok": true
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 add a site: dragging the map moves the pin's position (hidden inputs change)",
+   "ok": true,
+   "detail": {
+    "before": {
+     "lat": "37.445",
+     "lng": "24.93"
+    },
+    "pre": {
+     "lat": "37.448407",
+     "lng": "24.937725"
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 \"Check the spot\" page: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 4731,
+    "landPx": 325376,
+    "seaPx": 12,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 319
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 \"Check the spot\" page: title and carried position",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "mid": {
+     "lat": "37.448407",
+     "lng": "24.937725"
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "4 add a site: saved position within 30 m of the pin at submit; not approximate",
+   "ok": true,
+   "detail": {
+    "name": "Pincg",
+    "siteId": 15,
+    "pin": {
+     "lat": "37.448407",
+     "lng": "24.937725"
+    },
+    "saved": [
+     "37.448407",
+     "24.937725",
+     "f"
+    ],
+    "metresApart": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8816,
+    "landPx": 152294,
+    "seaPx": 69942,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 233
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
+   "ok": true,
+   "detail": {
+    "centreMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ],
+    "hiddenInputs": [
+     "lat=37.4445",
+     "lng=24.942"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444841",
+    "lng": "24.942644"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7181,
+    "landPx": 148049,
+    "seaPx": 49336,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 265
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
+   "ok": true,
+   "detail": {
+    "siteMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44447",
+    "lng": "24.942822"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "7 \"Show on our map\": button found on the cat page",
+   "ok": true,
+   "detail": {
+    "found": true
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "7 \"Show on our map\": map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 6252,
+    "landPx": 171993,
+    "seaPx": 78,
+    "total": 610064,
+    "w": 728,
+    "h": 838,
+    "msToLive": 329
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "7 \"Show on our map\": the sighting marker is centred in the map",
+   "ok": true,
+   "detail": {
+    "dx": 0,
+    "dy": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "8 no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "8 no CSP violations",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "8 no request left localhost (none blocked, none recorded outside)",
+   "ok": true,
+   "detail": {
+    "blocked": [],
+    "nonLocal": [],
+    "requests": 205
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "8 no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "8 syros.pmtiles: requested, no Range header, status 200",
+   "ok": true,
+   "detail": [
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
+   "ok": true,
+   "detail": {
+    "noMapLine": true,
+    "areaList": true,
+    "areas": 21,
+    "useSpotVisible": false
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: area pick leads to \"Check the spot\" carrying approximate=1",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "approxHidden": "1"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: saved site page says \"Position approximate\"",
+   "ok": true,
+   "detail": {
+    "name": "Areach",
+    "siteId": 16,
+    "dbApproximate": "t"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: nothing left localhost; no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "outside": [],
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "5 no JS: no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "9 Greek style (style-el.json served in place of style-en.json): style-el.json answered 200 and the map draws",
+   "ok": true,
+   "detail": {
+    "elStyle": [
+     {
+      "status": 200,
+      "bytes": 45101
+     }
+    ],
+    "areaBtn": "BUTTON visible=true",
+    "distinct": 12031,
+    "landPx": 276456,
+    "seaPx": 211798,
+    "total": 773136,
+    "w": 728,
+    "h": 1062,
+    "msToLive": 259
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "9 Greek style: no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 390,
+   "what": "9 Greek style: nothing left localhost",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7872,
+    "landPx": 282488,
+    "seaPx": 237483,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 259
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: nothing scrolls sideways",
+   "ok": true,
+   "detail": {
+    "overflowPx": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: cat markers present",
+   "ok": true,
+   "detail": {
+    "count": 6,
+    "labels": [
+     "13 cats here. Zoom in to see each one.",
+     "Portokali: Sterilised",
+     "Gata: Probably sterilised",
+     "Tigris: Sterilised: not known yet",
+     "Thalassa: Sterilised",
+     "Kyma: Not sterilised"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: group count in Ermoupoli at island view",
+   "ok": true,
+   "detail": [
+    "13 cats here. Zoom in to see each one."
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: Key button and + button do not overlap",
+   "ok": true,
+   "detail": {
+    "overlap": false,
+    "key": {
+     "x": 111,
+     "y": 70.9375,
+     "width": 180.9375,
+     "height": 36,
+     "top": 70.9375,
+     "right": 291.9375,
+     "bottom": 106.9375,
+     "left": 111
+    },
+    "plus": {
+     "x": 1135,
+     "y": 68.9375,
+     "width": 44,
+     "height": 44,
+     "top": 68.9375,
+     "right": 1179,
+     "bottom": 112.9375,
+     "left": 1135
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: markers' bounding boxes are 44x44",
+   "ok": true,
+   "detail": {
+    "checked": 6
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: tapping a cat opens its card",
+   "ok": true,
+   "detail": {
+    "text": "Portokali\n\nSterilised\n\n×\n\nHarbour steps\n\nNever seen since first recorded · Galissas\n\nShow where else it's been seen\nOpen the cat",
+    "links": [
+     "Show where else it's been seen",
+     "Open the cat"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "1 cats map: card closes with Escape",
+   "ok": true
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "2 focus trail: map draws and numbered trail markers present",
+   "ok": true,
+   "detail": {
+    "numbers": [
+     "1",
+     "2",
+     "3"
+    ],
+    "distinct": 10179,
+    "landPx": 390172,
+    "seaPx": 31511,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 244
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 public site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7246,
+    "landPx": 75142,
+    "seaPx": 37051,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 256
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 public site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-public"
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 public site: \"Position approximate\" note absent",
+   "ok": true,
+   "detail": {
+    "note": false
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 approximate site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 1445,
+    "landPx": 196354,
+    "seaPx": 48010,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 257
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 approximate site: site marker present",
+   "ok": true,
+   "detail": [
+    "pin site-private"
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "3 approximate site: \"Position approximate\" note shows",
+   "ok": true,
+   "detail": {
+    "note": true
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 add a site: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 3467,
+    "landPx": 67003,
+    "seaPx": 206424,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 238
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 add a site: \"Use this spot\" appears",
+   "ok": true
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 add a site: dragging the map moves the pin's position (hidden inputs change)",
+   "ok": true,
+   "detail": {
+    "before": {
+     "lat": "37.445",
+     "lng": "24.93"
+    },
+    "pre": {
+     "lat": "37.447975",
+     "lng": "24.936744"
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 \"Check the spot\" page: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 5674,
+    "landPx": 167250,
+    "seaPx": 0,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 320
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 \"Check the spot\" page: title and carried position",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "mid": {
+     "lat": "37.447975",
+     "lng": "24.936744"
+    }
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "4 add a site: saved position within 30 m of the pin at submit; not approximate",
+   "ok": true,
+   "detail": {
+    "name": "Pincj",
+    "siteId": 17,
+    "pin": {
+     "lat": "37.447975",
+     "lng": "24.936744"
+    },
+    "saved": [
+     "37.447975",
+     "24.936744",
+     "f"
+    ],
+    "metresApart": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8237,
+    "landPx": 80381,
+    "seaPx": 78129,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 243
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: the fixed pin and the revealed Use-this-spot controls are there (place mode finished starting)",
+   "ok": true,
+   "detail": {
+    "centreMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ],
+    "hiddenInputs": [
+     "lat=37.4445",
+     "lng=24.942"
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6 colony centre picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.444841",
+    "lng": "24.942644"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 7365,
+    "landPx": 75232,
+    "seaPx": 38949,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 359
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: the fixed pin and the revealed controls are there",
+   "ok": true,
+   "detail": {
+    "siteMarkers": 1,
+    "fixedPin": true,
+    "revealedControls": [
+     true,
+     true,
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: the pin is shown and \"Use this spot\" is visible",
+   "ok": true,
+   "detail": {
+    "pin": true,
+    "use": [
+     true
+    ]
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "6b move-a-site picker: lat/lng inputs are filled after a drag",
+   "ok": true,
+   "detail": {
+    "lat": "37.44447",
+    "lng": "24.942822"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "7 \"Show on our map\": button found on the cat page",
+   "ok": true,
+   "detail": {
+    "found": true
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "7 \"Show on our map\": map draws (.maplive, canvas not blank)",
+   "ok": true,
+   "detail": {
+    "distinct": 8335,
+    "landPx": 92583,
+    "seaPx": 505,
+    "total": 307546,
+    "w": 734,
+    "h": 419,
+    "msToLive": 463
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "7 \"Show on our map\": the sighting marker is centred in the map",
+   "ok": true,
+   "detail": {
+    "dx": 0,
+    "dy": 0
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "8 no console errors",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "8 no CSP violations",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "8 no request left localhost (none blocked, none recorded outside)",
+   "ok": true,
+   "detail": {
+    "blocked": [],
+    "nonLocal": [],
+    "requests": 207
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "8 no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "8 syros.pmtiles: requested, no Range header, status 200",
+   "ok": true,
+   "detail": [
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    },
+    {
+     "url": "http://localhost:8752/api/team/map-data/v2/syros.pmtiles",
+     "status": 200,
+     "range": null,
+     "bytes": 1473392,
+     "contentLength": "1473392",
+     "encoding": null
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: the \"Move the map until the pin...\" line is absent or hidden",
+   "ok": true,
+   "detail": [
+    {
+     "tag": "P",
+     "visible": false
+    }
+   ]
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: picker shows the no-map line and the area list (Use this spot hidden)",
+   "ok": true,
+   "detail": {
+    "noMapLine": true,
+    "areaList": true,
+    "areas": 21,
+    "useSpotVisible": false
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: area pick leads to \"Check the spot\" carrying approximate=1",
+   "ok": true,
+   "detail": {
+    "h1": "Check the spot",
+    "approxHidden": "1"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: saved site page says \"Position approximate\"",
+   "ok": true,
+   "detail": {
+    "name": "Areack",
+    "siteId": 18,
+    "dbApproximate": "t"
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: nothing left localhost; no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "outside": [],
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "5 no JS: no request URL matches the position pattern",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "9 Greek style (style-el.json served in place of style-en.json): style-el.json answered 200 and the map draws",
+   "ok": true,
+   "detail": {
+    "elStyle": [
+     {
+      "status": 200,
+      "bytes": 45101
+     }
+    ],
+    "areaBtn": "BUTTON visible=true",
+    "distinct": 9632,
+    "landPx": 248890,
+    "seaPx": 293520,
+    "total": 688126,
+    "w": 1094,
+    "h": 629,
+    "msToLive": 277
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "9 Greek style: no console errors or CSP violations",
+   "ok": true,
+   "detail": {
+    "errors": [],
+    "csp": []
+   }
+  },
+  {
+   "engine": "webkit",
+   "width": 1280,
+   "what": "9 Greek style: nothing left localhost",
+   "ok": true,
+   "detail": []
+  }
+ ]
+}

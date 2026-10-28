@@ -43,7 +43,7 @@ export const DARK_TOKENS =
  * the maps (their pictures are light), the report charts (drawn in ink on
  * white) and the coverage map. Their boxes take the light tokens back.
  */
-export const PAPER_SELECTORS = [".chartbox", ".leaflet-container", ".map", ".mapwrap", ".catmap", ".planmap"];
+export const PAPER_SELECTORS = [".chartbox", ".map", ".mapwrap", ".catmap", ".planmap"];
 
 export const FONT_STACK = '"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 

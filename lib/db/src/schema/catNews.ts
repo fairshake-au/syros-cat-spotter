@@ -53,7 +53,7 @@ export const catNewsBaselineTable = pgTable("cat_news_baseline", {
 //   mode (Slice 1).
 // - `state`: watched (watch mode) | held | sent | silenced | expired.
 // - `silenced_reason`, only when silenced: import | legacy | old_news |
-//   first_seen | deceased | bulk.
+//   first_seen | deceased | bulk | moved | merged (which-cat-is-which.md §9.12).
 export const catNewsChangesTable = pgTable(
   "cat_news_changes",
   {
@@ -84,7 +84,7 @@ export const catNewsChangesTable = pgTable(
     ),
     check(
       "cat_news_changes_reason_ck",
-      sql`${t.silencedReason} IS NULL OR ${t.silencedReason} IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk')`,
+      sql`${t.silencedReason} IS NULL OR ${t.silencedReason} IN ('import', 'legacy', 'old_news', 'first_seen', 'deceased', 'bulk', 'moved', 'merged')`,
     ),
   ],
 );
