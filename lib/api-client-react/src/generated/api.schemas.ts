@@ -87,6 +87,19 @@ export const AppNotificationUpdateType = {
 } as const;
 
 /**
+ * What the entry is. Added with merging two records of the same cat (SYC-59); an older server omits it, so the app treats a missing kind as cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don't know them show message, as for a weekly result.
+ */
+export type AppNotificationKind = typeof AppNotificationKind[keyof typeof AppNotificationKind];
+
+
+export const AppNotificationKind = {
+  cat: 'cat',
+  week_result: 'week_result',
+  merged: 'merged',
+  duplicate_points: 'duplicate_points',
+} as const;
+
+/**
  * A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week's top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.
  */
 export interface AppNotification {
@@ -101,6 +114,12 @@ export interface AppNotification {
   place?: number | null;
   /** A weekly result's points that week; null as for place. */
   weekPoints?: number | null;
+  /** What the entry is. Added with merging two records of the same cat (SYC-59); an older server omits it, so the app treats a missing kind as cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don't know them show message, as for a weekly result. */
+  kind?: AppNotificationKind;
+  /** A merged or duplicate_points entry's staying cat (the one the entry opens); absent otherwise. */
+  survivorCatId?: number | null;
+  survivorCatName?: string | null;
+  mergedCatName?: string | null;
   read: boolean;
   createdAt: string;
 }

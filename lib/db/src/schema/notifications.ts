@@ -73,6 +73,12 @@ export const notificationsTable = pgTable("notifications", {
   // spotter's language; null for cat news. The stored message stays for old builds.
   place: integer("place"),
   weekPoints: integer("week_points"),
+  // A `merged` or `duplicate_points` line's two cats (SYC-59 PR 4.3): the one
+  // that stays and the one that went into it, so the app can word the line in
+  // the spotter's language and open the survivor. Null for cat news and
+  // weekly results, and for lines written before these columns existed.
+  survivorCatId: integer("survivor_cat_id"),
+  mergedCatId: integer("merged_cat_id"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

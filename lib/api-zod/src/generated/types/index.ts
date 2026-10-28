@@ -8,6 +8,7 @@
 
 export * from './apiErrorBody';
 export * from './appNotification';
+export * from './appNotificationKind';
 export * from './appNotificationUpdateType';
 export * from './appSettings';
 export * from './appSettingsFeedNudge';

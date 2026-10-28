@@ -332,8 +332,8 @@ export async function mergeCatsIn(tx: Tx, person: Person, input: MergeInput): Pr
   // 8. The in-app lines (D4, D10). Never pushed: nothing here calls the push sender.
   const followers = await followersToTell(tx, mergedId, survivorId);
   const lines = [
-    ...followers.map((deviceId) => ({ deviceId, kind: "merged", message: MERGE_WORDS.merged(merged.name, survivor.name) })),
-    ...paid.map((deviceId) => ({ deviceId, kind: "duplicate_points", message: MERGE_WORDS.duplicatePoints(merged.name, survivor.name) })),
+    ...followers.map((deviceId) => ({ deviceId, kind: "merged", message: MERGE_WORDS.merged(merged.name, survivor.name), survivorCatId: survivorId, mergedCatId: mergedId })),
+    ...paid.map((deviceId) => ({ deviceId, kind: "duplicate_points", message: MERGE_WORDS.duplicatePoints(merged.name, survivor.name), survivorCatId: survivorId, mergedCatId: mergedId })),
   ];
   if (lines.length > 0) await tx.insert(notificationsTable).values(lines);
 
