@@ -18,6 +18,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
 }));
 
 import { deleteTestSightings } from "../test/sightings";
+import { mergeKeepingSightings } from "../test/merges";
 import { newColony } from "../test/roleKit";
 import { visibleColonyIds } from "./guardianView";
 import { letGoWithinDays, removedByTeamWithinDays } from "./claiming";
@@ -117,12 +118,12 @@ async function cat(name: string): Promise<{ id: number; name: string }> {
   return { id: c!.id, name: full };
 }
 
+// Mimi keeps her resolved sighting here (the readers below are still written for
+// that shape until PR 3.1 / 4.1), which migration 0054 refuses at commit; so the
+// merge is written through the test helper that switches that one trigger off.
 async function merge(from: number, into: number): Promise<number> {
-  const [row] = await db
-    .insert(catIdentityTable)
-    .values({ catId: from, canonicalCatId: into, reason: "vitest live cats" })
-    .returning({ id: catIdentityTable.id });
-  return row!.id;
+  const row = await mergeKeepingSightings({ catId: from, canonicalCatId: into, reason: "vitest live cats" });
+  return row.id;
 }
 
 async function undo(mergeId: number, catId: number) {
