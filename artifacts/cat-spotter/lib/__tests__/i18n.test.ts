@@ -52,6 +52,17 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  it('"Are these the same cat?" is in every language, with the cat\'s name in the photo label (SYC-59 PR 5.2)', () => {
+    expect(TRANSLATIONS.en.dupQuestion).toBe('These two look alike. Are they the same cat?');
+    expect([TRANSLATIONS.en.dupSame, TRANSLATIONS.en.dupDifferent, TRANSLATIONS.en.dupNotSure]).toEqual(['Same cat', 'Different cats', 'Not sure']);
+    for (const code of LANG_CODES) {
+      for (const key of ['dupQuestion', 'dupSame', 'dupDifferent', 'dupNotSure', 'dupYourPhotoAlt', 'dupCatPhotoAlt']) {
+        expect(TRANSLATIONS[code][key], `${key} in ${code}`).toBeTruthy();
+      }
+      expect(TRANSLATIONS[code].dupCatPhotoAlt, code).toContain('{name}');
+    }
+  });
+
   it('has exactly the 22 badges', () => {
     expect(BADGE_IDS).toHaveLength(22);
   });
