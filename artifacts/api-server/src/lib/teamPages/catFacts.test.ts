@@ -105,6 +105,7 @@ function factsView(o: Over = {}): TeamCatView {
     photos: [],
     history: o.history ?? [],
     moves: [],
+    merges: [],
     recentGuardianMark: null,
   };
 }

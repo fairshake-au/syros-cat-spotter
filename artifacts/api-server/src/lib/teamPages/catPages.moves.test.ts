@@ -19,6 +19,7 @@ const sighting = (id: number, at: string) => ({
 
 const move = (over: Partial<TeamSightingMove> = {}): TeamSightingMove => ({
   id: 70,
+  merge: null,
   sightingId: 41,
   direction: "in",
   otherCat: { id: 7, syr: "SYR-0007", name: "Mimi" },

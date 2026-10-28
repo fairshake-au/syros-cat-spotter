@@ -53,6 +53,7 @@ const shape = (rows: HistoryRow[]): string[] =>
     if (r.type === "visit") return `v${r.visit?.visitId ?? r.entries.find((e) => e.kind === "vet_visit")?.id ?? "?"}`;
     if (r.type === "entry") return `e${r.entry.id}`;
     if (r.type === "moved") return `m${r.move.id}`;
+    if (r.type === "merge") return `g${r.event.id}`;
     return `run(${r.rows.map((x) => `s${x.sighting.id}`).join(",")})`;
   });
 

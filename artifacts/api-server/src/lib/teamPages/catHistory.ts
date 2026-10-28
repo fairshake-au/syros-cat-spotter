@@ -1,4 +1,4 @@
-import type { TeamCatView, TeamSightingMove, TeamStatement } from "../teamCatView";
+import type { TeamCatView, TeamMergeEvent, TeamSightingMove, TeamStatement } from "../teamCatView";
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import { VISIT_REASON, type VisitLine } from "../vetVisits";
 import type { Capability } from "../capabilities";
@@ -11,6 +11,7 @@ import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { rowMenu } from "./rowMenu";
 import { openMapLink } from "./position";
 import { MOVE_SCREEN, moveHref } from "./moveLinks";
+import { undoScreen } from "./mergeLinks";
 import { t } from "./words";
 import type { KeptFields } from "./signedOutPage";
 
@@ -112,6 +113,8 @@ export type HistoryRow =
   // A sighting the team moved to another cat (SYC-150 PR 3.3): it stays in
   // this cat's History as the row of where it went, dated when it was seen.
   | { type: "moved"; move: TeamSightingMove; entries: TeamStatement[] }
+  // A merge this cat is part of, or its undo (SYC-59 PR 4.2): "Merged with Mimi by Maria".
+  | { type: "merge"; event: TeamMergeEvent }
   | { type: "visit"; visit: VisitLine | null; entries: TeamStatement[] } // visit null: an undone visit
   | { type: "entry"; entry: TeamStatement }
   | { type: "run"; rows: Extract<HistoryRow, { type: "sighting" }>[] };
@@ -120,7 +123,7 @@ type SightingRow = Extract<HistoryRow, { type: "sighting" }>;
 type FlatRow = Exclude<HistoryRow, { type: "run" }>;
 
 /** Rank for a tie in time: sightings, then visits, then changes. */
-const RANK: Record<FlatRow["type"], number> = { sighting: 0, moved: 0, visit: 1, entry: 2 };
+const RANK: Record<FlatRow["type"], number> = { sighting: 0, moved: 0, visit: 1, entry: 2, merge: 2 };
 
 /**
  * Every row before filtering or grouping, newest first. Ties in time go
@@ -134,7 +137,8 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
   // A sighting that left this cat for another: one row per move out (nothing
   // said before is lost, even if it came back). When it isn't here now, the
   // newest move carries the sighting's entries.
-  const movedOut = v.moves.filter((m) => m.direction === "out" && m.sighting !== null);
+  // (a merge's and an undo's moves are not rows of their own: the merge row says them, and the sighting carries a "from Mimi" line)
+  const movedOut = v.moves.filter((m) => m.direction === "out" && m.sighting !== null && m.merge === null);
   const carrying = new Map<number, number>();
   for (const m of movedOut) if (!sightingIds.has(m.sightingId) && !carrying.has(m.sightingId)) carrying.set(m.sightingId, m.id);
 
@@ -175,6 +179,7 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
       return { row: { type: "visit" as const, visit: line, entries }, at: Date.parse(when), id: visitId };
     }),
     ...loose.map((e) => ({ row: { type: "entry" as const, entry: e }, at: Date.parse(e.observedAt), id: e.id })),
+    ...v.merges.map((e) => ({ row: { type: "merge" as const, event: e }, at: Date.parse(e.at), id: e.id })),
   ];
   keyed.sort((a, b) => b.at - a.at || RANK[a.row.type] - RANK[b.row.type] || b.id - a.id);
   return keyed.map((k) => k.row);
@@ -186,7 +191,7 @@ const SHOWS: Record<HistoryShow, (r: FlatRow) => boolean> = {
   visits: (r) => r.type === "visit",
   // A sighting moved away is a record of a change, not a sighting of this cat now: so "Sightings N" counts only
   // the sightings filed under her (SYC-150 PR 3.3), and the moved row is under Changes and notes.
-  changes: (r) => r.type === "entry" || r.type === "moved",
+  changes: (r) => r.type === "entry" || r.type === "moved" || r.type === "merge",
 };
 
 /**
@@ -450,6 +455,7 @@ export interface HistoryOptions {
 function entryIdsOf(r: HistoryRow): number[] {
   if (r.type === "entry") return [r.entry.id];
   if (r.type === "run") return r.rows.flatMap((x) => x.entries.map((e) => e.id));
+  if (r.type === "merge") return [];
   // (a moved row holds entries like a sighting does: r.entries below)
   return r.entries.map((e) => e.id);
 }
@@ -559,12 +565,26 @@ function moveItems(sightingId: number, c: Pick<Ctx, "may" | "catId" | "cameFrom"
     `<a class="tap" href="${esc(moveHref(here))}">Move to a different cat…</a>`,
     `<a class="tap" href="${esc(moveHref({ ...here, fresh: true }))}">Move to a new cat</a>`,
     // The sighting's newest move brought it here: moving it back is another move, with a reason.
-    ...(back?.latest ? [`<a class="tap" href="${esc(moveHref({ ...here, to: back.otherCat.id }))}">Move back to ${esc(back.otherCat.name)}</a>`] : []),
+    // (a merge's move is undone by Undo merge, not by moving it back)
+    ...(back?.latest && back.merge === null ? [`<a class="tap" href="${esc(moveHref({ ...here, to: back.otherCat.id }))}">Move back to ${esc(back.otherCat.name)}</a>`] : []),
   ];
 }
 
-/** "Moved here from Mimi SYR-0003 by Maria on 26 Oct 2026. Why: Different markings." */
+/** The small "from Mimi" mark on something that came from a cat merged into this one (§4.3). */
+const fromTag = (cat: { name: string } | undefined | null): string =>
+  cat ? ` <span class="tag from">from ${esc(cat.name)}</span>` : "";
+
+/**
+ * "Moved here from Mimi SYR-0003 by Maria on 26 Oct 2026. Why: Different markings."
+ * A sighting a merge filed here says so instead: "Came with Mimi when Mimi was merged in by Maria on 26 Oct 2026."
+ */
 function cameHereLine(m: TeamSightingMove): string {
+  if (m.merge !== null) {
+    const other = `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span>`;
+    return m.merge === "merged"
+      ? `<p class="meta moveline">Came with ${other} when it was merged in by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}.</p>`
+      : `<p class="meta moveline">Back here from ${other} when the merge was undone by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}.</p>`;
+  }
   return (
     `<p class="meta moveline">${m.madeNewCat ? "Started this cat. Moved here" : "Moved here"} from ` +
     `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span> ` +
@@ -717,7 +737,7 @@ function entryRow(s: TeamStatement, c: Ctx): string {
     whenCell(s.observedAt, c.now, late) +
     '<div class="what">' +
     rowNotice([s.id], c) +
-    `<b>${said}</b>${tag}` +
+    `<b>${said}</b>${tag}${fromTag(s.fromCat)}` +
     `<span class="who">${esc(whoWords(s))}${late ? ` · recorded ${timeTag(s.createdAt, fullWhen(s.createdAt))}` : ""}</span>` +
     entryExtras(s, c) +
     "</div>" +
@@ -776,6 +796,7 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     '<div class="what">' +
     rowNotice(ids, c) +
     `<b>Seen in ${esc(placeLabel(s))}</b>${joined ? `: ${joined}` : ""}` +
+    fromTag(c.cameFrom.get(s.id)?.merge === "merged" ? c.cameFrom.get(s.id)!.otherCat : null) +
     // SYC-415 spec §4.5: the matcher thought this spot's photos may be of more than one cat.
     (s.mixedCats ? ' <span class="tag warn">May show more than one cat</span>' : "") +
     // Every sighting comes from a spotter's phone (sightings_attribution_ck).
@@ -842,6 +863,41 @@ function movedRow(r: Extract<HistoryRow, { type: "moved" }>, c: Ctx): string {
   );
 }
 
+/**
+ * A merge this cat is part of, or its undo: "Merged with Mimi by Maria, 26 Oct:
+ * “Same face markings”", with Undo merge in its ⋯ menu while the merge stands
+ * (which-cat-is-which.md §4.3; SYC-59 PR 4.2). Drawn on both cats.
+ */
+function mergeRow(r: Extract<HistoryRow, { type: "merge" }>, c: Ctx): string {
+  const e = r.event;
+  const other = `<a href="${esc(catHref(e.otherCat.id))}">${esc(e.otherCat.name)}</a> <span class="syr">${esc(e.otherCat.syr)}</span>`;
+  const into = e.role === "merged" ? "into" : "with";
+  const headline = e.kind === "merged" ? `Merged ${into} ${other}` : `Merge ${into} ${other} undone`;
+  const n = e.sightings;
+  const counted = `${n} ${n === 1 ? "sighting" : "sightings"}`;
+  const moved =
+    e.kind === "undone"
+      ? `${counted} went back to ${e.role === "merged" ? "this cat" : esc(e.otherCat.name)}.`
+      : e.role === "survivor"
+        ? `${counted} came with ${esc(e.otherCat.name)}.`
+        : `${counted} went to ${esc(e.otherCat.name)}.`;
+  const items =
+    c.may("merge_cats") && e.kind === "merged" && e.standing
+      ? [`<a class="tap" href="${esc(undoScreen(e.mergeId))}">Undo merge</a>`]
+      : [];
+  return (
+    `<li class="hrow merge" id="mg-${e.id}">` +
+    whenCell(e.at, c.now) +
+    '<div class="what">' +
+    `<b>${headline}</b>` +
+    `<span class="who">${esc(e.kind === "merged" ? "Merged" : "Undone")} by ${esc(moverWords(e))}${e.reasonText ? `: “${esc(e.reasonText)}”` : ""}</span>` +
+    `<p class="meta">${moved}${e.kind === "merged" && !e.standing ? " Undone since." : ""}</p>` +
+    "</div>" +
+    (items.length > 0 ? dots(`the merge with ${e.otherCat.name}`, items, false) : "<span></span>") +
+    "</li>"
+  );
+}
+
 /** A vet visit: what was done, the clinic, the cost for those who may see it, and the changes it wrote. */
 function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
   const l = r.visit;
@@ -878,7 +934,7 @@ function visitRow(r: Extract<HistoryRow, { type: "visit" }>, c: Ctx): string {
     whenCell(date, c.now, false, true) +
     '<div class="what">' +
     rowNotice(ids, c) +
-    `<b${own ? ` id="s-${own.id}"` : ""}>${undone ? `<del>${esc(headline)}</del>` : esc(headline)}</b> <span class="tag vet">vet</span>` +
+    `<b${own ? ` id="s-${own.id}"` : ""}>${undone ? `<del>${esc(headline)}</del>` : esc(headline)}</b> <span class="tag vet">vet</span>${fromTag(own?.fromCat)}` +
     (who ? `<span class="who">${who}</span>` : "") +
     (l && "costReason" in l && l.costReason ? `<p class="meta">Why the cost was different: ${esc(l.costReason)}</p>` : "") +
     (l?.note ? `<p class="meta">${esc(l.note)}</p>` : "") +
@@ -959,6 +1015,7 @@ function runRow(r: Extract<HistoryRow, { type: "run" }>, c: Ctx): string {
 function drawRow(r: HistoryRow, c: Ctx): string {
   if (r.type === "sighting") return sightingRow(r, c);
   if (r.type === "moved") return movedRow(r, c);
+  if (r.type === "merge") return mergeRow(r, c);
   if (r.type === "visit") return visitRow(r, c);
   if (r.type === "run") return runRow(r, c);
   return entryRow(r.entry, c);

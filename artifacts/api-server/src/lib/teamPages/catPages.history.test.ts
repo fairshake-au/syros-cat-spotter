@@ -95,6 +95,7 @@ function view(
     photos: [],
     history: opts.history ?? history(n),
     moves: [],
+    merges: [],
     recentGuardianMark: null,
   };
 }
