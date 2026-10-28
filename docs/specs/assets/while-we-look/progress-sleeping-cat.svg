@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32" role="img" aria-label="">
+<!-- Cat Spotters, While we look (SYC-772). First draft for refinement.
+     Motion: curled up asleep: breathes (scaleY 1 to 1.04, 3s); a small z drifts up and fades
+     Keep: the viewBox, every id, and each transform-origin (the app animates these parts by id).
+     Free to change: shapes, colours, details. Keep it flat (no gradients), outline #3b3934. -->
+<style>#sleeper{transform-origin:24px 28px;animation:breathe 3s ease-in-out infinite}@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.05)}}#z{animation:zz 3s ease-out infinite}@keyframes zz{0%{transform:translate(0,4px);opacity:0}30%{opacity:1}100%{transform:translate(4px,-6px);opacity:0}}@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>
+<g id="sleeper" stroke="#3b3934" stroke-width="1.2" stroke-linejoin="round" fill="#8d929a"><ellipse cx="24" cy="22" rx="17" ry="8"/><path d="M8 24 Q6 30 18 30 Q32 30 38 26" fill="none" stroke-width="4" stroke-linecap="round" stroke="#8d929a"/><polygon points="31,13 33,7 36,13"/><polygon points="36,13 40,8 40,15"/><circle cx="35" cy="18" r="6"/></g><path d="M32 18 Q33.5 19.5 35 18 M36.5 18 Q38 19.5 39.5 18" stroke="#3b3934" stroke-width="1" fill="none"/><text id="z" x="40" y="8" font-family="sans-serif" font-size="7" font-weight="700" fill="#1c77c3">z</text>
+</svg>
