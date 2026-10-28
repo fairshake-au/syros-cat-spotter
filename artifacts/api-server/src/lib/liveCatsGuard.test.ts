@@ -75,7 +75,17 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "getProfileStats: cats this device discovered; credit (spec 4.2)",
     "profilePayload: cats this device owns; a merged-away cat never has an owner (spec 4.1)",
   ],
-  "artifacts/api-server/src/lib/catIdentity.ts": ["liveCats: the one place cats are listed and counted"],
+  "artifacts/api-server/src/lib/catIdentity.ts": [
+    "liveCats: the one place cats are listed and counted",
+    "alsoKnownAs: the names of the merged-away cats themselves, by id, for \"also known as\" (spec 4.2)",
+  ],
+  "artifacts/api-server/src/lib/mergeCats.ts": [
+    "mergeCatsIn: the two cats of a merge, locked by id (§9.7 lock 4)",
+    "mergeCatsIn: the two cats, by id, under their locks (owners, names)",
+    "refuseUnlessStandingAlone: the two cats exist, by id",
+    "undoMergeIn: the cats of an undo, locked by id (§9.7 lock 4)",
+    "undoMergeIn: the names for UNDO_LATER_MERGE_FIRST's words, by id",
+  ],
   "artifacts/api-server/src/lib/catNames.ts": ["catNamed: name taken; a merged-away cat's name stays taken (spec 4.2)"],
   "artifacts/api-server/src/lib/claiming.ts": [
     "claimEligibility: one cat by id; a merged-away cat is already refused through canonicalCatOf",

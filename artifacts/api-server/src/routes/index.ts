@@ -16,6 +16,7 @@ import teamReportsRouter from "./teamReports";
 import teamCatsRouter from "./teamCats";
 import teamCorrectionsRouter from "./teamCorrections";
 import teamMovesRouter from "./teamMoves";
+import teamMergesRouter from "./teamMerges";
 import teamColoniesRouter from "./teamColonies";
 import teamPhotosRouter from "./teamPhotos";
 import teamMapDataRouter from "./teamMapData";
@@ -60,6 +61,8 @@ router.use(teamAssetsRouter);
 router.use(teamRouter);
 router.use(teamHomeRouter);
 router.use(teamReportsRouter);
+// Before teamCats, so /team/cats/merge is never read as a cat's id.
+router.use(teamMergesRouter);
 router.use(teamCatsRouter);
 router.use(teamCorrectionsRouter);
 router.use(teamMovesRouter);

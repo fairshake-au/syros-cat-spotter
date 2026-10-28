@@ -29,6 +29,8 @@ const ALLOWLIST: Record<string, string> = {
   "artifacts/api-server/src/lib/moveSightings.ts":
     "the move route's lib (PR 3.2): sets the transaction-local app.sighting_move_id the triggers check, then calls writeMovedObservation; writes no statement column itself",
   "lib/db/src/schema/observations.ts": "the column's definition",
+  "artifacts/api-server/src/lib/mergeCats.ts":
+    "the merge and undo lib (PR 4.1): an undo sets the transaction-local app.sighting_move_id for each move back, then calls writeMovedObservation for the late answers; writes no statement column itself",
 };
 
 const TERMS = [/\bsighting_move_id\b/, /\bsightingMoveId\b/];
