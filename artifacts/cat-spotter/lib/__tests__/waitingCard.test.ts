@@ -398,7 +398,11 @@ describe('factProgress', () => {
   });
   it('a fact cut short (not in everSeen) keeps its number next wait', () => {
     const r = rec(['fact.milk', 'fact.litters']);
-    expect(factProgress(r, settings(), fact('fact.hiss'))).toEqual(factProgress(r, settings(), fact('fact.hiss')));
+    const expected = { kind: 'count', n: 3, total: 11, walkFrom: 2 };
+    expect(factProgress(r, settings(), fact('fact.hiss'))).toEqual(expected);
+    // Shown for under SEEN_AFTER_MS, so it isn't marked seen.
+    const settled = settleWait(r, fact('fact.hiss'), { kind: 'result', sightingId: 7 }, 2999);
+    expect(factProgress(settled, settings(), fact('fact.hiss'))).toEqual(expected);
   });
   it('the last unseen fact reads 11 of 11', () => {
     const tenSeen = VISIBLE_11.filter((id) => id !== 'fact.purr');
