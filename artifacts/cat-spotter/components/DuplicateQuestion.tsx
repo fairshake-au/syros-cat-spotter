@@ -6,7 +6,7 @@ import { useColors } from '@/hooks/useColors';
 import { Chip } from '@/components/purropolis';
 import { CHIP_TAP_PAD } from '@/components/purropolis/Chip';
 import { photoSource } from '@/lib/urls';
-import { catDisplayName } from '@/lib/catDisplayName';
+import { catDisplayName, catNameInSentence } from '@/lib/catDisplayName';
 import type { DuplicateChoice } from '@/lib/sightingAnswers';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 
@@ -50,7 +50,7 @@ export function DuplicateQuestion({ question, chosen, cats, yourPhoto, value, on
         source={photoSource(cat.photoUrl)}
         style={[styles.catPhoto, { borderColor: colors.border, backgroundColor: colors.muted }]}
         contentFit="cover"
-        accessibilityLabel={t('dupCatPhotoAlt').replace('{name}', cat.name)}
+        accessibilityLabel={t('dupCatPhotoAlt').replace('{name}', () => catNameInSentence(cat))}
       />
       <Text style={[styles.catName, { color: colors.foreground }]} numberOfLines={1}>
         {catDisplayName(cat, t)}
