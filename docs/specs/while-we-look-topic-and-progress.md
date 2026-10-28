@@ -1,6 +1,6 @@
 # While we look: a topic, a count, and "your next spot brings a new fact"
 
-**Status:** Draft for Samuel's approval, 27 October 2026. An independent adversarial review (Sonnet, 27 October) found 4 major and 6 minor issues. All are folded in below, and how each was handled is in §10. Updated the same day for Samuel's animated cat pictures (Decision 2).
+**Status:** Approved by Samuel, 27 October 2026 ("Spec approved as written"). An independent adversarial review (Sonnet, 27 October) found 4 major and 6 minor issues. All are folded in below, and how each was handled is in §10. Updated the same day for Samuel's animated cat pictures (Decision 2).
 **Owner:** Samuel
 **Ticket:** SYC-772. Builds on the waiting card (SYC-48, [`starter-facts.md`](./starter-facts.md)). Works with or without editable facts (SYC-754, [`editable-starter-facts.md`](./editable-starter-facts.md)). The facts page in Profile is SYC-773, later.
 
