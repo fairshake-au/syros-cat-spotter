@@ -40,7 +40,8 @@ import { computeBadgeStats } from "../lib/badges/stats";
 import { loadCatRecords, writeObservation } from "../lib/observations";
 import { agreeWithClip } from "../lib/teamCorrections";
 import { severTeamMember } from "../lib/severPerson";
-import { MERGE_WORDS } from "../lib/mergeCats";
+import { filedUnderSurvivorSinceMerge, MERGE_WORDS, MergeRefused } from "../lib/mergeCats";
+import { mergeRecord } from "../lib/catIdentity";
 import { matcherPool } from "./sightings";
 
 // SYC-59 PR 4.1 (which-cat-is-which.md §4, §9.7 merge and undo, §9.8): the
@@ -583,5 +584,215 @@ describe("statements stay where they were written", () => {
     const before = await db.select().from(observationsTable).where(eq(observationsTable.catId, c.mimi));
     expect((await merge(c.mimi, c.agatha)).status).toBe(200);
     expect(await db.select().from(observationsTable).where(eq(observationsTable.catId, c.mimi))).toEqual(before);
+  });
+});
+
+// ── From the independent review of #390 ─────────────────────────────────────
+
+/** Rows of this kind about this sighting that count for the cat: in its group, not replaced inside it, not retracted. */
+async function standing(catId: number, sightingId: number, kind: string) {
+  const rows = (await loadCatRecords([catId])).get(catId)!.observations as (typeof observationsTable.$inferSelect & { elsewhere?: boolean })[];
+  const replaced = new Set(rows.filter((o) => o.supersedesId !== null).map((o) => o.supersedesId));
+  return rows.filter((o) => o.kind === kind && o.sightingId === sightingId && !o.elsewhere && !replaced.has(o.id) && !(o.value as { retracted?: boolean }).retracted);
+}
+
+/** No resolved sighting is filed under a cat that is merged away (§9.2). */
+async function noSightingOnMergedAway(catIds: number[]) {
+  const canonical = await canonicalCatOf(catIds);
+  for (const id of catIds) {
+    if (canonical.get(id) === id) continue;
+    const left = await db.select().from(sightingsTable).where(and(eq(sightingsTable.catId, id), eq(sightingsTable.status, "resolved")));
+    expect(left.map((s) => s.id)).toEqual([]);
+  }
+}
+
+describe("undo: \"sightings filed under Agatha since the merge\" can be ticked, whenever they were sent (review of #390, R1)", () => {
+  const SECRET = "vitest-merge-tick-secret-0123456789abcd";
+  const bound = async () => {
+    const d = kit.device();
+    expect((await request(app).get(`/api/profiles/${d}/username`).set("X-Device-Secret", SECRET)).status).toBe(200);
+    return d;
+  };
+
+  it("a spot sent before the merge and matched after it (the phone was offline) is ticked back to Mimi", async () => {
+    const c = await pair();
+    const d = await bound();
+    const [late] = await db
+      .insert(sightingsTable)
+      .values({ deviceId: d, photoId: await kit.photo(), lat: 37.4441, lng: 24.9412, status: "pending", createdAt: daysAgo(2) })
+      .returning();
+    const m = await libMerge(c.mimi, c.agatha);
+    // The spotter picks Mimi after the merge: it is filed under Agatha.
+    const res = await request(app).post(`/api/sightings/${late!.id}/resolve`).set("X-Device-Secret", SECRET).send({ deviceId: d, catId: c.mimi, pickedFrom: "nearby" });
+    expect(res.status).toBe(200);
+    expect((await sightingRow(late!.id)).catId).toBe(c.agatha);
+    const record = (await mergeRecord(m.mergeId))!;
+    expect(await filedUnderSurvivorSinceMerge(db, record, [late!.id, c.a0.id])).toEqual(new Set([late!.id]));
+    const u = await libUndo(m.mergeId, [late!.id]);
+    expect(u.alsoMoved).toEqual([late!.id]);
+    expect((await sightingRow(late!.id)).catId).toBe(c.mimi);
+  });
+
+  it("an \"Ask Syros Cats to match it\" spot sent before the merge and filed under Agatha after it", async () => {
+    const c = await pair();
+    const [waiting] = await db
+      .insert(sightingsTable)
+      .values({ deviceId: kit.device(), photoId: await kit.photo(), lat: 37.4441, lng: 24.9412, status: "awaiting_team", createdAt: daysAgo(2) })
+      .returning();
+    const m = await libMerge(c.mimi, c.agatha);
+    // Matched after the merge: filed under Agatha, with the resolve's ledger row stamped now.
+    await db.update(sightingsTable).set({ status: "resolved", catId: c.agatha }).where(eq(sightingsTable.id, waiting!.id));
+    await pool.query(
+      "insert into points_ledger (device_id, sighting_id, cat_id, points, athens_day, week_start, earned_at, source) values ($1, $2, $3, 0, current_date, current_date, now(), 'live')",
+      [waiting!.deviceId, waiting!.id, c.agatha],
+    );
+    await libUndo(m.mergeId, [waiting!.id]);
+    expect((await sightingRow(waiting!.id)).catId).toBe(c.mimi);
+  });
+
+  it("an older spot the team moved onto Agatha after the merge (R1b); Agatha's own older spot still can't be ticked", async () => {
+    const c = await pair();
+    const zed = await kit.cat(daysAgo(50));
+    await kit.sighting(zed, kit.device(), daysAgo(25));
+    const z2 = await kit.sighting(zed, kit.device(), daysAgo(10));
+    const m = await libMerge(c.mimi, c.agatha);
+    await moveSighting(z2.id, c.agatha);
+    await expect(libUndo(m.mergeId, [c.a0.id])).rejects.toMatchObject({ code: "NOT_TO_MOVE" });
+    await libUndo(m.mergeId, [z2.id]);
+    expect((await sightingRow(z2.id)).catId).toBe(c.mimi);
+  });
+});
+
+describe("chains, undone in every order (review of #390, R2, R3, R5)", () => {
+  it("an answer added while the sighting sat on Dora ends up counting once, for Mimi only", async () => {
+    const dora = await kit.cat(daysAgo(90));
+    const agatha = await kit.cat(daysAgo(60));
+    const mimi = await kit.cat(daysAgo(40));
+    await kit.sighting(agatha, kit.device(), daysAgo(30));
+    await kit.sighting(dora, kit.device(), daysAgo(31));
+    const s = await kit.sighting(mimi, kit.device(), daysAgo(20));
+    const early = await kit.answer(s, "ear_tip", { clipped: true, side: "left" });
+    const m1 = await libMerge(mimi, agatha);
+    const d1 = await libMerge(agatha, dora);
+    const late = await kit.answer(await sightingRow(s.id), "food_and_water", { present: true });
+    expect(late.catId).toBe(dora);
+    expect((await standing(dora, s.id, "food_and_water")).map((o) => o.id)).toEqual([late.id]);
+    expect((await standing(dora, s.id, "ear_tip")).map((o) => o.id)).toEqual([early.id]);
+    await libUndo(d1.mergeId);
+    expect(await standing(dora, s.id, "food_and_water")).toHaveLength(0);
+    expect(await standing(agatha, s.id, "food_and_water")).toHaveLength(1);
+    expect(await standing(agatha, s.id, "ear_tip")).toHaveLength(1);
+    await libUndo(m1.mergeId);
+    expect((await sightingRow(s.id)).catId).toBe(mimi);
+    expect(await standing(dora, s.id, "food_and_water")).toHaveLength(0);
+    expect(await standing(agatha, s.id, "food_and_water")).toHaveLength(0);
+    expect(await standing(agatha, s.id, "ear_tip")).toHaveLength(0);
+    expect(await standing(mimi, s.id, "food_and_water")).toHaveLength(1);
+    expect((await standing(mimi, s.id, "ear_tip")).map((o) => o.id)).toEqual([early.id]);
+  });
+
+  it("merge, late answer, undo, merge again, undo: the late answer counts once, for Mimi", async () => {
+    const agatha = await kit.cat(daysAgo(60));
+    const mimi = await kit.cat(daysAgo(40));
+    await kit.sighting(agatha, kit.device(), daysAgo(30));
+    const s = await kit.sighting(mimi, kit.device(), daysAgo(20));
+    const m1 = await libMerge(mimi, agatha);
+    await kit.answer(await sightingRow(s.id), "food_and_water", { present: true });
+    await libUndo(m1.mergeId);
+    const m2 = await libMerge(mimi, agatha);
+    expect(await standing(agatha, s.id, "food_and_water")).toHaveLength(1);
+    await libUndo(m2.mergeId);
+    expect(await standing(agatha, s.id, "food_and_water")).toHaveLength(0);
+    expect(await standing(mimi, s.id, "food_and_water")).toHaveLength(1);
+  });
+
+  const orders = [
+    ["x", "m", "d"],
+    ["x", "d", "m"],
+    ["m", "x", "d"],
+    ["m", "d", "x"],
+    ["d", "x", "m"],
+    ["d", "m", "x"],
+  ] as const;
+  for (const order of orders) {
+    it(`X→Mimi→Agatha→Dora, undo tried in order ${order.join(", ")}: refused until newest first, nothing stranded, every sighting home`, async () => {
+      const dora = await kit.cat(daysAgo(120));
+      const agatha = await kit.cat(daysAgo(90));
+      const mimi = await kit.cat(daysAgo(60));
+      const x = await kit.cat(daysAgo(40));
+      const home = new Map<number, number>();
+      for (const cat of [dora, agatha, mimi, x]) home.set((await kit.sighting(cat, kit.device(), daysAgo(10))).id, cat);
+      const all = [dora, agatha, mimi, x];
+      const merges = { x: (await libMerge(x, mimi)).mergeId, m: (await libMerge(mimi, agatha)).mergeId, d: (await libMerge(agatha, dora)).mergeId };
+      for (const [id] of home) expect((await sightingRow(id)).catId).toBe(dora);
+      const left: string[] = [...order];
+      for (let round = 0; round < 4 && left.length > 0; round++) {
+        for (const k of [...left]) {
+          try {
+            await libUndo(merges[k as keyof typeof merges]);
+            left.splice(left.indexOf(k), 1);
+          } catch (e) {
+            expect(e).toBeInstanceOf(MergeRefused);
+            expect((e as MergeRefused).code).toBe("UNDO_LATER_MERGE_FIRST");
+          }
+          await noSightingOnMergedAway(all);
+        }
+      }
+      expect(left).toEqual([]);
+      for (const [id, cat] of home) expect((await sightingRow(id)).catId).toBe(cat);
+    });
+  }
+
+  it("Mimi's follower, through Mimi→Agatha→Dora undone newest first, ends following Mimi only", async () => {
+    const dora = await kit.cat(daysAgo(90));
+    const agatha = await kit.cat(daysAgo(60));
+    const mimi = await kit.cat(daysAgo(40));
+    for (const cat of [dora, agatha, mimi]) await kit.sighting(cat, kit.device(), daysAgo(10));
+    const f = kit.device();
+    await db.insert(catSubscriptionsTable).values({ deviceId: f, catId: mimi });
+    const m1 = await libMerge(mimi, agatha);
+    const d1 = await libMerge(agatha, dora);
+    const follows = async () =>
+      (await db.select().from(catSubscriptionsTable).where(and(eq(catSubscriptionsTable.deviceId, f), inArray(catSubscriptionsTable.catId, [mimi, agatha, dora])))).map((r) => r.catId).sort();
+    expect(await follows()).toEqual([mimi, agatha, dora].sort());
+    await libUndo(d1.mergeId);
+    await libUndo(m1.mergeId);
+    expect(await follows()).toEqual([mimi]);
+  });
+});
+
+describe("points and a team agreement through merge, undo, merge again (review of #390, R4b, R7)", () => {
+  it("A→B, undo, B→A, undo, A→B: the reporter is paid once", async () => {
+    const elsewhere = await kit.cat(daysAgo(300));
+    const a = await kit.cat(daysAgo(60));
+    const b = await kit.cat(daysAgo(40));
+    await kit.sighting(a, kit.device(), daysAgo(30));
+    await kit.sighting(b, kit.device(), daysAgo(20));
+    const phone = kit.device();
+    for (let i = 0; i < 3; i++) await kit.sighting(elsewhere, phone, daysAgo(70 + i * 2));
+    await db.insert(duplicateReportsTable).values({ catLow: Math.min(a, b), catHigh: Math.max(a, b), source: "spotter_question", says: "same", deviceId: phone, createdAt: daysAgo(5) });
+    const m1 = await libMerge(b, a);
+    expect(m1.paid).toEqual([phone]);
+    await libUndo(m1.mergeId);
+    const m2 = await libMerge(a, b);
+    expect(m2.paid).toEqual([]);
+    await libUndo(m2.mergeId);
+    expect((await libMerge(b, a)).paid).toEqual([]);
+    expect(await db.select().from(pointsLedgerTable).where(and(eq(pointsLedgerTable.deviceId, phone), eq(pointsLedgerTable.source, "duplicate")))).toHaveLength(1);
+  });
+
+  it("a team 'looks right' on Mimi's clip while merged, then undo: both cats read as before the merge", async () => {
+    const agatha = await kit.cat(daysAgo(60));
+    const mimi = await kit.cat(daysAgo(40));
+    await kit.sighting(agatha, kit.device(), daysAgo(30));
+    const s = await kit.sighting(mimi, kit.device(), daysAgo(20));
+    await kit.answer(s, "ear_tip", { clipped: true, side: "left" });
+    const status = async (id: number) => (await deriveCatStatuses([{ id, ownerDeviceId: null }])).get(id)!.sterilised;
+    const before = { agatha: await status(agatha), mimi: await status(mimi) };
+    const m = await libMerge(mimi, agatha);
+    const ear = (await standing(agatha, s.id, "ear_tip"))[0]!;
+    expect(await agreeWithClip(STAFF(), ear.id)).not.toBe("already");
+    await libUndo(m.mergeId);
+    expect({ agatha: await status(agatha), mimi: await status(mimi) }).toEqual(before);
   });
 });

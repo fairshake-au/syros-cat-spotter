@@ -11,7 +11,7 @@ import {
 } from "@workspace/db";
 import { actingRole, can, type CapabilityHolder } from "./capabilities";
 import { catTarget } from "./capabilityTargets";
-import { canonicalCatOf, mergeRecord, type MergeRecord } from "./catIdentity";
+import { canonicalCatOf, catsFeeding, mergeRecord, type MergeRecord } from "./catIdentity";
 import { newestActiveOwnerHomed } from "./claiming";
 import { countingPhones } from "./countingPhone";
 import { DELETED_PREFIX } from "./deviceAuth";
@@ -508,11 +508,12 @@ export async function undoMergeIn(tx: Tx, person: Person, mergeId: number, input
     if (s.status !== "resolved" || s.catId !== agatha) throw new MergeRefused("STALE", MERGE_WORDS.stale, { current });
   }
   const movedByMerge = new Set(await movedByThisMerge(tx, mergeId, ticked));
+  const filedSince = await filedUnderSurvivorSinceMerge(tx, fresh, ticked);
   const tickedNow = now.filter((x) => ticked.includes(x.id));
   const tickedCanonical = await canonicalCatOf(tickedNow.map((s) => s.catId).filter((c): c is number => c !== null), {}, tx);
   for (const s of tickedNow) {
     const where = s.catId === null ? null : tickedCanonical.get(s.catId);
-    const sinceMerge = s.createdAt.getTime() > merge.createdAt.getTime() && where === agatha;
+    const sinceMerge = filedSince.has(s.id) && where === agatha;
     if (s.status !== "resolved" || s.catId === null || where == null || where === mimi || !(sinceMerge || movedByMerge.has(s.id))) {
       throw new MergeRefused("NOT_TO_MOVE", MERGE_WORDS.notToMove, { current });
     }
@@ -621,6 +622,43 @@ async function ownMoves(tx: DbOrTx, merge: MergeRecord): Promise<number[]> {
                           and later.merge_id is null)
      order by m.sighting_id`);
   return r.rows.map((row) => Number(row.sighting_id));
+}
+
+/**
+ * "Sightings filed under Agatha since the merge" (§4.4, §9.7 undo): of these
+ * sightings, the ones filed under the merge's survivor now (its own record
+ * or a cat merged into it, never Mimi's side) that got there after the
+ * merge. That is when any one of these is after the merge row:
+ * - the spot was sent (`sightings.created_at`);
+ * - the spot was matched to a cat (its resolve's live `points_ledger` row,
+ *   `earned_at`, the moment the resolve route stamps; a spot sent before the
+ *   merge and matched after it, from "Ask Syros Cats to match it" or a phone
+ *   that was offline, has one);
+ * - an ordinary move (not a merge's) filed it under the survivor's side.
+ * Never by when it was sent alone (review of #390, R1): a spot sent before
+ * the merge can be filed after it. Exported for the undo screen (PR 4.2),
+ * which lists the same sightings with tick boxes. One query.
+ */
+export async function filedUnderSurvivorSinceMerge(exec: DbOrTx, merge: Pick<MergeRecord, "id" | "catId" | "canonicalCatId">, sightingIds: readonly number[]): Promise<Set<number>> {
+  if (sightingIds.length === 0) return new Set();
+  const feeding = await catsFeeding([merge.canonicalCatId, merge.catId], {}, exec);
+  const mimiSide = new Set(feeding.get(merge.catId)?.ids ?? [merge.catId]);
+  const agathaSide = (feeding.get(merge.canonicalCatId)?.ids ?? [merge.canonicalCatId]).filter((id) => !mimiSide.has(id));
+  const r = await exec.execute<{ id: number }>(sql`
+    with m as (select created_at from cat_identity where id = ${merge.id})
+    select s.id from sightings s, m
+     where s.id in (${idList(sightingIds)})
+       and s.status = 'resolved'
+       and s.cat_id in (${idList(agathaSide)})
+       and (s.created_at > m.created_at
+            or exists (select 1 from points_ledger l
+                        where l.sighting_id = s.id and l.source = 'live' and l.earned_at > m.created_at)
+            or exists (select 1 from sighting_moves mv
+                        where mv.sighting_id = s.id
+                          and mv.merge_id is null
+                          and mv.created_at > m.created_at
+                          and mv.to_cat_id in (${idList(agathaSide)})))`);
+  return new Set(r.rows.map((row) => Number(row.id)));
 }
 
 /** Which of these sightings this merge moved (and something moved again since). */

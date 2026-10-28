@@ -14,7 +14,7 @@ import { signedPerson, type Signed } from "../test/roleKit";
 import { TEAM_ORIGIN } from "../lib/teamAuth/__fixtures__/queueKit";
 import { canonicalCatOf } from "../lib/catIdentity";
 import { DELETED_BY_THE_PERSON, severPerson } from "../lib/severPerson";
-import { mergeCatsIn, type MergeInput } from "../lib/mergeCats";
+import { MergeRefused, mergeCatsIn, type MergeInput } from "../lib/mergeCats";
 import { moveSightingsIn } from "../lib/moveSightings";
 
 // SYC-59 PR 4.1 (which-cat-is-which.md §9.2, §9.7 locks; spec test 16a): a
@@ -229,6 +229,26 @@ describe("a merge racing a move", () => {
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("MOVED_ALREADY");
     expect((await sightingRow(c.s.id)).catId).toBe(c.agatha);
+  });
+});
+
+describe("two merges sharing a cat at once (review of #390, R6)", () => {
+  it("Mimi→Agatha and Agatha→Dora together, with one spotter in all three: one succeeds, the other is refused, no deadlock, nothing stranded", async () => {
+    const dora = await kit.cat(daysAgo(90));
+    const agatha = await kit.cat(daysAgo(60));
+    const mimi = await kit.cat(daysAgo(40));
+    const shared = kit.device();
+    for (const cat of [dora, agatha, mimi]) await kit.sighting(cat, shared, daysAgo(10));
+    const body = (survivorId: number, mergedId: number): MergeInput => ({ survivorId, mergedId, expectedSightingCounts: [1, 1], reasonText: "Same cat", survivorChosen: "default" });
+    const run = (survivorId: number, mergedId: number) =>
+      db
+        .transaction((tx) => mergeCatsIn(tx, person, body(survivorId, mergedId)))
+        .then(() => "ok")
+        .catch((e: unknown) => (e instanceof MergeRefused ? e.code : `ERR ${String(e)}`));
+    const out = await Promise.all([run(agatha, mimi), run(dora, agatha)]);
+    expect(out.filter((o) => o === "ok")).toHaveLength(1);
+    expect(out.filter((o) => o.startsWith("ERR"))).toEqual([]);
+    await noSightingOnAMergedAwayCat([dora, agatha, mimi]);
   });
 });
 
