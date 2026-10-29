@@ -19,6 +19,7 @@ import { howFold, pageIntro, whatHappens } from "./help";
 import { placeLabel } from "../areas/placeLabel";
 import { areaFor } from "../areas/namedAreas";
 import { findAddress } from "./findPhotoPage";
+import { moveHref } from "./moveLinks";
 import { place } from "./position";
 import { firstWords } from "./noteWords";
 
@@ -465,11 +466,16 @@ function issuePhotoWords(i: IssueReport): string {
 
 /** Plain links to the cat page's own forms (§5.4): rename, a death, marking a statement wrong. */
 function catLinks(i: IssueReport): string {
-  if (!i.cat) return "";
+  // "Move to the right cat" (which-cat-is-which.md §5.1 way 3): the move screen, with the report carried so moving closes it.
+  const move = i.moveFrom
+    ? `<a class="tap sublink" href="${esc(moveHref({ cat: i.moveFrom.catId, sightings: i.moveFrom.sightingIds, source: "report", report: i.id }))}">Move to the right cat</a>`
+    : "";
+  if (!i.cat) return move ? `<p class="issuelinks">${move}</p>` : "";
   const page = `/api/team/cats/${i.cat.id}`;
   // A report that carries a photo opens the Photos tab, so the photos are in front of you (SYC-655 §3.2).
   const open = i.photo ? `${page}#tab-photos` : page;
   const links = [`<a class="tap" href="${esc(open)}">Open the cat's page</a>`];
+  if (move) links.push(move);
   if (i.reason === "wrong_name") links.push(`<a class="tap sublink" href="${esc(page)}#corrections">Rename the cat</a>`);
   if (i.reason === "cat_died") links.push(`<a class="tap sublink" href="${esc(page)}/died">Record that the cat has died</a>`);
   if (i.reason === "wrong_info") links.push(`<a class="tap sublink" href="${esc(page)}#history">Mark something wrong</a>`);

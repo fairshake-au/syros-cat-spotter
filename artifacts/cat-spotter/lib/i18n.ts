@@ -735,6 +735,9 @@ const en: Dict = {
   moreToAddMany: 'You spotted {name} {count} times in the last month.',
   moreToAddAsk: 'Anything to add?',
   moreToAddButton: 'Tell us more',
+  // SYC-150 PR 3.3 (which-cat-is-which.md §5.9, D4): the quiet line on a spot the
+  // team moved to this cat. No push. Greek and French are drafts for Johnny's pack.
+  filedByTeam: 'Syros Cats filed this under {name}',
   moreToAddSheetTitle: 'Your sighting on {date}',
   earTipYouSaid: 'You said: {answer}',
   earTipChange: 'Change my answer',
@@ -1725,6 +1728,8 @@ const el: Dict = {
   moreToAddMany: 'Είδες τη γάτα {name} {count} φορές τον τελευταίο μήνα.',
   moreToAddAsk: 'Θέλεις να προσθέσεις κάτι;',
   moreToAddButton: 'Πες μας περισσότερα',
+  // Draft for Johnny's checking pack (SYC-150 PR 3.3, SYC-283).
+  filedByTeam: 'Οι Syros Cats το κατέταξαν στη γάτα {name}',
   moreToAddSheetTitle: 'Η παρατήρησή σου στις {date}',
   earTipYouSaid: 'Απάντησες: {answer}',
   earTipChange: 'Αλλαγή απάντησης',
@@ -2691,6 +2696,8 @@ const fr: Dict = {
   moreToAddMany: 'Tu as vu {name} {count} fois ce dernier mois.',
   moreToAddAsk: 'Quelque chose à ajouter ?',
   moreToAddButton: 'Dis-nous-en plus',
+  // Draft for Johnny's checking pack (SYC-150 PR 3.3, SYC-283).
+  filedByTeam: 'Syros Cats ont classé cette observation sous {name}',
   moreToAddSheetTitle: 'Ton observation du {date}',
   earTipYouSaid: 'Tu as répondu : {answer}',
   earTipChange: 'Changer ma réponse',

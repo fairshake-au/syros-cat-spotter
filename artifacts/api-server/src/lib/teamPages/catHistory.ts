@@ -1,4 +1,4 @@
-import type { TeamCatView, TeamStatement } from "../teamCatView";
+import type { TeamCatView, TeamSightingMove, TeamStatement } from "../teamCatView";
 import { EAR_TIP_NOT_CLIPPED, FOOD_AND_WATER_OUT } from "../teamCatView";
 import { VISIT_REASON, type VisitLine } from "../vetVisits";
 import type { Capability } from "../capabilities";
@@ -10,6 +10,7 @@ import { dateInput, fold, lifeChoices, reasonInput } from "./catActions";
 import { DID_WORDS, PAID_WORDS } from "./vetVisitForm";
 import { rowMenu } from "./rowMenu";
 import { openMapLink } from "./position";
+import { MOVE_SCREEN, moveHref } from "./moveLinks";
 import { t } from "./words";
 import type { KeptFields } from "./signedOutPage";
 
@@ -108,6 +109,9 @@ export type HistoryShow = "all" | "sightings" | "visits" | "changes";
 
 export type HistoryRow =
   | { type: "sighting"; sighting: TeamCatView["sightings"][number]; entries: TeamStatement[] }
+  // A sighting the team moved to another cat (SYC-150 PR 3.3): it stays in
+  // this cat's History as the row of where it went, dated when it was seen.
+  | { type: "moved"; move: TeamSightingMove; entries: TeamStatement[] }
   | { type: "visit"; visit: VisitLine | null; entries: TeamStatement[] } // visit null: an undone visit
   | { type: "entry"; entry: TeamStatement }
   | { type: "run"; rows: Extract<HistoryRow, { type: "sighting" }>[] };
@@ -116,7 +120,7 @@ type SightingRow = Extract<HistoryRow, { type: "sighting" }>;
 type FlatRow = Exclude<HistoryRow, { type: "run" }>;
 
 /** Rank for a tie in time: sightings, then visits, then changes. */
-const RANK: Record<FlatRow["type"], number> = { sighting: 0, visit: 1, entry: 2 };
+const RANK: Record<FlatRow["type"], number> = { sighting: 0, moved: 0, visit: 1, entry: 2 };
 
 /**
  * Every row before filtering or grouping, newest first. Ties in time go
@@ -127,7 +131,15 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
   const sightingIds = new Set(v.sightings.map((s) => s.id));
   const lineOf = new Map(visits.map((l) => [l.visitId, l]));
 
+  // A sighting that left this cat for another: one row per move out (nothing
+  // said before is lost, even if it came back). When it isn't here now, the
+  // newest move carries the sighting's entries.
+  const movedOut = v.moves.filter((m) => m.direction === "out" && m.sighting !== null);
+  const carrying = new Map<number, number>();
+  for (const m of movedOut) if (!sightingIds.has(m.sightingId) && !carrying.has(m.sightingId)) carrying.set(m.sightingId, m.id);
+
   const ofSighting = new Map<number, TeamStatement[]>();
+  const ofMoved = new Map<number, TeamStatement[]>();
   const ofVisit = new Map<number, TeamStatement[]>();
   const loose: TeamStatement[] = [];
   for (const e of v.history) {
@@ -135,9 +147,12 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
     const visitId = e.vetVisitId;
     // A visit's own row wins over a sighting's.
     if (visitId !== null) ofVisit.set(visitId, [...(ofVisit.get(visitId) ?? []), e]);
-    // A sighting no longer on this cat (moved to another): its entry stands alone.
     else if (e.sightingId !== null && sightingIds.has(e.sightingId)) {
       ofSighting.set(e.sightingId, [...(ofSighting.get(e.sightingId) ?? []), e]);
+    } else if (e.sightingId !== null && carrying.has(e.sightingId)) {
+      // What the spotter said about a sighting that went to another cat stays with its row here.
+      const id = carrying.get(e.sightingId)!;
+      ofMoved.set(id, [...(ofMoved.get(id) ?? []), e]);
     } else loose.push(e);
   }
   for (const l of visits) if (!ofVisit.has(l.visitId)) ofVisit.set(l.visitId, []);
@@ -147,6 +162,11 @@ function flatRows(v: TeamCatView, visits: readonly VisitLine[]): FlatRow[] {
       row: { type: "sighting" as const, sighting: s, entries: ofSighting.get(s.id) ?? [] },
       at: Date.parse(s.at),
       id: s.id,
+    })),
+    ...movedOut.map((m) => ({
+      row: { type: "moved" as const, move: m, entries: ofMoved.get(m.id) ?? [] },
+      at: Date.parse(m.sighting!.at),
+      id: m.sightingId,
     })),
     ...[...ofVisit].map(([visitId, entries]) => {
       const line = lineOf.get(visitId) ?? null;
@@ -164,7 +184,9 @@ const SHOWS: Record<HistoryShow, (r: FlatRow) => boolean> = {
   all: () => true,
   sightings: (r) => r.type === "sighting",
   visits: (r) => r.type === "visit",
-  changes: (r) => r.type === "entry",
+  // A sighting moved away is a record of a change, not a sighting of this cat now: so "Sightings N" counts only
+  // the sightings filed under her (SYC-150 PR 3.3), and the moved row is under Changes and notes.
+  changes: (r) => r.type === "entry" || r.type === "moved",
 };
 
 /**
@@ -428,6 +450,7 @@ export interface HistoryOptions {
 function entryIdsOf(r: HistoryRow): number[] {
   if (r.type === "entry") return [r.entry.id];
   if (r.type === "run") return r.rows.flatMap((x) => x.entries.map((e) => e.id));
+  // (a moved row holds entries like a sighting does: r.entries below)
   return r.entries.map((e) => e.id);
 }
 
@@ -509,6 +532,44 @@ interface Ctx extends HistoryOptions {
   evidence: ReadonlySet<number>;
   /** The changes the Coat and markings tab lists, each as `#a-<id>`. */
   coatIds: ReadonlySet<number>;
+  /** This cat's page, for the move screen's "expected cat". */
+  catId: number;
+  /** The newest move that brought each sighting here (SYC-150 PR 3.3). */
+  cameFrom: ReadonlyMap<number, TeamSightingMove>;
+}
+
+// ── Moving a sighting to the right cat (which-cat-is-which.md §5.1, §5.7) ───
+
+/** "Different markings", or what "Other…" said, or both: the reason a move was made. */
+export function moveWhy(m: Pick<TeamSightingMove, "reason" | "reasonText">): string {
+  if (!m.reasonText) return m.reason;
+  return m.reason === "Other" ? m.reasonText : `${m.reason}: ${m.reasonText}`;
+}
+
+/** Who made a move, in the words a History row uses. */
+export const moverWords = (m: Pick<TeamSightingMove, "by">): string =>
+  m.by ? (m.by.left ? `${m.by.name} (left)` : m.by.name) : "someone who has since deleted their details";
+
+/** The sighting's menu entries that open the move screen (§5.1 way 1), for those who may move. */
+function moveItems(sightingId: number, c: Pick<Ctx, "may" | "catId" | "cameFrom">): string[] {
+  if (!c.may("move_sighting")) return [];
+  const here = { cat: c.catId, sightings: [sightingId] };
+  const back = c.cameFrom.get(sightingId);
+  return [
+    `<a class="tap" href="${esc(moveHref(here))}">Move to a different cat…</a>`,
+    `<a class="tap" href="${esc(moveHref({ ...here, fresh: true }))}">Move to a new cat</a>`,
+    // The sighting's newest move brought it here: moving it back is another move, with a reason.
+    ...(back?.latest ? [`<a class="tap" href="${esc(moveHref({ ...here, to: back.otherCat.id }))}">Move back to ${esc(back.otherCat.name)}</a>`] : []),
+  ];
+}
+
+/** "Moved here from Mimi SYR-0003 by Maria on 26 Oct 2026. Why: Different markings." */
+function cameHereLine(m: TeamSightingMove): string {
+  return (
+    `<p class="meta moveline">${m.madeNewCat ? "Started this cat. Moved here" : "Moved here"} from ` +
+    `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span> ` +
+    `by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}. Why: ${esc(moveWhy(m))}.</p>`
+  );
 }
 
 // ── Coat and markings changes (SYC-655 §5.3) ────────────────────────────────
@@ -560,7 +621,7 @@ function changeLink(id: number, c: ExtrasCtx): string {
 }
 
 /** What follows an entry's words: why, what it corrects, its photo, what replaced it, where it went. */
-export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false): string {
+export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false, quietMove = false, showPhoto = true): string {
   const replacements = s.replacedBy
     .map((id) => c.byId.get(id))
     .filter((r): r is TeamStatement => r !== undefined)
@@ -571,28 +632,46 @@ export function entryExtras(s: TeamStatement, c: ExtrasCtx, skipWhy = false): st
         ` <span class="meta">(${esc(byWhom(r))}, ${timeTag(r.createdAt, fullWhen(r.createdAt))})</span></p>`,
     )
     .join("");
-  const moved = s.movedTo
+  // `quietMove`: the row above already says where the sighting went or came from (PR 3.3's move line).
+  const moved = s.movedTo && !quietMove
     ? `<p class="replacement">Moved to <a href="${esc(catHref(s.movedTo.cat.id))}">${esc(s.movedTo.cat.name)}</a> ` +
       `<span class="syr">${esc(s.movedTo.cat.syr)}</span>` +
       (s.movedTo.reason ? `. Why: ${esc(s.movedTo.reason)}` : "") +
       ` <span class="meta">(${timeTag(s.movedTo.at, fullWhen(s.movedTo.at))})</span></p>`
     : "";
-  const corrects = s.movedFrom
+  const corrects = s.movedFrom && quietMove
+    ? ""
+    : s.movedFrom
     ? `<p class="meta">Moved here from <a href="${esc(catHref(s.movedFrom.cat.id))}">${esc(s.movedFrom.cat.name)}</a> ` +
       `<span class="syr">${esc(s.movedFrom.cat.syr)}</span></p>`
     : s.replaces != null
       ? `<p class="meta">Corrects ${changeLink(s.replaces, c)}</p>`
       : "";
   return (
-    (s.reason && !skipWhy ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
+    (s.reason && !skipWhy && !(quietMove && s.reason === "moved") ? `<p class="why">Why: ${esc(s.reason)}</p>` : "") +
     corrects +
-    (s.photoUrl ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
+    (s.photoUrl && showPhoto ? `<p class="meta"><a class="tap" href="${esc(s.photoUrl)}">See the photo</a></p>` : "") +
     replacements +
     moved +
     (s.ownerClaim
       ? '<p class="hint">This is the owner\'s own claim. To end this claim, use Remove owner under “Update this cat”.</p>'
       : "")
   );
+}
+
+/**
+ * The extras of a sighting's entries, with "See the photo" once per photo: the
+ * entries of one sighting all carry its photo (SYC-150 PR 3.3).
+ */
+function sightingExtras(entries: readonly TeamStatement[], c: ExtrasCtx, quietMove: boolean): string {
+  const seen = new Set<string>();
+  return entries
+    .map((e) => {
+      const first = e.photoUrl !== null && !seen.has(e.photoUrl);
+      if (e.photoUrl !== null) seen.add(e.photoUrl);
+      return entryExtras(e, c, false, quietMove, first);
+    })
+    .join("");
 }
 
 const keptFor = (s: TeamStatement, c: Ctx) => (c.kept?.formKey === `wrong:${s.id}` ? c.kept.fields : undefined);
@@ -701,19 +780,64 @@ function sightingRow(r: SightingRow, c: Ctx): string {
     (s.mixedCats ? ' <span class="tag warn">May show more than one cat</span>' : "") +
     // Every sighting comes from a spotter's phone (sightings_attribution_ck).
     `<span class="who">${esc(who.length > 0 ? who.join(", ") : "A spotter")}${recordedLate}</span>` +
-    r.entries.map((e) => entryExtras(e, c)).join("") +
+    (c.cameFrom.has(s.id) ? cameHereLine(c.cameFrom.get(s.id)!) : "") +
+    sightingExtras(r.entries, c, c.cameFrom.has(s.id)) +
     thumb +
+    // Tick to move several at once; the buttons are in the bar above the list.
+    (c.may("move_sighting")
+      ? `<label class="tick"><input type="checkbox" form="move-ticked" name="tick" value="${s.id}"> Tick to move<span class="sr"> the sighting on ${esc(seen)}</span></label>`
+      : "") +
     "</div>" +
     dots(
       `the sighting on ${seen}`,
       [
         // D9's own word for the outbound link; "Show on the map" is the team map's button below.
         ...(c.island ? [`<p class="meta">${openMapLink(s.lat, s.lng)}</p>`] : []),
+        ...moveItems(s.id, c),
         ...sightingButtons(s.id, c.may),
         ...r.entries.map((e) => wrongForm(e, c.may, keptFor(e, c), lowerFirst(e.said))),
       ],
       ids.some((id) => c.targets.has(id)),
     ) +
+    "</li>"
+  );
+}
+
+/**
+ * A sighting the team moved to another cat: where it was seen, where it went,
+ * who moved it and why, with "Move back" while that is its newest move
+ * (which-cat-is-which.md §5.7; SYC-150 PR 3.3). What the spotter said about it
+ * stays here, crossed out, as it does for any answer that is no longer this
+ * cat's.
+ */
+function movedRow(r: Extract<HistoryRow, { type: "moved" }>, c: Ctx): string {
+  const m = r.move;
+  const s = m.sighting!;
+  const ids = r.entries.map((e) => e.id);
+  const seen = fullWhen(s.at);
+  const joined = r.entries
+    .map((e) => `<span id="s-${e.id}"><del>${esc(lowerFirst(e.said))}</del></span>`)
+    .join(", ");
+  const thumb = s.photoUrl
+    ? `<a class="hthumbs" href="${esc(s.photoUrl)}"><img class="hthumb" src="${esc(s.photoUrl)}" alt="${esc(`Photo from the sighting on ${seen}`)}" loading="lazy" width="56" height="56"></a>`
+    : "";
+  const back =
+    c.may("move_sighting") && m.latest
+      ? [`<a class="tap" href="${esc(moveHref({ cat: m.otherCat.id, sightings: [m.sightingId], to: c.catId }))}">Move back to this cat</a>`]
+      : [];
+  return (
+    `<li class="hrow sighting moved" id="mv-${m.id}">` +
+    whenCell(s.at, c.now) +
+    '<div class="what">' +
+    rowNotice(ids, c) +
+    `<b>Seen in ${esc(placeLabel(s))}</b>${joined ? `: ${joined}` : ""}` +
+    `<p class="meta moveline">${m.madeNewCat ? "Started a new cat. Moved" : "Moved"} to ` +
+    `<a href="${esc(catHref(m.otherCat.id))}">${esc(m.otherCat.name)}</a> <span class="syr">${esc(m.otherCat.syr)}</span> ` +
+    `by ${esc(moverWords(m))} on ${timeTag(m.at, fullDay(m.at))}. Why: ${esc(moveWhy(m))}.</p>` +
+    sightingExtras(r.entries, c, true) +
+    thumb +
+    "</div>" +
+    dots(`the sighting on ${seen}, moved to ${m.otherCat.name}`, back, ids.some((id) => c.targets.has(id))) +
     "</li>"
   );
 }
@@ -834,6 +958,7 @@ function runRow(r: Extract<HistoryRow, { type: "run" }>, c: Ctx): string {
 
 function drawRow(r: HistoryRow, c: Ctx): string {
   if (r.type === "sighting") return sightingRow(r, c);
+  if (r.type === "moved") return movedRow(r, c);
   if (r.type === "visit") return visitRow(r, c);
   if (r.type === "run") return runRow(r, c);
   return entryRow(r.entry, c);
@@ -854,6 +979,11 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     shown: l.shown,
     targets: l.targets,
     coatIds: coatListing(v).listed,
+    catId: v.cat.id,
+    // v.moves is newest first: reversed, so the Map keeps each sighting's newest "in" move.
+    cameFrom: new Map(
+      [...v.moves].reverse().filter((m) => m.direction === "in").map((m) => [m.sightingId, m] as const),
+    ),
     evidence: new Set([
       ...r.lifeStatus.supportingStatementIds,
       ...r.lifeStatus.conflictingStatementIds,
@@ -869,6 +999,16 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
         `<a href="?show=${k}#history"${k === l.show ? ' aria-current="page"' : ""}>${esc(k === "all" ? FILTER_WORDS[k] : `${FILTER_WORDS[k]} ${counts[k]}`)}</a>`,
     ).join("") +
     "</nav>";
+  // The tick boxes on the sightings belong to this form (the `form` attribute),
+  // so it can sit above the list; it is a plain GET to the move screen.
+  const moveBar =
+    opts.may("move_sighting") && l.rows.some((x) => x.type === "sighting" || x.type === "run")
+      ? `<form id="move-ticked" method="get" action="${MOVE_SCREEN}" class="movebar">` +
+        `<input type="hidden" name="cat" value="${v.cat.id}">` +
+        '<span class="hint">Tick sightings below to move several at once.</span>' +
+        '<button type="submit" name="mode" value="different">Move ticked sightings to a different cat…</button>' +
+        '<button type="submit" name="mode" value="new">Move ticked sightings to a new cat</button></form>'
+      : "";
   const more =
     l.drawn.length < l.rows.length
       ? `<p class="more"><a class="tap" href="${l.show === "all" ? "?history=all#history" : `?show=${l.show}&amp;history=all#history`}">Show all ${counts[l.show]}</a></p>`
@@ -879,6 +1019,7 @@ export function renderHistory(v: TeamCatView, visits: VisitLine[], opts: History
     `<div>${inRow ? "" : opts.notice}</div>` +
     '<p class="hint">Newest first. A change marked wrong stays here, crossed out, with what replaced it.</p>' +
     filters +
+    moveBar +
     (l.rows.length === 0
       ? `<p class="empty">${esc(EMPTY_WORDS[l.show])}</p>`
       : `<ol class="tl">${l.drawn.map((x) => drawRow(x, c)).join("")}</ol>`) +

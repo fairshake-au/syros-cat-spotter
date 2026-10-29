@@ -86,6 +86,7 @@ function ownedCatView(): TeamCatView {
       statement(2, { ownerClaim: true }),
       statement(1, { replacedBy: [3] }),
     ],
+    moves: [],
     recentGuardianMark: null,
   };
 }

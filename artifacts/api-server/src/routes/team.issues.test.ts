@@ -426,7 +426,7 @@ describe("T7-6 (spec test 11): no device, address or contact in the section, its
     const row = (json.body as IssuesSection).hidden[0]!;
     expect(Object.keys(row).sort()).toEqual(
       [
-        "at", "cat", "group", "hiddenByReport", "hideSkipped", "id", "note", "others", "photo", "reason",
+        "at", "cat", "group", "hiddenByReport", "hideSkipped", "id", "moveFrom", "note", "others", "photo", "reason",
         "state", "stateChangedAt", "stateChangedBy", "teamNote", "teamNoteAt", "teamNoteBy", "unchecked",
       ].sort(),
     );

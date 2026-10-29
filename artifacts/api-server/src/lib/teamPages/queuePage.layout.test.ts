@@ -416,6 +416,7 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
       others: 0,
       unchecked: false,
       group: "hidden",
+      moveFrom: null,
     });
     const section = (i: IssueReport): IssuesSection => ({
       hidden: [i],
@@ -454,6 +455,7 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
       others: 0,
       unchecked: false,
       group: "other",
+      moveFrom: null,
     });
     const draw = (i: IssueReport) =>
       renderQueuePage(queue([]), "Maria", NOW, undefined, undefined, true, undefined, false, undefined, undefined, {

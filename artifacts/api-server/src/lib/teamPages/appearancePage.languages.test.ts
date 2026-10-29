@@ -108,6 +108,7 @@ function view(): TeamCatView {
     sightings: [],
     photos: [],
     history: [],
+    moves: [],
     recentGuardianMark: null,
   } as TeamCatView;
 }

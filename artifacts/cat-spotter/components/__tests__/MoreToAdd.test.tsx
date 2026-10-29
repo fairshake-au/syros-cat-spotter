@@ -97,6 +97,52 @@ describe('MoreToAdd', () => {
     expect(container.textContent).toContain(en.moreToAddAsk);
   });
 
+  // SYC-150 PR 3.3 (which-cat-is-which.md §5.9, D4): the quiet line on a spot the team moved here.
+  it('says "Syros Cats filed this under Agatha" on a spot the team filed under this cat', () => {
+    state.data = {
+      earTip: { state: 'answered', current: 'looks_whole' },
+      sightings: [
+        { sightingId: 41, takenAt: '2026-10-03T09:00:00.000Z', photoUrl: null, open: { foodAndWater: true, note: true }, filedByTeam: true },
+        { sightingId: 42, takenAt: '2026-10-04T09:00:00.000Z', photoUrl: null, open: { foodAndWater: true, note: true } },
+      ],
+    };
+    const { container } = renderCard();
+    const lines = Array.from(container.querySelectorAll('[data-testid="filed-by-team"]'));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.textContent).toBe('Syros Cats filed this under Agatha');
+  });
+
+  it('shows no line on a spot that was not moved, or from an older server that does not say', () => {
+    const { container } = renderCard();
+    expect(container.querySelector('[data-testid="filed-by-team"]')).toBeNull();
+  });
+
+  it('a moved spot with nothing left to add shows the line, without the button or the question', () => {
+    state.data = {
+      earTip: { state: 'checked' },
+      sightings: [
+        { sightingId: 41, takenAt: '2026-10-03T09:00:00.000Z', photoUrl: null, open: { foodAndWater: false, note: false }, filedByTeam: true },
+      ],
+    };
+    const { container } = renderCard();
+    expect(container.querySelector('[data-testid="filed-by-team"]')).not.toBeNull();
+    expect(container.textContent).not.toContain(en.moreToAddAsk);
+    expect(Array.from(document.querySelectorAll('[role="button"], button')).some((e) => e.textContent?.trim() === en.moreToAddButton)).toBe(false);
+  });
+
+  it('a moved spot past the 30 days shows the line, with no button and no question, even if the ear tip is open', () => {
+    state.data = {
+      earTip: { state: 'open' },
+      sightings: [
+        { sightingId: 41, takenAt: '2026-08-03T09:00:00.000Z', photoUrl: null, open: { foodAndWater: false, note: false }, filedByTeam: true, windowOver: true },
+      ],
+    };
+    const { container } = renderCard();
+    expect(container.querySelector('[data-testid="filed-by-team"]')).not.toBeNull();
+    expect(container.textContent).not.toContain(en.moreToAddAsk);
+    expect(Array.from(document.querySelectorAll('[role="button"], button')).some((e) => e.textContent?.trim() === en.moreToAddButton)).toBe(false);
+  });
+
   it('shows nothing when nothing is open', () => {
     state.data = { earTip: { state: 'checked' }, sightings: [] };
     const { container } = renderCard();

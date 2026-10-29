@@ -220,6 +220,8 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/cats/:id": { why: "the team's cat page: view_exact_location with no target (a guardian's own page is PR 2.1's)" },
   "POST /api/team/cats/:id/life-status": { why: "set_life_status with no target, island-only" },
   "POST /api/team/sightings/move": { why: "moving a sighting (SYC-150 PR 3.2): move_sighting, island-only; the walk's empty body is a 400 for the team" },
+  "GET /api/team/sightings/move": { why: "the move screen (SYC-150 PR 3.3): move_sighting, island-only; the walk's address names no sighting, so the team gets a plain page" },
+  "POST /api/team/sightings/move/form": { why: "\"Move\" on the move screen (SYC-150 PR 3.3): move_sighting, island-only; the walk's empty form names no sighting, so the team gets a plain page" },
   "GET /api/team/cats/:id/died": { why: "the \"This cat has died\" page (SYC-513): set_life_status with no target, island-only" },
   "POST /api/team/cats/:id/died": { why: "records a death (SYC-513): set_life_status with no target, island-only" },
   "GET /api/team/cats/:id/vet-visit": { why: "the Log a vet visit form (SYC-396 PR 3.1a): log_vet_visit, island-only" },

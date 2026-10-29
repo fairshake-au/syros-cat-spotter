@@ -12,4 +12,18 @@ export interface OpenSighting {
   takenAt: Date;
   photoUrl: string | null;
   open: OpenSightingOpen;
+  /**
+     * The Syros Cats team filed this spot under the cat the page is
+     * for (a move from the dashboard, which-cat-is-which.md §5.9, D4).
+     * The app says "Syros Cats filed this under {cat}" beside it. Only
+     * ever `true`: absent for a spot nobody moved, and from an older
+     * server, which means no.
+     */
+  filedByTeam?: boolean;
+  /**
+     * The 30 days for adding details are over, so there is nothing to
+     * add; the spot is listed only for the "filed under" line. Only
+     * ever `true`, absent otherwise.
+     */
+  windowOver?: boolean;
 }

@@ -45,6 +45,12 @@ export function MoreToAdd({ catId, catName }: { catId: number; catName: string }
   const data = query.data;
   if (!deviceId || !isOnline || !data || data.sightings.length === 0) return null;
 
+  // A spot the team moved here may have nothing left to add: it is listed for
+  // its "filed under" line (SYC-150 PR 3.3), with no button.
+  const canAdd = (s: OpenSighting) =>
+    s.windowOver !== true && (s.open.foodAndWater || s.open.note || data.earTip.state !== 'checked');
+  const anyToAdd = data.sightings.some(canAdd);
+
   return (
     <View
       testID="more-to-add"
@@ -55,24 +61,33 @@ export function MoreToAdd({ catId, catName }: { catId: number; catName: string }
           catName,
           data.sightings.map((s) => s.takenAt),
           t,
-        )}{' '}
-        {t('moreToAddAsk')}
+        )}
+        {anyToAdd ? ` ${t('moreToAddAsk')}` : ''}
       </Text>
       {data.sightings.map((s) => (
-        <View key={s.sightingId} style={styles.row}>
-          {s.photoUrl ? (
-            <Image
-              source={photoSource(s.photoUrl)}
-              style={[styles.thumb, { borderColor: colors.border }]}
-              contentFit="cover"
-            />
+        <View key={s.sightingId} style={styles.item}>
+          <View style={styles.row}>
+            {s.photoUrl ? (
+              <Image
+                source={photoSource(s.photoUrl)}
+                style={[styles.thumb, { borderColor: colors.border }]}
+                contentFit="cover"
+              />
+            ) : null}
+            <Text style={[styles.date, { color: colors.mutedForeground }]}>
+              {formatInstant(s.takenAt, language)}
+            </Text>
+            {canAdd(s) ? (
+              <Button variant="primary" size="sm" onPress={() => setOpenSighting(s)}>
+                {t('moreToAddButton')}
+              </Button>
+            ) : null}
+          </View>
+          {s.filedByTeam ? (
+            <Text testID="filed-by-team" style={[styles.filed, { color: colors.mutedForeground }]}>
+              {t('filedByTeam').replace('{name}', catName)}
+            </Text>
           ) : null}
-          <Text style={[styles.date, { color: colors.mutedForeground }]}>
-            {formatInstant(s.takenAt, language)}
-          </Text>
-          <Button variant="primary" size="sm" onPress={() => setOpenSighting(s)}>
-            {t('moreToAddButton')}
-          </Button>
         </View>
       ))}
       {openSighting ? (
@@ -187,7 +202,9 @@ function MoreToAddSheet({
 const styles = StyleSheet.create({
   card: { borderWidth: 1.5, borderRadius: radii.lg, padding: spacing[4], gap: spacing[2] },
   headline: { fontSize: fontSizes.sm, fontFamily: fonts.displayBold },
+  item: { gap: spacing[1] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  filed: { fontSize: fontSizes.xs, fontFamily: fonts.body },
   thumb: { width: 44, height: 44, borderRadius: radii.sm, borderWidth: 1 },
   date: { flex: 1, fontSize: fontSizes.xs, fontFamily: fonts.body },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },

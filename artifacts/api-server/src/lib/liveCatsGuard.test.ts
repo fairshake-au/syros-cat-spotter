@@ -110,6 +110,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/teamCatView.ts": [
     "crossCatLinks: the cat a replacing statement is on, by the row's own cat id",
     "crossCatLinks: the cat a replaced statement is on, by the row's own cat id",
+    "sightingMovesOf: the name of the cat on the other side of a move, by the move row's own cat id",
     "teamCatView: one cat by id; the merged-away team page is PR 4.2",
   ],
   "artifacts/api-server/src/lib/teamCorrections.ts": [

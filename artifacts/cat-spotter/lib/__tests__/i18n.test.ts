@@ -45,6 +45,13 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  it('the "filed under" line for a spot the team moved is in every language, and names the cat (SYC-150 PR 3.3)', () => {
+    expect(TRANSLATIONS.en.filedByTeam).toBe('Syros Cats filed this under {name}');
+    for (const code of LANG_CODES) {
+      expect(TRANSLATIONS[code].filedByTeam, code).toContain('{name}');
+    }
+  });
+
   it('has exactly the 22 badges', () => {
     expect(BADGE_IDS).toHaveLength(22);
   });

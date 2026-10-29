@@ -148,10 +148,11 @@ const DONE: Record<string, string> = {
   died: "Saved. The cat is recorded as no longer with us.",
   note: "Saved. The note is in the history below.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
+  moved: "Saved. The move is in the history below, with where it went. Nobody was told.",
 };
 
 /** The messages that sit at the top of the page, not in "Update this cat". */
-const TOP_DONE = new Set(["died", "diedAlready"]);
+const TOP_DONE = new Set(["died", "diedAlready", "moved"]);
 
 /** The messages that sit at the top of History, where the vet visits are. */
 const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);
