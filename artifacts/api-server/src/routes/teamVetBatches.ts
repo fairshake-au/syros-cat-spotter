@@ -29,6 +29,7 @@ import { pageViewer } from "../middlewares/requireSeeing";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { formRoute } from "./teamCorrections";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
+import { survivorIdOf } from "../lib/survivor";
 import {
   afterBatch,
   batchPath,
@@ -284,7 +285,9 @@ router.post("/team/vet-batches/:id/cats/:catRow/confirm", ...formRoute("log_vet_
     }
     const [found] = ID_RE.test(raw) ? await db.select({ id: catsTable.id }).from(catsTable).where(eq(catsTable.id, Number(raw))) : [];
     if (!found) return void res.redirect(303, backTo(batch.id, cat.id, "no_such_cat"));
-    await updateCat(cat.id, { catId: found.id, confirmed: true });
+    // A merged-away cat's id (a page open since before the merge) confirms
+    // the cat it is part of now (which-cat-is-which.md §9.3).
+    await updateCat(cat.id, { catId: await survivorIdOf(found.id), confirmed: true });
     res.redirect(303, backTo(batch.id, cat.id));
   });
 });

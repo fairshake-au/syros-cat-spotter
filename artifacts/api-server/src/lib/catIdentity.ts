@@ -457,3 +457,71 @@ export function observationCatIn(feedings: Iterable<Pick<Feeding, "ids">>, col: 
   if (ids.size === 0) return sql`false`;
   return inArray(col, [...ids]);
 }
+
+/** One merge as the undo needs it (which-cat-is-which.md §4.4, §9.7). */
+export interface MergeRecord {
+  id: number;
+  /** The merged-away cat (Mimi). */
+  catId: number;
+  /** The cat it was merged into (Agatha). */
+  canonicalCatId: number;
+  createdAt: Date;
+  /** The undo row that superseded it, if any. */
+  undoneBy: number | null;
+}
+
+/**
+ * The merge row `id`, or null when there is none or the row is not a merge
+ * (an undo names its own cat). Read through `q`, so the undo route sees it
+ * inside its own transaction. Only an undo on the same cat undoes a merge
+ * (the rule {@link standing} follows).
+ */
+export async function mergeRecord(id: number, q: Exec = db): Promise<MergeRecord | null> {
+  if (!Number.isInteger(id)) return null;
+  const r = await q.execute<{ id: number; cat_id: number; canonical_cat_id: number; created_at: Date | string; undone_by: number | null }>(sql`
+    select ci.id, ci.cat_id, ci.canonical_cat_id, ci.created_at,
+           (select u.id from cat_identity u
+             where u.supersedes_id = ci.id and u.cat_id = ci.cat_id
+             order by u.id limit 1) as undone_by
+      from cat_identity ci
+     where ci.id = ${id}
+       and ci.canonical_cat_id <> ci.cat_id`);
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    catId: Number(row.cat_id),
+    canonicalCatId: Number(row.canonical_cat_id),
+    createdAt: new Date(row.created_at),
+    undoneBy: row.undone_by === null ? null : Number(row.undone_by),
+  };
+}
+
+/** A merged-away cat, by the name it had, and the cat it is now part of. */
+export interface AlsoKnownAs {
+  id: number;
+  name: string;
+  survivorId: number;
+}
+
+/**
+ * "Also known as" (which-cat-is-which.md §4.2, §9.3, §9.6): every cat now
+ * merged into another, with its current name (which passed the name checks;
+ * a name the team replaced is never shown) and the cat it is part of now,
+ * through chains. A cat in a loop or a chain too deep is not merged away
+ * (see {@link catsMergedAway}) and is not listed. Three queries whatever the
+ * number of cats.
+ */
+export async function alsoKnownAs(q: Exec & Pick<typeof db, "select"> = db): Promise<AlsoKnownAs[]> {
+  const r = await q.execute<{ cat_id: number }>(sql`select cat_id from (${standing(undefined)}) s`);
+  const ids = r.rows.map((row) => Number(row.cat_id));
+  if (ids.length === 0) return [];
+  const canonical = await canonicalCatOf(ids, {}, q);
+  const away = ids.filter((id) => {
+    const c = canonical.get(id);
+    return c != null && c !== id;
+  });
+  if (away.length === 0) return [];
+  const names = await q.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, away));
+  return names.map((n) => ({ id: n.id, name: n.name, survivorId: canonical.get(n.id)! }));
+}

@@ -24,6 +24,8 @@ const ALLOWLIST: Record<string, string> = {
   "lib/db/src/schema/observations.ts": "the table's definition (catIdentityTable)",
   "artifacts/api-server/src/lib/severPerson.ts":
     "severTeamMember: redaction only (clears who merged, spec §9.11); never reads merges",
+  "artifacts/api-server/src/lib/mergeCats.ts":
+    "the merge route's lib (PR 4.1): the one writer of merge and undo rows; reads merges only through lib/catIdentity.ts",
 };
 
 const TERMS = [/\bcat_identity\b/, /\bcatIdentityTable\b/];

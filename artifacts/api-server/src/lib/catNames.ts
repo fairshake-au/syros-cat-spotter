@@ -1,4 +1,6 @@
 import { db, catsTable, foldName, foldedNameEquals } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { canonicalCatOf } from "./catIdentity";
 import { catDisplayPhoto, type PublicPhotoUrl } from "./photoVisibility";
 
 /**
@@ -37,10 +39,29 @@ export async function nameTakenBody(
 }> {
   const body = { error: NAME_TAKEN_WORDS, code: "NAME_TAKEN" as const };
   if (!cat) return body;
+  const holder = await nameHolder(cat);
   return {
     ...body,
-    cat: { id: cat.id, name: cat.name, photoUrl: await catDisplayPhoto(cat) },
+    cat: { id: holder.id, name: holder.name, photoUrl: await catDisplayPhoto(holder) },
   };
+}
+
+/**
+ * The cat a taken name points to: the cat holding it, or, when that cat is
+ * merged into another, the cat it is part of now. "Mimi" stays taken while
+ * Mimi is part of Agatha, and "Is this them?" shows Agatha
+ * (which-cat-is-which.md §4.2, §9.3: the name-taken prompt names the survivor).
+ */
+export async function nameHolder<C extends { id: number; name: string; primaryPhotoId: number }>(
+  cat: C,
+): Promise<{ id: number; name: string; primaryPhotoId: number }> {
+  const survivorId = (await canonicalCatOf([cat.id])).get(cat.id);
+  if (survivorId == null || survivorId === cat.id) return cat;
+  const [survivor] = await db
+    .select({ id: catsTable.id, name: catsTable.name, primaryPhotoId: catsTable.primaryPhotoId })
+    .from(catsTable)
+    .where(eq(catsTable.id, survivorId));
+  return survivor ?? cat;
 }
 
 /**

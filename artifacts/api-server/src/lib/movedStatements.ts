@@ -52,8 +52,9 @@ import type { DbOrTx } from "./observations";
  *
  * Must run in the transaction that wrote the move row and set
  * `app.sighting_move_id` to it: the observations trigger refuses the rows
- * otherwise. A merge's moves copy nothing (§9.5), so a merge or undo move is
- * refused here; the undo's late answers are PR 4.1's.
+ * otherwise. A merge's moves copy nothing (§9.5), so a `merged` move is
+ * refused here. An undo's `merge_undone` moves run through here for the late
+ * answers (§9.5, PR 4.1; lib/mergeCats.ts).
  */
 
 /** A move this can't write statements for (a bug in the caller, never a person's mistake). */
@@ -89,7 +90,13 @@ function isSpotters(o: Observation, spotter: string | null): boolean {
 export async function writeMovedObservation(tx: DbOrTx, moveId: number): Promise<MovedStatements> {
   const [move] = await tx.select().from(sightingMovesTable).where(eq(sightingMovesTable.id, moveId));
   if (!move) throw new MoveStatementsRefused(`no move ${moveId}`);
-  if (move.mergeId !== null) throw new MoveStatementsRefused("a merge's moves copy no statements");
+  // A merge's moves copy nothing: the merged-away cat's statements already
+  // count for the survivor (§9.3), so a copy would count them twice. An
+  // undo's moves copy only the late answers (§9.5): rows on the survivor's
+  // side carrying the sighting's id, written after the merge. Called after
+  // the undo row is in, the survivor's side no longer includes the cat the
+  // sighting goes back to, so the rows read below are exactly those.
+  if (move.reason === "merged") throw new MoveStatementsRefused("a merge's moves copy no statements");
   if (move.movedByAccountId === null) throw new MoveStatementsRefused("the move names nobody");
 
   const spotter = await lockSpotter(tx, move);
@@ -244,16 +251,30 @@ export async function lockSpottersFirst(tx: DbOrTx, sightingIds: readonly number
     .select({ id: sightingsTable.id, deviceId: sightingsTable.deviceId })
     .from(sightingsTable)
     .where(inArray(sightingsTable.id, ids));
-  const devices = [...new Set(before.map((s) => s.deviceId).filter((d): d is string => d !== null))].sort();
-  for (const device of devices) {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + device}))`);
-    await tx.execute(sql`select device_id from device_credentials where device_id = ${device} for share`);
-  }
+  await lockPhonesFirst(
+    tx,
+    before.map((s) => s.deviceId),
+  );
   const after = await tx
     .select({ id: sightingsTable.id, deviceId: sightingsTable.deviceId })
     .from(sightingsTable)
     .where(inArray(sightingsTable.id, ids));
   return new Map(after.map((s) => [s.id, s.deviceId]));
+}
+
+/**
+ * §9.7 lock 1 for a list of phones (a merge's spotters and the phones it
+ * pays): each phone's badges lock and credentials row, in device order, so
+ * two writers sharing phones queue rather than deadlock. Returns the phones
+ * locked, in that order.
+ */
+export async function lockPhonesFirst(tx: DbOrTx, deviceIds: Iterable<string | null>): Promise<string[]> {
+  const devices = [...new Set([...deviceIds].filter((d): d is string => d !== null))].sort();
+  for (const device of devices) {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"badges:" + device}))`);
+    await tx.execute(sql`select device_id from device_credentials where device_id = ${device} for share`);
+  }
+  return devices;
 }
 
 /** Does this transaction hold the device's badges lock? (pg_locks splits the 64-bit key into two halves.) */

@@ -1,6 +1,7 @@
 import { catIdentityTable, db, sightingMovesTable, sightingsTable, type CatIdentity } from "@workspace/db";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
+import { mergeCats, undoMerge, type MergeDone, type UndoDone } from "../lib/mergeCats";
 
 // Tests only: this switches a database guard off. Refuse to load anywhere else.
 if (!process.env["VITEST"]) {
@@ -10,6 +11,10 @@ if (!process.env["VITEST"]) {
 /**
  * Tests only (SYC-150 PR 2.1). Writes a merge row the way these tests did
  * before migration 0054: the merged-away cat keeps its resolved sightings.
+ * Since PR 4.1 only catIdentity.readers.test.ts uses it: its cases are bad
+ * data the readers must survive (loops, two merges with no undo), which no
+ * route can write. Everything else merges through `libMerge` (the route's
+ * lib) or, where a test must date the merge, `recordedMerge`.
  * Since 0054 the database refuses that at commit (cat_identity_no_sighting_left:
  * a merge moves every resolved sighting to the survivor), and today's readers
  * (hasMetCat, the claim rules, asOf) are still written for this shape until
@@ -31,7 +36,7 @@ export async function mergeKeepingSightings(
 /**
  * Tests only (SYC-150 PR 2.1). Writes a `cat_identity` row the database now
  * refuses: an undo naming another cat than the merge it supersedes. Since
- * migration 0053 `cat_identity_supersedes_own_cat` refuses that at insert,
+ * migration 0054 `cat_identity_supersedes_own_cat` refuses that at insert,
  * so the reader tests that prove such a row undoes nothing (review of #375,
  * A2: bad data the readers must still survive) switch that one trigger off
  * for the insert, in the test's own transaction.
@@ -52,7 +57,7 @@ export async function identityRowPastTheGuard(
 
 /**
  * Tests only (SYC-150 PR 3.1). A merge as PR 4.1's route will record one
- * (spec §9.7 merge steps 2–3, as migration 0053's own tests do in raw SQL):
+ * (spec §9.7 merge steps 2–3, as migration 0054's own tests do in raw SQL):
  * the merge row, the setting, then one `merged` move per resolved sighting
  * of the merged-away cat, each filed under the survivor. No statements are
  * copied. `createdAt` dates the merge and its moves.
@@ -86,6 +91,35 @@ export async function recordedMerge(mergedId: number, survivorId: number, create
     }
     return merge!.id;
   });
+}
+
+/** Tests only (SYC-59 PR 4.1): a team member who may merge, for calling the lib without a session. */
+export const TEST_MERGER = { id: "vitest-merger", scopes: [{ role: "staff", colonyId: null, reach: "island" }] };
+
+/**
+ * Tests only (SYC-59 PR 4.1). A merge through the route's own lib
+ * (`mergeCats`, lib/mergeCats.ts), with the counts as they stand: every
+ * step of §9.7, every lock and check. Throws on a refusal.
+ */
+export async function libMerge(mergedId: number, survivorId: number, reasonText = "Same face, vitest"): Promise<MergeDone> {
+  const counts = async (catId: number) =>
+    (await db.select({ id: sightingsTable.id }).from(sightingsTable).where(and(eq(sightingsTable.catId, catId), eq(sightingsTable.status, "resolved")))).length;
+  const out = await mergeCats(TEST_MERGER, {
+    survivorId,
+    mergedId,
+    expectedSightingCounts: [await counts(survivorId), await counts(mergedId)],
+    reasonText,
+    survivorChosen: "default",
+  });
+  if (!out.ok) throw out.refused;
+  return out;
+}
+
+/** Tests only (SYC-59 PR 4.1). Undo through the route's own lib (`undoMerge`). Throws on a refusal. */
+export async function libUndo(mergeId: number, alsoMoveSightingIds: number[] = [], reasonText = "Not the same, vitest"): Promise<UndoDone> {
+  const out = await undoMerge(TEST_MERGER, mergeId, { reasonText, alsoMoveSightingIds });
+  if (!out.ok) throw out.refused;
+  return out;
 }
 
 /** Tests only (SYC-150 PR 3.1). The undo of a recorded merge: the undo row, then its `merge_undone` moves back. */

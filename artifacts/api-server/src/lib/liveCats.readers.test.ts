@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  catIdentityTable,
   catsTable,
   db,
   observationsTable,
@@ -17,7 +16,7 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
   openai: { chat: { completions: { create: vi.fn() } } },
 }));
 
-import { mergeKeepingSightings } from "../test/merges";
+import { libMerge, libUndo } from "../test/merges";
 import { deleteTestSightings } from "../test/sightings";
 import { newColony } from "../test/roleKit";
 import { visibleColonyIds } from "./guardianView";
@@ -118,17 +117,14 @@ async function cat(name: string): Promise<{ id: number; name: string }> {
   return { id: c!.id, name: full };
 }
 
-// Mimi and Lola keep their resolved sightings through the merge (the shape
-// these readers were written for until PR 3.1/4.1 record the merge's moves),
-// so the merge row goes in with migration 0053's "no sighting left" check off
-// for that one insert (test/merges.ts).
+// Real merges and undos, through the merge route's lib (PR 4.1): Mimi's and
+// Lola's sightings move with the merge and back with its undo.
 async function merge(from: number, into: number): Promise<number> {
-  const row = await mergeKeepingSightings({ catId: from, canonicalCatId: into, reason: "vitest live cats" });
-  return row.id;
+  return (await libMerge(from, into)).mergeId;
 }
 
-async function undo(mergeId: number, catId: number) {
-  await db.insert(catIdentityTable).values({ catId, canonicalCatId: catId, supersedesId: mergeId, reason: "vitest live cats undo" });
+async function undo(mergeId: number, _catId: number) {
+  await libUndo(mergeId);
 }
 
 interface Cast {
@@ -233,9 +229,10 @@ const READERS: Reader[] = [
     merged: (before, c) => goneAway(c)(before),
   },
   {
-    name: "searchTeamCats: search no longer finds a merged-away cat by name",
+    // PR 4.1, "also known as": Mimi's name finds Agatha, never Mimi.
+    name: "searchTeamCats: a merged-away cat's name finds the cat she is part of, never her",
     observe: async (c) => sorted((await searchTeamCats(c.mimi.name)).map((r) => r.id)),
-    merged: () => [],
+    merged: (_before, c) => [c.agatha.id],
   },
   {
     name: "searchCatsToAdd: the colony picker no longer offers a merged-away cat",

@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sql, type SQL } from "drizzle-orm";
 import { can, type CapabilityHolder } from "../capabilities";
+import { catsFeeding } from "../catIdentity";
 import type { TeamPerson } from "../welfareQueue";
 import { brakeLimitNow, brakeTripped, reportHidesToday, type HideSkipped } from "./hide";
 
@@ -276,13 +277,20 @@ export async function issueStripFor(
   catId: number,
 ): Promise<{ reports: IssueReport[]; total: number; open: number } | null> {
   if (!can(viewer, "view_welfare_queue")) return null;
+  // Reports about every cat merged into this one show here too
+  // (which-cat-is-which.md §9.3: welfare_reports readers on a cat page).
+  const feeding = (await catsFeeding([catId])).get(catId)?.ids ?? [catId];
+  const ids = sql.join(
+    feeding.map((id) => sql`${id}`),
+    sql`, `,
+  );
   const [rows, count] = await Promise.all([
-    issueRows(sql`r.cat_id = ${catId}`, sql`order by at desc, r.id desc limit ${STRIP_LIMIT}`),
+    issueRows(sql`r.cat_id in (${ids})`, sql`order by at desc, r.id desc limit ${STRIP_LIMIT}`),
     db.execute(sql`
       select count(*)::int as n,
               (count(*) filter (where state in ('new', 'looking')))::int as open
          from welfare_reports
-        where kind = 'content' and is_draft = false and cat_id = ${catId}`),
+        where kind = 'content' and is_draft = false and cat_id in (${ids})`),
   ]);
   // The heading counts them all, not just the newest STRIP_LIMIT drawn (ship review, finding 3).
   const c = count.rows[0] as { n: number; open: number } | undefined;

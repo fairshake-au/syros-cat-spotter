@@ -8,7 +8,6 @@ import {
   db,
   deviceCredentialsTable,
   markLeft,
-  catIdentityTable,
   observationsTable,
   pool,
   pushTokensTable,
@@ -16,7 +15,7 @@ import {
   sightingsTable,
 } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
-import { mergeKeepingSightings } from "../test/merges";
+import { recordedMerge, recordedUndo } from "../test/merges";
 import { makeKey } from "../lib/teamAuth/__fixtures__/mint";
 import {
   sessionCookieFor,
@@ -896,7 +895,11 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
     const { c: b, d } = await ownedCat("mergedin");
     const [h] = await homed(b.id);
     expect((await deleteMe(d)).status).toBe(204);
-    const merge = await mergeKeepingSightings({ catId: b.id, canonicalCatId: a.id, reason: "test", createdBy: "vitest" });
+    // The merge route refuses this now (an owner's "has a home" still
+    // standing on the merged-away cat: OWNER_MUST_STAY, PR 4.1), so this is
+    // data from before that rule: a recorded merge, with B's sightings moved
+    // to A, written by the test.
+    const mergeId = await recordedMerge(b.id, a.id, undefined, "vitest");
     try {
       const staff = { id: susanId, scopes: [{ role: "staff", colonyId: null }] };
       const view = (await teamCatView(a.id, new Date(), staff))!;
@@ -912,8 +915,8 @@ describe("ship review 2: a merged-in cat's owner claim is not this cat's", () =>
       expect((await teamCatView(b.id, new Date(), staff))!.owner.orphanedHome).toBe(true);
       expect((await page(b.id)).text).toContain(`/api/team/cats/${b.id}/remove-owner"`);
     } finally {
-      // cat_identity is append-only: undo the merge with a row that supersedes it.
-      await db.insert(catIdentityTable).values({ catId: b.id, canonicalCatId: b.id, reason: "undo", createdBy: "vitest", supersedesId: merge!.id });
+      // cat_identity is append-only: undo the merge (a row that supersedes it, and its moves back).
+      await recordedUndo(mergeId);
     }
   });
 });

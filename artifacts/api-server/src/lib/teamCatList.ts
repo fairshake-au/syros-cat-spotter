@@ -1,6 +1,6 @@
 import { catsTable, db, foldName, photosTable, sightingsTable } from "@workspace/db";
 import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
-import { liveCats } from "./catIdentity";
+import { alsoKnownAs, liveCats } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { areaFor } from "./areas/namedAreas";
 import { placeLabel } from "./areas/placeLabel";
@@ -78,6 +78,8 @@ export interface CatListFilters {
 export interface CatListItem {
   id: number;
   name: string;
+  /** Found in the name box by the name of a cat merged into this one ("Mimi", now part of Agatha). */
+  alsoKnownAs?: string;
   /** SYC-677 D: Syros Cats left it for spotters to name; `name` is then its SYR number. */
   namePending: boolean;
   syr: string;
@@ -277,14 +279,34 @@ async function matchTeamCats(
   const q = foldName((f.q ?? "").slice(0, QUERY_MAX));
   const syr = q === "" ? null : SYR_RE.exec(q);
   const syrId = syr ? Number(syr[1]) : null;
-  const rank = (i: CatListItem): number => {
-    if (q === "") return 0;
-    if (i.id === syrId) return 0;
-    const name = foldName(i.name);
+  const rankName = (id: number, rawName: string): number => {
+    if (id === syrId) return 0;
+    const name = foldName(rawName);
     if (name === q) return 1;
     if (name.startsWith(q)) return 2;
     if (name.includes(q)) return 3;
     return -1;
+  };
+  // "Also known as" (which-cat-is-which.md §4.3): a merged-away cat's name
+  // or SYR number finds the cat she is part of now, said on the card.
+  const aka = q === "" ? [] : await alsoKnownAs();
+  const via = new Map<number, string>();
+  const ranks = new Map<number, number>();
+  const rank = (i: CatListItem): number => {
+    if (q === "") return 0;
+    const known = ranks.get(i.id);
+    if (known !== undefined) return known;
+    let best = rankName(i.id, i.name);
+    for (const a of aka) {
+      if (a.survivorId !== i.id) continue;
+      const r = rankName(a.id, a.name);
+      if (r >= 0 && (best < 0 || r < best)) {
+        best = r;
+        via.set(i.id, a.name);
+      }
+    }
+    ranks.set(i.id, best);
+    return best;
   };
 
   const lives = new Set<Lives>(f.lives?.length ? f.lives : DEFAULT_LIVES);
@@ -323,7 +345,10 @@ async function matchTeamCats(
     matched.sort(byRecent);
   }
 
-  return { matched, catCount: all.length };
+  return {
+    matched: matched.map((i) => (via.has(i.id) ? { ...i, alsoKnownAs: via.get(i.id)! } : i)),
+    catCount: all.length,
+  };
 }
 
 /** At most this many points in a cat's trail on the map: the newest. */

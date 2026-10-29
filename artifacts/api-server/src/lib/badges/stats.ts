@@ -23,9 +23,11 @@ export async function computeBadgeStats(
     from sightings where device_id = ${deviceId} and status = 'resolved'`);
   const discovered = await tx.execute(sql`
     select count(*)::int as n from cats where discoverer_device_id = ${deviceId}`);
+  // Weeks with a spot: points for finding a duplicate (which-cat-is-which.md
+  // §9.8) count on the week board, never as an active week (plan C4).
   const weeks = await tx.execute(sql`
     select count(distinct week_start)::int as n
-    from points_ledger where device_id = ${deviceId}`);
+    from points_ledger where device_id = ${deviceId} and sighting_id is not null`);
   const areas = await tx.execute(sql`
     select count(distinct area_key)::int as n
     from sightings

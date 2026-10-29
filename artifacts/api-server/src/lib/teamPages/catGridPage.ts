@@ -305,6 +305,8 @@ function card(c: CatListItem, o: CatGridOptions): string {
     '<li class="catcard">' +
     `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
     `<span class="cardname"><strong>${esc(shownName(c))}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
+    // Found by a merged-in cat's name (which-cat-is-which.md §4.3).
+    (c.alsoKnownAs ? `<span class="cardfact">${esc(`${c.alsoKnownAs} (now part of ${shownName(c)})`)}</span>` : "") +
     (coat !== null ? `<span class="cardfact">${esc(coat)}</span>` : "") +
     (colonyLine !== "" ? `<span class="cardfact">${esc(colonyLine)}</span>` : "") +
     `<span class="cardfact">${markBadge(c.mark)}</span>` +

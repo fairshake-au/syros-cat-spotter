@@ -231,7 +231,14 @@ async function resultsFor(
     const found = (await searchTeamCats(words)).filter((c) => c.id !== from.cat.id);
     return {
       heading: found.length === 0 ? `No cat found for “${words}”` : `Cats matching “${words}”`,
-      cats: found.map((c) => ({ id: c.id, name: c.name, syr: c.syr, thumbnailUrl: c.thumbnailUrl, away: null })),
+      // Found by a merged-in cat's name: "Mimi (now part of Agatha)" (§4.3).
+      cats: found.map((c) => ({
+        id: c.id,
+        name: c.alsoKnownAs ? `${c.alsoKnownAs} (now part of ${c.name})` : c.name,
+        syr: c.syr,
+        thumbnailUrl: c.thumbnailUrl,
+        away: null,
+      })),
     };
   }
   if (!first) return { heading: "Cats near this photo", cats: [] };
