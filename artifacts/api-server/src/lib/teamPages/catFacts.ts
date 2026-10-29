@@ -77,7 +77,7 @@ function statementRefs(ids: number[], byId: Map<number, TeamStatement>, shown: S
 }
 
 /** The records' own answer, short, its uncertainty in the words (spec §7.2: no tag beside it). */
-function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
+export function sterilisedText(s: { value: boolean | null; confidence: Confidence }): string {
   if (s.value === null || s.confidence === "unknown") return "Not known yet";
   if (s.value) {
     if (s.confidence === "likely") return "Probably sterilised";

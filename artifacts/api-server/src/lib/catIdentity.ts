@@ -466,6 +466,8 @@ export interface MergeRecord {
   /** The cat it was merged into (Agatha). */
   canonicalCatId: number;
   createdAt: Date;
+  /** What the team typed as the reason (SYC-59 PR 4.2: the undo screen quotes it). */
+  reasonText: string | null;
   /** The undo row that superseded it, if any. */
   undoneBy: number | null;
 }
@@ -478,8 +480,8 @@ export interface MergeRecord {
  */
 export async function mergeRecord(id: number, q: Exec = db): Promise<MergeRecord | null> {
   if (!Number.isInteger(id)) return null;
-  const r = await q.execute<{ id: number; cat_id: number; canonical_cat_id: number; created_at: Date | string; undone_by: number | null }>(sql`
-    select ci.id, ci.cat_id, ci.canonical_cat_id, ci.created_at,
+  const r = await q.execute<{ id: number; cat_id: number; canonical_cat_id: number; created_at: Date | string; reason_text: string | null; undone_by: number | null }>(sql`
+    select ci.id, ci.cat_id, ci.canonical_cat_id, ci.created_at, ci.reason_text,
            (select u.id from cat_identity u
              where u.supersedes_id = ci.id and u.cat_id = ci.cat_id
              order by u.id limit 1) as undone_by
@@ -493,8 +495,69 @@ export async function mergeRecord(id: number, q: Exec = db): Promise<MergeRecord
     catId: Number(row.cat_id),
     canonicalCatId: Number(row.canonical_cat_id),
     createdAt: new Date(row.created_at),
+    reasonText: row.reason_text,
     undoneBy: row.undone_by === null ? null : Number(row.undone_by),
   };
+}
+
+/** One merge or undo row a cat is part of, as the cat page's History needs it (SYC-59 PR 4.2). */
+export interface MergeEventRow {
+  /** The `cat_identity` row: the merge's, or the undo's. */
+  id: number;
+  createdAt: Date;
+  reasonText: string | null;
+  /** Who did it (a person's id, or null once redacted). */
+  byAccountId: string | null;
+  /** Set on an undo: the merge it undoes. */
+  supersedesId: number | null;
+  /** The merged-away cat (Mimi) and the cat it was merged into (Agatha), read through the merge for an undo. */
+  mergedCatId: number;
+  survivorCatId: number;
+  /** Sightings this row moved (the merge's `merged` moves, or the undo's `merge_undone` moves). */
+  moved: number;
+  /** A merge row an undo has superseded. */
+  undone: boolean;
+}
+
+/**
+ * The merges this cat is part of, as the cat that stays or the cat merged
+ * away, and the undos of them, oldest first. An undo row names no other cat of
+ * its own (it names itself), so it is read through the merge it supersedes.
+ * One query.
+ */
+export async function mergeEventRows(catId: number, q: Exec = db): Promise<MergeEventRow[]> {
+  const r = await q.execute<{
+    id: number;
+    created_at: Date | string;
+    reason_text: string | null;
+    by_account_id: string | null;
+    supersedes_id: number | null;
+    mimi: number;
+    agatha: number;
+    n: number;
+    undone: boolean;
+  }>(sql`
+    select ci.id, ci.created_at, ci.reason_text, ci.by_account_id, ci.supersedes_id,
+           coalesce(sup.cat_id, ci.cat_id) as mimi,
+           coalesce(sup.canonical_cat_id, ci.canonical_cat_id) as agatha,
+           (select count(*)::int from sighting_moves m where m.merge_id = ci.id) as n,
+           exists (select 1 from cat_identity u where u.supersedes_id = ci.id and u.cat_id = ci.cat_id) as undone
+      from cat_identity ci
+      left join cat_identity sup on sup.id = ci.supersedes_id
+     where coalesce(sup.canonical_cat_id, ci.canonical_cat_id) <> coalesce(sup.cat_id, ci.cat_id)
+       and (coalesce(sup.cat_id, ci.cat_id) = ${catId} or coalesce(sup.canonical_cat_id, ci.canonical_cat_id) = ${catId})
+     order by ci.id`);
+  return r.rows.map((row) => ({
+    id: Number(row.id),
+    createdAt: new Date(row.created_at),
+    reasonText: row.reason_text,
+    byAccountId: row.by_account_id,
+    supersedesId: row.supersedes_id === null ? null : Number(row.supersedes_id),
+    mergedCatId: Number(row.mimi),
+    survivorCatId: Number(row.agatha),
+    moved: Number(row.n),
+    undone: row.undone,
+  }));
 }
 
 /** A merged-away cat, by the name it had, and the cat it is now part of. */

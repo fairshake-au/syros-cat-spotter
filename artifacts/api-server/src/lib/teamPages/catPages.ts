@@ -2,7 +2,9 @@ import { keptLine, type KeptFields } from "./signedOutPage";
 import type { LifeStatusValue } from "../resolve";
 import {
   headingName,
+  type TeamCatRef,
   type TeamCatView,
+  type TeamMergeEvent,
   type TeamPhoto,
   type TeamStatement,
 } from "../teamCatView";
@@ -16,6 +18,7 @@ import {
   renderPastChanges,
   runWords,
   visitDidWords,
+  moverWords,
   wrongFormNeeds,
   type HistoryShow,
 } from "./catHistory";
@@ -32,6 +35,7 @@ import { renderAppearanceSection } from "./appearancePage";
 import { byWhom, statementHref, type Shown } from "./catFacts";
 import { renderCatCard, type IssueStrip } from "./catCard";
 import { renderCatTabs, type CatPanel } from "./catTabs";
+import { undoScreen } from "./mergeLinks";
 
 export type { Shown };
 import { inMapBox, mapPageAssets, mergeSameSpot, renderMap, type MapMarker } from "./map";
@@ -149,10 +153,12 @@ const DONE: Record<string, string> = {
   note: "Saved. The note is in the history below.",
   diedAlready: "This cat is already recorded as no longer with us. Nothing was changed.",
   moved: "Saved. The move is in the history below, with where it went. Nobody was told.",
+  merged: "Saved. The two records are one cat now. The merge is in the history below, with Undo merge. Followers see one quiet line in the app; no push was sent.",
+  undone: "Saved. The merge is undone: the sightings are back where they were. It is in the history below.",
 };
 
 /** The messages that sit at the top of the page, not in "Update this cat". */
-const TOP_DONE = new Set(["died", "diedAlready", "moved"]);
+const TOP_DONE = new Set(["died", "diedAlready", "moved", "merged", "undone"]);
 
 /** The messages that sit at the top of History, where the vet visits are. */
 const VISIT_DONE = new Set(["visit", "visitWrong", "visitAlready", "visitReason"]);
@@ -168,6 +174,14 @@ const PHOTO_DONE: Record<string, string> = {
 export interface CatPageOptions {
   /** May the signed-in person do this? Decides which forms are shown. */
   may?: (capability: Capability) => boolean;
+  /**
+   * The cat is merged into another (which-cat-is-which.md §4.3; SYC-59 PR 4.2):
+   * this is its own page, saying so at the top. Its forms act on the cat it is
+   * part of now (every team correction does), so none is drawn; only Undo
+   * merge is, for someone who may merge. `part` is the cat it is part of now
+   * when that is not the cat it was merged into (Mimi into Agatha, Agatha into Dora).
+   */
+  mergedInto?: { event: TeamMergeEvent; part: TeamCatRef | null };
   /** What was just done, from the redirect after a form (a fixed key). */
   done?: string;
   /** The history row the page lands on after a correction. */
@@ -450,13 +464,41 @@ function backToCats(back: string | undefined): string {
 export const withoutTeamNotes = (v: TeamCatView): TeamCatView =>
   v.history.some((h) => h.kind === "team_note") ? { ...v, history: v.history.filter((h) => h.kind !== "team_note") } : v;
 
+/**
+ * “Mimi was merged into Agatha on 26 Oct by Maria” (spec §4.3), at the
+ * top of the merged-away cat's own page, with links to Agatha and to Undo
+ * merge (for someone who may merge).
+ */
+function mergedAwayNotice(
+  m: NonNullable<CatPageOptions["mergedInto"]>,
+  name: string,
+  now: Date,
+  may: (c: Capability) => boolean,
+): string {
+  const e = m.event;
+  const link = (c: TeamCatRef) => `<a href="${esc(catHref(c.id))}">${esc(c.name)}</a>`;
+  const target = m.part ?? e.otherCat;
+  return (
+    '<p class="notice" role="status">' +
+    `<strong>${esc(name)} was merged into ${link(e.otherCat)} on ${esc(dayMonth(e.at, now))} by ${esc(moverWords(e))}.</strong>` +
+    (e.reasonText ? ` Why: ${esc(e.reasonText)}.` : "") +
+    (m.part ? ` ${esc(e.otherCat.name)} is part of ${link(m.part)} now.` : "") +
+    ` Everything recorded about this cat now counts for ${esc(target.name)}. ` +
+    `<a class="tap" href="${esc(catHref(target.id))}">Open ${esc(target.name)}</a>` +
+    (may("merge_cats") ? ` <a class="tap" href="${esc(undoScreen(e.mergeId))}">Undo this merge</a>` : "") +
+    "</p>"
+  );
+}
+
 export function renderCatPage(
   view: TeamCatView,
   personName: string,
   opts: CatPageOptions = {},
 ): string {
-  const may = opts.may ?? (() => false);
-  const v = may("add_team_note") ? view : withoutTeamNotes(view);
+  const asked = opts.may ?? (() => false);
+  // A merged-away cat's page draws no form that writes on the cat: they act on the cat it is part of now.
+  const may = opts.mergedInto ? (c: Capability) => c === "merge_cats" && asked(c) : asked;
+  const v = asked("add_team_note") ? view : withoutTeamNotes(view);
   const { cat, records } = v;
   const island = opts.island === true;
   const now = opts.now ?? new Date();
@@ -488,7 +530,7 @@ export function renderCatPage(
     shown,
     island,
     issues: opts.issues,
-    actions: renderCatActions(v, may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
+    actions: renderCatActions(v, opts.mergedInto ? () => false : may, { notice: formsNotice, colonies: opts.colonies ?? [], kept: opts.kept, done: opts.done }),
   });
   const smallMap = sightingsMap(v, island, drawn.sightingHref);
   const issueTotal = opts.issues?.total ?? 0;
@@ -560,6 +602,7 @@ export function renderCatPage(
     // photo's own place in Photos is gone (review A7).
     beforeTitle:
       backToCats(opts.back) +
+      (opts.mergedInto ? mergedAwayNotice(opts.mergedInto, cat.namePending ? cat.syr : cat.name, now, asked) : "") +
       (topDone ? notice : "") +
       deathNotice(v, byId, shown) +
       guardianMarkNotice(v, byId, shown) +

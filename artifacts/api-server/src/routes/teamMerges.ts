@@ -1,7 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { mergeCats, undoMerge, type MergeRefusalCode } from "../lib/mergeCats";
-import { refuseSignedIn, teamPerson } from "../middlewares/requireTeam";
+import { mergeCats, MERGE_WORDS, undoMerge, type MergeRefusalCode } from "../lib/mergeCats";
+import { loadMergeScreen, type MergeAsk } from "../lib/mergeScreen";
+import { loadUndoScreen } from "../lib/undoMergeScreen";
+import { setTeamHeaders } from "../lib/teamAuth/refuse";
+import { renderMergePage, renderMergeStopPage, type MergePageOptions } from "../lib/teamPages/mergePage";
+import { renderUndoPage, renderUndoStopPage, type UndoPageOptions } from "../lib/teamPages/undoMergePage";
+import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
 
 // Merging two records of the same cat, and undoing a merge
@@ -78,6 +83,161 @@ router.post("/team/cats/merge/:id/undo", ...formRoute("merge_cats"), async (req:
   }
   const { undoId, mergeId, catId, survivorId, movedBack, alsoMoved, followsRemoved } = outcome;
   res.json({ undoId, mergeId, catId, survivorId, movedBack, alsoMoved, followsRemoved });
+});
+
+// ── The merge and undo screens (which-cat-is-which.md §4.1, §4.4; SYC-59 PR 4.2) ─
+//
+// As for the move screen (routes/teamMoves.ts): the dashboard has no scripts,
+// and its forms post a browser form and are answered with a page. So the
+// screen is a GET page, and "Merge" posts a form to a thin route that calls
+// the same `mergeCats` as the JSON route above: the same checks, locks and
+// refusals. A refusal comes back as the screen again, with the refusal's
+// words and what was typed kept. Only cat numbers are in an address.
+
+const NUMBER = /^\d{1,9}$/;
+const one = (v: unknown): string | undefined =>
+  typeof v === "string" ? v : Array.isArray(v) && typeof v[0] === "string" ? v[0] : undefined;
+const numberOf = (v: unknown): number | undefined => {
+  const s = one(v);
+  return s !== undefined && NUMBER.test(s) ? Number(s) : undefined;
+};
+
+/** What the address (or the form) asked for. Anything not a plain number is dropped. */
+function mergeAskOf(src: unknown): Omit<MergeAsk, "a"> & { a: number | null } {
+  const o = (typeof src === "object" && src !== null ? src : {}) as Record<string, unknown>;
+  return {
+    a: numberOf(o["a"]) ?? null,
+    b: numberOf(o["b"]),
+    survivor: numberOf(o["survivor"]),
+    q: (one(o["q"]) ?? "").slice(0, 60),
+  };
+}
+
+/** Draws the merge screen for this ask; a stop (nothing can be merged from here) is its own page. */
+async function drawMerge(res: Response, status: number, ask: ReturnType<typeof mergeAskOf>, extra: Pick<MergePageOptions, "problem" | "kept"> = {}) {
+  const person = teamPerson(res);
+  setTeamHeaders(res);
+  if (ask.a === null) {
+    res.status(404).type("html").send(renderMergeStopPage(person.name, { message: "That cat doesn't exist." }, null));
+    return;
+  }
+  const load = await loadMergeScreen(person, { ...ask, a: ask.a });
+  if (load.kind === "stop") {
+    res.status(load.status).type("html").send(renderMergeStopPage(person.name, load, ask.a));
+    return;
+  }
+  res.status(status).type("html").send(
+    renderMergePage(load, { personName: person.name, ask: { a: ask.a, b: ask.b, survivor: ask.survivor, q: ask.q }, ...extra }),
+  );
+}
+
+/** GET /api/team/cats/merge?a=&b=&survivor=: the merge screen ("Same cat as…"). */
+router.get("/team/cats/merge", requireTeam("merge_cats"), async (req: Request, res: Response) => {
+  await drawMerge(res, 200, mergeAskOf(req.query));
+});
+
+/**
+ * POST /api/team/cats/merge/form: "Merge", from the screen. Origin, session
+ * and capability first (formRoute), then the form is checked as the JSON
+ * route checks its body (MergeBody), then `mergeCats` does the merge.
+ */
+router.post("/team/cats/merge/form", ...formRoute("merge_cats"), async (req: Request, res: Response) => {
+  const body = (typeof req.body === "object" && req.body !== null ? req.body : {}) as Record<string, unknown>;
+  const ask = mergeAskOf(body);
+  const reasonText = (one(body["reasonText"]) ?? "").replace(/\r\n?/g, "\n").trim();
+  const kept = { reasonText };
+  const problem = (message: string, status = 400, link?: { href: string; label: string }) =>
+    drawMerge(res, status, ask, { problem: { message, link }, kept });
+
+  if (ask.a === null || ask.b === undefined) return void (await drawMerge(res, 400, ask));
+  if (ask.survivor !== ask.a && ask.survivor !== ask.b) return void (await problem("Choose which record stays."));
+  const n0 = numberOf(body["n0"]);
+  const n1 = numberOf(body["n1"]);
+  if (n0 === undefined || n1 === undefined) return void (await problem("Something in the form wasn't right. Check it and try again."));
+  if (reasonText === "") return void (await problem("Say why they are the same cat."));
+  if (reasonText.length > REASON_TEXT_MAX) return void (await problem(`Keep the reason to ${REASON_TEXT_MAX} characters.`));
+
+  const candidate = {
+    survivorId: ask.survivor,
+    mergedId: ask.survivor === ask.a ? ask.b : ask.a,
+    expectedSightingCounts: [n0, n1],
+    reasonText,
+    survivorChosen: "default",
+  };
+  const parsed = MergeBody.safeParse(candidate);
+  if (!parsed.success) return void (await problem("Something in the form wasn't right. Check it and try again."));
+
+  const outcome = await mergeCats(teamPerson(res), parsed.data);
+  if (outcome.ok) {
+    // To the cat that stays, where History shows the merge with Undo merge.
+    return void res.redirect(303, `/api/team/cats/${outcome.survivorId}?done=merged#history`);
+  }
+  const { code, message, extra } = outcome.refused;
+  if (code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+  const status = STATUS[code];
+  if (code === "ALREADY_MERGED" && extra.catId !== undefined) {
+    return void (await problem(message, status, { href: `/api/team/cats/${extra.catId}`, label: "Open that cat" }));
+  }
+  // OWNER_MUST_STAY and NAME_PENDING_MUST_GO: the screen draws the record that has to stay, whatever was posted.
+  await problem(message, status);
+});
+
+// The undo screen: the same shape. A GET page; "Undo merge" posts a form to a
+// thin route that calls the same `undoMerge` as the JSON route above.
+
+const mergeIdOf = (req: Request): number | null => {
+  const raw = String(req.params["id"]);
+  return NUMBER.test(raw) ? Number(raw) : null;
+};
+
+async function drawUndo(res: Response, mergeId: number | null, extra: Pick<UndoPageOptions, "problem" | "kept"> = {}, status = 200) {
+  const person = teamPerson(res);
+  setTeamHeaders(res);
+  const load = mergeId === null ? null : await loadUndoScreen(person, mergeId);
+  if (load === null || load.kind === "stop") {
+    const stop = load ?? { status: 404, message: MERGE_WORDS.notFound };
+    res.status(stop.status).type("html").send(renderUndoStopPage(person.name, stop));
+    return;
+  }
+  res.status(status).type("html").send(renderUndoPage(load.screen, { personName: person.name, ...extra }));
+}
+
+/** GET /api/team/cats/merge/:id/undo: the undo screen ("Undo merge" in a History row). */
+router.get("/team/cats/merge/:id/undo", requireTeam("merge_cats"), async (req: Request, res: Response) => {
+  await drawUndo(res, mergeIdOf(req));
+});
+
+/**
+ * POST /api/team/cats/merge/:id/undo/form: "Undo merge", from the screen.
+ * Origin, session and capability first (formRoute), then the form is checked
+ * as the JSON route checks its body (UndoBody), then `undoMerge` does it.
+ */
+router.post("/team/cats/merge/:id/undo/form", ...formRoute("merge_cats"), async (req: Request, res: Response) => {
+  const mergeId = mergeIdOf(req);
+  if (mergeId === null) return void (await drawUndo(res, null));
+  const body = (typeof req.body === "object" && req.body !== null ? req.body : {}) as Record<string, unknown>;
+  const reasonText = (one(body["reasonText"]) ?? "").replace(/\r\n?/g, "\n").trim();
+  const listed = body["tick"];
+  const ticked = (typeof listed === "string" ? [listed] : Array.isArray(listed) ? listed : [])
+    .filter((x): x is string => typeof x === "string" && NUMBER.test(x))
+    .map(Number);
+  const kept = { reasonText, ticked };
+  const problem = (message: string, status = 400) => drawUndo(res, mergeId, { problem: { message }, kept }, status);
+
+  if (reasonText === "") return void (await problem("Say why you are undoing the merge."));
+  if (reasonText.length > REASON_TEXT_MAX) return void (await problem(`Keep the reason to ${REASON_TEXT_MAX} characters.`));
+  const parsed = UndoBody.safeParse({ reasonText, alsoMoveSightingIds: [...new Set(ticked)] });
+  if (!parsed.success) return void (await problem("Something in the form wasn't right. Check it and try again."));
+
+  const outcome = await undoMerge(teamPerson(res), mergeId, parsed.data);
+  if (outcome.ok) {
+    // To the cat that came back, where History shows the undo.
+    return void res.redirect(303, `/api/team/cats/${outcome.catId}?done=undone#history`);
+  }
+  const { code, message } = outcome.refused;
+  if (code === "NOT_AUTHORISED") return refuseSignedIn(req, res);
+  // STALE, NOT_TO_MOVE and the rest: the screen is drawn again from what is there now.
+  await problem(message, STATUS[code]);
 });
 
 export default router;

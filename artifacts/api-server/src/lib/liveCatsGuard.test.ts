@@ -124,7 +124,14 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "crossCatLinks: the cat a replacing statement is on, by the row's own cat id",
     "crossCatLinks: the cat a replaced statement is on, by the row's own cat id",
     "sightingMovesOf: the name of the cat on the other side of a move, by the move row's own cat id",
-    "teamCatView: one cat by id; the merged-away team page is PR 4.2",
+    "mergeEventsOf: the name of the cat on the other side of a merge, by the merge row's own cat id",
+    "teamCatView: one cat by id; a merged-away cat too, its own page says so (SYC-59 PR 4.2)",
+    "teamCatView: the names of cats merged into this one, by their statements' own cat ids (the \"from Mimi\" tag)",
+  ],
+  "artifacts/api-server/src/lib/undoMergeScreen.ts": [
+    "loadUndoScreen: the merge's two cats by id (SYC-59 PR 4.2: the screen names them, merged away or not)",
+    "loadUndoScreen: the cat the merge's survivor is part of now, by id, for \"Undo Agatha's merge into Dora first\"",
+    "loadUndoScreen: the names of the cats the ticked sightings are filed under, by their own cat ids",
   ],
   "artifacts/api-server/src/lib/teamCorrections.ts": [
     "recordTeamStatement: the cat exists, checked before a write",
@@ -182,6 +189,9 @@ const ALLOWLIST: Record<string, readonly string[]> = {
     "lockSurvivor: lock by id before a write (update)",
     "lockSurvivor: lock by id before a resolve files a sighting (share)",
     "survivorsOf: the survivors' names and photos, by id, for the bell",
+  ],
+  "artifacts/api-server/src/routes/teamCats.ts": [
+    "mergedAwayOf: the cat a merged-away cat is part of now, by id, for its own page's banner (SYC-59 PR 4.2)",
   ],
   "artifacts/api-server/src/routes/teamNews.ts": [
     "news-changes: a log; each change names its own cat by id",

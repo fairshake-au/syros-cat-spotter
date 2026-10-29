@@ -108,7 +108,7 @@ export class MoveRefused extends Error {
   constructor(
     readonly code: MoveRefusalCode,
     message: string,
-    readonly extra: { current?: SightingNow[]; cat?: { id: number; name: string } } = {},
+    readonly extra: { current?: SightingNow[]; cat?: { id: number; name: string }; from?: { id: number; name: string } } = {},
   ) {
     super(message);
     this.name = "MoveRefused";
@@ -295,6 +295,7 @@ export async function moveSightingsIn(tx: Tx, person: Person, input: MoveInput):
     const [to] = await tx.select({ name: catsTable.name }).from(catsTable).where(eq(catsTable.id, toBefore));
     throw new MoveRefused("MERGE_INSTEAD", MOVE_WORDS.mergeInstead(from.name, to!.name), {
       cat: { id: toBefore, name: to!.name },
+      from: { id: fromCatId, name: from.name },
     });
   }
 

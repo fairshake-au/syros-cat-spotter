@@ -16,7 +16,7 @@ import {
   type SightingPhotoRole,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
-import { alsoKnownAs, liveCats } from "./catIdentity";
+import { alsoKnownAs, liveCats, mergeEventRows } from "./catIdentity";
 import { currentColonyOf } from "./colonyMembership";
 import { deriveCatStatuses, type DerivedCatStatus } from "./catHelpers";
 import { hiddenDetails } from "./photoVisibility";
@@ -336,6 +336,12 @@ export interface TeamStatement {
   movedFrom: { statementId: number; cat: TeamCatRef } | null;
   photoUrl: string | null;
   /**
+   * Set when this statement was written about a cat that was merged into this
+   * one ("from Mimi", which-cat-is-which.md §4.3; SYC-59 PR 4.2). Left out
+   * for this cat's own statements.
+   */
+  fromCat?: TeamCatRef;
+  /**
    * The sighting it was sent with, or null (SYC-396 PR 1.4): the history
    * counts a run of routine spotter rows by their sightings.
    */
@@ -556,10 +562,12 @@ export interface TeamAppearance {
 
 /**
  * A move of a sighting to or from this cat by the team (which-cat-is-which.md
- * §5.7; the cat page's History, SYC-150 PR 3.3). The moves a merge made are
- * PR 4.2's rows, so only the move screen's are here.
+ * §5.7; the cat page's History, SYC-150 PR 3.3). The moves a merge and its
+ * undo made are here too (SYC-59 PR 4.2): `merge` says which.
  */
 export interface TeamSightingMove {
+  /** `merged`: filed here when a cat was merged in. `merge_undone`: put back when a merge was undone. Null: an ordinary move. */
+  merge: "merged" | "merge_undone" | null;
   /** The move row. */
   id: number;
   sightingId: number;
@@ -590,7 +598,35 @@ export const MOVE_REASON_WORDS: Record<string, string> = {
   two_cats: "Two cats in the photo",
   wrong_pick: "Wrong cat picked",
   other: "Other",
+  merged: "Merged",
+  merge_undone: "Merge undone",
 };
+
+/**
+ * A merge, or the undo of one, that this cat is part of (which-cat-is-which.md
+ * §4.3; the cat page's History, SYC-59 PR 4.2): "Merged with Mimi by Maria,
+ * 26 Oct", on both cats.
+ */
+export interface TeamMergeEvent {
+  /** The `cat_identity` row: the merge's for `merged`, the undo's for `undone`. */
+  id: number;
+  kind: "merged" | "undone";
+  /** The merge this is about (the undo screen's address). */
+  mergeId: number;
+  at: string;
+  /** This cat's part: it stays ("survivor") or was merged away ("merged"). */
+  role: "survivor" | "merged";
+  /** The cat on the other side: Mimi, for Agatha's page; Agatha, for Mimi's. */
+  otherCat: TeamCatRef;
+  /** Who did it; null once their details were deleted. */
+  by: { name: string; left: boolean } | null;
+  /** What the team typed as the reason. */
+  reasonText: string | null;
+  /** `merged` only: the merge still stands (nobody has undone it). */
+  standing: boolean;
+  /** Sightings the merge moved (`merged`) or the undo put back (`undone`). */
+  sightings: number;
+}
 
 export interface TeamCatView {
   cat: {
@@ -662,8 +698,10 @@ export interface TeamCatView {
     /** SYC-415 spec §4.5: the matcher judged the spot's photos may show more than one cat. */
     mixedCats: boolean;
   }[];
-  /** The team's moves of sightings to or from this cat, newest first (SYC-150 PR 3.3). */
+  /** The team's moves of sightings to or from this cat, newest first (SYC-150 PR 3.3), a merge's and an undo's included (SYC-59 PR 4.2). */
   moves: TeamSightingMove[];
+  /** The merges this cat is part of, and their undos, oldest first (SYC-59 PR 4.2). */
+  merges: TeamMergeEvent[];
   /**
    * Every photo of the cat, once each: main, then each sighting's photos (its
    * cover, then its extras in the order taken), then statements.
@@ -862,15 +900,15 @@ const colonyWords = (l: { name: string | null; wasName: string | null }) =>
   l.name === null ? null : l.wasName ? `“${l.name}” (was “${l.wasName}”)` : `“${l.name}”`;
 
 /**
- * The team's moves of sightings to or from this cat, newest first (not the
- * moves a merge made). `latest` marks a sighting's newest move, the only one
- * "Move back" applies to.
+ * The team's moves of sightings to or from this cat, newest first, the moves a
+ * merge and its undo made included (marked by `merge`). `latest` marks a
+ * sighting's newest move, the only one "Move back" applies to.
  */
 async function sightingMovesOf(catId: number): Promise<TeamSightingMove[]> {
   const rows = await db
     .select()
     .from(sightingMovesTable)
-    .where(and(isNull(sightingMovesTable.mergeId), or(eq(sightingMovesTable.toCatId, catId), eq(sightingMovesTable.fromCatId, catId))))
+    .where(or(eq(sightingMovesTable.toCatId, catId), eq(sightingMovesTable.fromCatId, catId)))
     .orderBy(desc(sightingMovesTable.id));
   if (rows.length === 0) return [];
   const sightingIds = [...new Set(rows.map((r) => r.sightingId))];
@@ -917,6 +955,7 @@ async function sightingMovesOf(catId: number): Promise<TeamSightingMove[]> {
     const person = r.movedByAccountId ? personOf.get(r.movedByAccountId) : undefined;
     return {
       id: r.id,
+      merge: r.mergeId === null ? null : r.reason === "merge_undone" ? "merge_undone" : "merged",
       sightingId: r.sightingId,
       direction: inbound ? "in" : "out",
       otherCat: { id: otherId, syr: syrNumber(otherId), name: nameOf.get(otherId) ?? syrNumber(otherId) },
@@ -930,6 +969,45 @@ async function sightingMovesOf(catId: number): Promise<TeamSightingMove[]> {
         ? { id: before.id, lat: before.lat, lng: before.lng, at: before.createdAt.toISOString(), photoUrl: before.publicId ? teamPhotoUrl(before.publicId) : null }
         : null,
     } satisfies TeamSightingMove;
+  });
+}
+
+
+/**
+ * The merges this cat is part of, as the survivor or the cat merged away, and
+ * their undos, oldest first (which-cat-is-which.md §4.3; SYC-59 PR 4.2). The
+ * rows are lib/catIdentity.ts's (`mergeEventRows`, the one reader of merges);
+ * here they get the other cat's name and who did them.
+ */
+export async function mergeEventsOf(catId: number): Promise<TeamMergeEvent[]> {
+  const rows = await mergeEventRows(catId);
+  if (rows.length === 0) return [];
+  const otherIds = [...new Set(rows.map((row) => (row.mergedCatId === catId ? row.survivorCatId : row.mergedCatId)))];
+  const byIds = [...new Set(rows.map((row) => row.byAccountId).filter((a): a is string => a !== null && isPersonId(a)))];
+  const [others, people] = await Promise.all([
+    db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, otherIds)),
+    byIds.length === 0
+      ? Promise.resolve([] as { id: string; name: string; leftAt: Date | null }[])
+      : db.select({ id: peopleTable.id, name: peopleTable.name, leftAt: peopleTable.leftAt }).from(peopleTable).where(inArray(peopleTable.id, byIds)),
+  ]);
+  const nameOf = new Map(others.map((c) => [c.id, c.name]));
+  const personOf = new Map(people.map((p) => [p.id, { name: p.name, left: p.leftAt !== null }]));
+  return rows.map((row) => {
+    const role = row.mergedCatId === catId ? ("merged" as const) : ("survivor" as const);
+    const otherId = role === "merged" ? row.survivorCatId : row.mergedCatId;
+    const isUndo = row.supersedesId !== null;
+    return {
+      id: row.id,
+      kind: isUndo ? ("undone" as const) : ("merged" as const),
+      mergeId: isUndo ? row.supersedesId! : row.id,
+      at: row.createdAt.toISOString(),
+      role,
+      otherCat: { id: otherId, syr: syrNumber(otherId), name: nameOf.get(otherId) ?? syrNumber(otherId) },
+      by: row.byAccountId ? (personOf.get(row.byAccountId) ?? null) : null,
+      reasonText: row.reasonText,
+      standing: !isUndo && !row.undone,
+      sightings: row.moved,
+    } satisfies TeamMergeEvent;
   });
 }
 
@@ -1016,13 +1094,20 @@ export async function teamCatView(
         .filter((p): p is number => p != null),
     ]),
   ];
-  const [people, photoIds, crossCat, hidden, moves] = await Promise.all([
+  // Statements written about a cat merged into this one carry its name ("from Mimi").
+  const mergedInIds = [...new Set(observations.map((o) => o.catId).filter((id) => id !== cat.id))];
+  const [people, photoIds, crossCat, hidden, moves, merges, mergedIn] = await Promise.all([
     peopleNames(observations),
     photoPublicIds(galleryIds),
     crossCatLinks(observations),
     hiddenLabels(galleryIds),
     sightingMovesOf(cat.id),
+    mergeEventsOf(cat.id),
+    mergedInIds.length === 0
+      ? Promise.resolve([] as { id: number; name: string }[])
+      : db.select({ id: catsTable.id, name: catsTable.name }).from(catsTable).where(inArray(catsTable.id, mergedInIds)),
   ]);
+  const mergedInName = new Map(mergedIn.map((c) => [c.id, c.name]));
   const urlFor = (photoId: number | null) => {
     const publicId = photoId == null ? undefined : photoIds.get(photoId)?.publicId;
     return publicId ? teamPhotoUrl(publicId) : null;
@@ -1108,6 +1193,7 @@ export async function teamCatView(
       movedTo: crossCat.movedTo.get(o.id) ?? null,
       movedFrom: crossCat.movedFrom.get(o.id) ?? null,
       photoUrl: urlFor(o.photoId),
+      ...(o.catId !== cat.id ? { fromCat: { id: o.catId, syr: syrNumber(o.catId), name: mergedInName.get(o.catId) ?? syrNumber(o.catId) } } : {}),
       sightingId: o.sightingId ?? null,
       vetVisitId: vetVisitIdOf(o),
       correction: correctionOf(o, replacedBy.has(o.id)),
@@ -1203,6 +1289,7 @@ export async function teamCatView(
       mixedCats: mixedCatsOf.has(s.id),
     })),
     moves,
+    merges,
     photos,
     history,
     recentGuardianMark: (() => {
