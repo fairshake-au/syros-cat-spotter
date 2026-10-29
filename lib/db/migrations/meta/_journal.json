@@ -386,6 +386,13 @@
       "when": 1793090000000,
       "tag": "0054_moves_merges_duplicates",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793155416588,
+      "tag": "0055_notification_merge_cats",
+      "breakpoints": true
     }
   ]
 }

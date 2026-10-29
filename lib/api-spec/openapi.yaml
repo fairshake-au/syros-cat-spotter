@@ -1261,6 +1261,28 @@ components:
           type: integer
           nullable: true
           description: A weekly result's points that week; null as for place.
+        kind:
+          type: string
+          enum: [cat, week_result, merged, duplicate_points]
+          description: >-
+            What the entry is, sent only on the kinds that have no cat of their
+            own: merged and duplicate_points (SYC-59). Cat news and weekly
+            results leave it out, so a missing kind is cat news (catId set) or
+            a weekly result (catId null).
+            merged and duplicate_points have no cat of their own (catId null,
+            updateType general) and carry survivorCatId, survivorCatName and
+            mergedCatName; builds that don't know them show message, as for
+            a weekly result.
+        survivorCatId:
+          type: integer
+          nullable: true
+          description: A merged or duplicate_points entry's staying cat (the one the entry opens); absent otherwise.
+        survivorCatName:
+          type: string
+          nullable: true
+        mergedCatName:
+          type: string
+          nullable: true
         read: { type: boolean }
         createdAt: { type: string }
       required:
@@ -1671,6 +1693,19 @@ components:
             and this phone has met it (the claim's "met" rule). Absent unless
             the phone proved its id; an app that doesn't read it shows the
             button and the server refuses with NEEDS_SIGHTING.
+        mergedFrom:
+          type: object
+          description: |
+            SYC-59: present only when the id asked for was a record the team
+            has merged into this cat (an old link, a notification, a cached
+            list). `cat` is the cat it is part of now; this names the record
+            asked for, so the page can say "Mimi is now part of Agatha's
+            record". Absent otherwise; an app that doesn't read it just opens
+            the cat.
+          properties:
+            id: { type: integer }
+            name: { type: string }
+          required: [id, name]
       required: [cat, sightings, fansCount, careTimeline, canClaim, claimCooldown]
     Campaign:
       type: object

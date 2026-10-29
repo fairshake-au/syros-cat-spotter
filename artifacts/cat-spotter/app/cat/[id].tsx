@@ -44,6 +44,7 @@ import { PhotosTab } from '@/components/catPage/PhotosTab';
 import { StoryTab } from '@/components/catPage/StoryTab';
 import { MapTab } from '@/components/catPage/MapTab';
 import { FollowButton } from '@/components/catPage/FollowButton';
+import { mergedIntoNote } from '@/lib/mergedCats';
 import { fonts, fontSizes, lineHeights } from '@/constants/theme';
 
 /** The photo's height. The tab row and the first facts show on a 390 px phone without scrolling. */
@@ -55,7 +56,7 @@ export default function CatDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
-  const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string }>();
+  const params = useLocalSearchParams<{ id: string; updateId?: string; report?: string; from?: string }>();
   const catId = Number(params.id);
   const updateId = Number(params.updateId);
   const { ownedCatIds, deviceId, isReady, startupError } = useDevice();
@@ -139,6 +140,18 @@ export default function CatDetailScreen() {
     request: deviceId !== null ? { headers: { 'X-Device-Id': deviceId } } : undefined,
   });
 
+  // SYC-59: asked for by a merged-away id, the page moves to the survivor's own
+  // address, so a claim, rename or edit (which refresh the survivor) refresh
+  // this page too. The old record's name travels as `from` for the note.
+  const mergedFrom = query.data?.mergedFrom;
+  const survivorId = query.data?.cat.id;
+  React.useEffect(() => {
+    if (mergedFrom && survivorId !== undefined && survivorId !== catId) {
+      router.replace({ pathname: '/cat/[id]', params: { id: String(survivorId), from: mergedFrom.name } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedFrom, survivorId, catId]);
+
   const close = () => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)/cats');
@@ -181,6 +194,9 @@ export default function CatDetailScreen() {
   const shownName = catDisplayName(cat, t);
   const sentenceName = catNameInSentence(cat);
   const careTimeline = data.careTimeline;
+  // SYC-59 (which-cat-is-which.md §4.2): the page was asked for a record the
+  // team merged into this cat (an old link, a notification, a cached list).
+  const mergedNote = mergedIntoNote(t, data.mergedFrom ?? (params.from ? { id: 0, name: params.from } : undefined), sentenceName);
   const isClaimed = cat.hasHome;
   // The server shows the exact spot only to the proven owner, so that is
   // the truth about who owns the cat now. The list saved on the phone can be
@@ -327,6 +343,15 @@ export default function CatDetailScreen() {
           aria-labelledby={tabId(shownTab)}
           style={styles.panel}
         >
+          {mergedNote !== null && (
+            <Text
+              testID="cat-merged-note"
+              role="note"
+              style={[styles.mergedNote, { color: colors.mutedForeground }]}
+            >
+              {mergedNote}
+            </Text>
+          )}
           {shownTab === 'about' && <NameThisCatCard cat={cat} canName={data.canName} />}
           {shownTab === 'about' && (
             <AboutTab
@@ -463,4 +488,10 @@ const styles = StyleSheet.create({
     lineHeight: fontSizes['2xl'] * lineHeights.tight,
   },
   panel: { padding: 16 },
+  mergedNote: {
+    fontSize: fontSizes.xs,
+    fontFamily: fonts.body,
+    lineHeight: fontSizes.xs * lineHeights.normal,
+    marginBottom: 12,
+  },
 });

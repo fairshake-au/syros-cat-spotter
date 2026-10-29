@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppNotificationKind } from './appNotificationKind';
 import type { AppNotificationUpdateType } from './appNotificationUpdateType';
 
 /**
@@ -22,6 +23,12 @@ export interface AppNotification {
   place?: number | null;
   /** A weekly result's points that week; null as for place. */
   weekPoints?: number | null;
+  /** What the entry is, sent only on the kinds that have no cat of their own: merged and duplicate_points (SYC-59). Cat news and weekly results leave it out, so a missing kind is cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don't know them show message, as for a weekly result. */
+  kind?: AppNotificationKind;
+  /** A merged or duplicate_points entry's staying cat (the one the entry opens); absent otherwise. */
+  survivorCatId?: number | null;
+  survivorCatName?: string | null;
+  mergedCatName?: string | null;
   read: boolean;
   createdAt: string;
 }
