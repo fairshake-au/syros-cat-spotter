@@ -111,6 +111,21 @@ router.post("/cats/:catId/updates", async (req, res) => {
   });
 });
 
+/** The extra fields of a merged or duplicate-points line; empty for the other kinds and for lines written before the columns existed. */
+function pairFields(
+  r: { survivorCatId: number | null; mergedCatId: number | null },
+  survivors: Map<number, { id: number; name: string }>,
+  names: Map<number, string>,
+) {
+  if (r.survivorCatId === null || r.mergedCatId === null) return {};
+  const survivorId = survivors.get(r.survivorCatId)?.id ?? r.survivorCatId;
+  return {
+    survivorCatId: survivorId,
+    survivorCatName: names.get(survivorId) ?? null,
+    mergedCatName: names.get(r.mergedCatId) ?? null,
+  };
+}
+
 router.get("/notifications/:deviceId", async (req, res) => {
   const deviceId = await requireDeviceAuth(req, res);
   if (!deviceId) return;
@@ -130,6 +145,8 @@ router.get("/notifications/:deviceId", async (req, res) => {
       ownMessage: notificationsTable.message,
       place: notificationsTable.place,
       weekPoints: notificationsTable.weekPoints,
+      survivorCatId: notificationsTable.survivorCatId,
+      mergedCatId: notificationsTable.mergedCatId,
       catId: catsTable.id,
       catName: catsTable.name,
       catPrimaryPhotoId: catsTable.primaryPhotoId,
@@ -167,6 +184,22 @@ router.get("/notifications/:deviceId", async (req, res) => {
     }
   }
 
+  // A merged or duplicate-points line names its two cats so the app can word
+  // it in the spotter's language and open the survivor (SYC-59 PR 4.3). The
+  // survivor is the cat it is part of now, should it have been merged on.
+  const pairIds = rows.flatMap((r) => (r.survivorCatId !== null && r.mergedCatId !== null ? [r.survivorCatId, r.mergedCatId] : []));
+  const pairSurvivors = await survivorsOf(pairIds);
+  const pairNames = new Map(
+    pairIds.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: catsTable.id, name: catsTable.name })
+            .from(catsTable)
+            .where(inArray(catsTable.id, [...new Set([...pairIds, ...[...pairSurvivors.values()].map((v) => v.id)])]))
+        ).map((c) => [c.id, c.name] as const),
+  );
+
   // Each cat's photo as the catalogue shows it, in one batch (SYC-98 Fable
   // review, finding 7: never one lookup per notification). A main photo the
   // team hid is replaced by the newest visible one, or none (PR 6).
@@ -193,6 +226,8 @@ router.get("/notifications/:deviceId", async (req, res) => {
             message: r.ownMessage ?? "",
             place: r.place,
             weekPoints: r.weekPoints,
+            ...(r.kind === "merged" || r.kind === "duplicate_points" ? { kind: r.kind } : {}),
+            ...pairFields(r, pairSurvivors, pairNames),
             read: r.read,
             createdAt: r.createdAt.toISOString(),
           }
