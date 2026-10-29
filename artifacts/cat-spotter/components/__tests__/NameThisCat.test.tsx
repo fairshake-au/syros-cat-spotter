@@ -129,6 +129,20 @@ describe('Name this cat', () => {
     expect(h.invalidate).toHaveBeenCalled();
   });
 
+  it('SYC-59: MERGED says the cat has just joined another record, and reloads the page to show that cat', async () => {
+    openSheet();
+    typeName('Agatha');
+    fireEvent.click(find(en.nameThisCatSave!));
+    const err = new ApiError(new Response(null, { status: 409 }), { error: 'x', code: 'MERGED', catId: 12 }, {
+      method: 'POST',
+      url: '/api/cats/7/name',
+    });
+    h.opts.mutation.onError(err);
+    await waitFor(() => expect(document.body.textContent).toContain(en.mergedRefused));
+    expect(h.invalidate).toHaveBeenCalledWith({ queryKey: ['/api/cats/7'] });
+    expect(document.body.textContent).not.toContain(en.claimNetworkError);
+  });
+
   it.each([
     ['OFFENSIVE_NAME', 400, 'catNameRejected'],
     ['NAME_TAKEN', 409, 'nameTaken'],

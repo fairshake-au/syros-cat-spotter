@@ -179,6 +179,7 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/routes/notifications.ts": [
     "POST /cats/:catId/updates: one cat by id before a write",
     "GET /notifications: each notification names its own cat by id; the survivor view is PR 4.1",
+    "GET /notifications: a merge line's two cats named by id (the survivor and the one merged in)",
   ],
   "artifacts/api-server/src/routes/reports.ts": ["knownCatId: the cat exists, checked before a write"],
   "artifacts/api-server/src/routes/sightings.ts": [

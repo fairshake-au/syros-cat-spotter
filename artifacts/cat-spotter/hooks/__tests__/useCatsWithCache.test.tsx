@@ -86,6 +86,21 @@ describe('useCatsWithCache', () => {
     await waitFor(() => expect(result.current.loadFailed).toBe(true));
   });
 
+  it('SYC-59: a saved list holding a merged-away cat shows it until the next fetch, which drops it and replaces the saved copy', async () => {
+    const agatha = { id: 2, name: 'Agatha' };
+    const mimi = { id: 3, name: 'Mimi' };
+    h.storage.set(CATS_CACHE_KEY, JSON.stringify([agatha, mimi]));
+    // Held until the saved copy has been read: the phone shows the old list first.
+    let serve: (cats: unknown[]) => void = () => {};
+    h.fetch.mockReturnValue(new Promise((r) => (serve = r)));
+    const { result } = renderHook(() => useCatsWithCache(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.cats).toEqual([agatha, mimi]));
+    // The server no longer lists Mimi (she is part of Agatha's record).
+    await act(async () => serve([agatha]));
+    await waitFor(() => expect(result.current.cats).toEqual([agatha]));
+    await waitFor(() => expect(JSON.parse(h.storage.get(CATS_CACHE_KEY) ?? '[]')).toEqual([agatha]));
+  });
+
   it('failed with saved cats: shows them, no failure', async () => {
     h.storage.set(CATS_CACHE_KEY, JSON.stringify([tigris]));
     h.fetch.mockRejectedValue(new Error('down'));
