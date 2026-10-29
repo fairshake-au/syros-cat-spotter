@@ -8,6 +8,7 @@
 
 export * from './apiErrorBody';
 export * from './appNotification';
+export * from './appNotificationKind';
 export * from './appNotificationUpdateType';
 export * from './appSettings';
 export * from './appSettingsFeedNudge';
@@ -27,6 +28,7 @@ export * from './catCoatColoursItem';
 export * from './catCoatItem';
 export * from './catCoatPattern';
 export * from './catDetail';
+export * from './catDetailMergedFrom';
 export * from './catFollow';
 export * from './catHomePin';
 export * from './catLetGo';

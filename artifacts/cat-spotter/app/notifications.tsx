@@ -32,6 +32,7 @@ import { formatRank } from '@/lib/formatRank';
 import type { Language } from '@/lib/i18n';
 import { goToSpotTab } from '@/lib/goToSpotTab';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
+import { bellTap, mergeLineText } from '@/lib/mergedCats';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -68,12 +69,15 @@ type Row =
   | { kind: 'item'; key: string; notification: AppNotification };
 
 // A weekly result is worded here, in the spotter's language, from its place and
-// points. Rows without them (older results) and cat news keep the stored words.
+// points; a merge line (SYC-59) from the two cats' names. Rows without them
+// (older results and lines) and cat news keep the stored words.
 function notificationText(
   n: AppNotification,
   t: (key: string) => string,
   language: Language,
 ): string {
+  const merge = mergeLineText(n, t);
+  if (merge !== null) return merge;
   if (n.catId == null && n.place != null && n.weekPoints != null) {
     return t('celebrateWeekLine')
       .replace('{place}', formatRank(language, n.place))
@@ -88,7 +92,7 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
-  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead } =
+  const { notifications, unreadCount, isLoading, loadFailed, refetch, markAllRead, markRead } =
     useNotifications();
   // SYC-508 §4.1: the profile Home already loads (same key), only to pick the
   // empty line.
@@ -165,16 +169,24 @@ export default function NotificationsScreen() {
       <Pressable
         onPress={() => {
           // A weekly result has no cat: it opens its celebration while one is
-          // still queued, and otherwise the Spotters board (SYC-706).
-          if (n.catId == null) {
+          // still queued, and otherwise the Spotters board (SYC-706). A merge
+          // line opens the cat that stays (SYC-59, D4).
+          const tap = bellTap(n);
+          if (tap.to === 'weekly') {
             void openWeeklyResult(router);
+            return;
+          }
+          if (tap.to === 'survivor') {
+            // Opening the cat it is about counts as reading it, as cat news does.
+            if (!n.read) markRead(n.id);
+            router.push({ pathname: '/cat/[id]', params: { id: String(tap.catId) } });
             return;
           }
           router.push({
             pathname: '/cat/[id]',
             params: {
-              id: String(n.catId),
-              updateId: String(n.catUpdateId),
+              id: String(tap.catId),
+              updateId: String(tap.updateId),
             },
           });
         }}

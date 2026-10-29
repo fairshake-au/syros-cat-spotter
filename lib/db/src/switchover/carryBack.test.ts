@@ -262,8 +262,8 @@ describe("carry-back, end to end (test 4)", () => {
         columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
       },
       // SYC-706's weekly-result bell entries (0047) and their place and
-      // points (0048): Neon only too.
-      { table: "notifications", columns: ["kind", "message", "place", "week_points"] },
+      // points (0048), and the two cats of a merge line (0055): Neon only too.
+      { table: "notifications", columns: ["kind", "message", "place", "week_points", "survivor_cat_id", "merged_cat_id"] },
       // SYC-706's push language (0049): Neon only too.
       { table: "push_tokens", columns: ["language"] },
     ]);

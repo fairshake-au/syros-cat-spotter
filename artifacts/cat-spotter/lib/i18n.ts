@@ -746,6 +746,15 @@ const en: Dict = {
   // SYC-150 PR 3.3 (which-cat-is-which.md §5.9, D4): the quiet line on a spot the
   // team moved to this cat. No push. Greek and French are drafts for Johnny's pack.
   filedByTeam: 'Syros Cats filed this under {name}',
+  // SYC-59 PR 4.3 (which-cat-is-which.md §4.2, D4, D10): the cat page's note when
+  // an old link or notification opens a record the team merged, the bell's two
+  // new lines (worded here from the cats' names, never the server's English),
+  // and the refusal when naming or claiming a merged record. Greek and French
+  // are drafts for Johnny's pack.
+  mergedIntoRecord: '{from} is now part of {to}’s record',
+  mergedLine: '{from} and {to} turned out to be the same cat. You now follow {to}.',
+  duplicatePointsLine: 'You spotted that {from} and {to} are the same cat. Syros Cats agreed. +10 points.',
+  mergedRefused: 'This cat has just become part of another cat’s record. Showing that cat now.',
   moreToAddSheetTitle: 'Your sighting on {date}',
   earTipYouSaid: 'You said: {answer}',
   earTipChange: 'Change my answer',
@@ -1745,6 +1754,11 @@ const el: Dict = {
   moreToAddButton: 'Πες μας περισσότερα',
   // Draft for Johnny's checking pack (SYC-150 PR 3.3, SYC-283).
   filedByTeam: 'Οι Syros Cats το κατέταξαν στη γάτα {name}',
+  // Drafts for Johnny's checking pack (SYC-59 PR 4.3).
+  mergedIntoRecord: 'Η καταγραφή «{from}» είναι πλέον μέρος της καταγραφής «{to}»',
+  mergedLine: '«{from}» και «{to}»: ήταν η ίδια γάτα. Τώρα ακολουθείς τη γάτα «{to}».',
+  duplicatePointsLine: 'Κατάλαβες ότι «{from}» και «{to}» είναι η ίδια γάτα. Οι Syros Cats συμφώνησαν. +10 πόντοι.',
+  mergedRefused: 'Αυτή η γάτα μόλις έγινε μέρος της καταγραφής μιας άλλης γάτας. Σου δείχνουμε εκείνη τώρα.',
   moreToAddSheetTitle: 'Η παρατήρησή σου στις {date}',
   earTipYouSaid: 'Απάντησες: {answer}',
   earTipChange: 'Αλλαγή απάντησης',
@@ -2720,6 +2734,11 @@ const fr: Dict = {
   moreToAddButton: 'Dis-nous-en plus',
   // Draft for Johnny's checking pack (SYC-150 PR 3.3, SYC-283).
   filedByTeam: 'Syros Cats ont classé cette observation sous {name}',
+  // Drafts for Johnny's checking pack (SYC-59 PR 4.3).
+  mergedIntoRecord: '{from} fait maintenant partie de la fiche de {to}',
+  mergedLine: '{from} et {to} étaient en fait le même chat. Tu suis maintenant {to}.',
+  duplicatePointsLine: 'Tu avais repéré que {from} et {to} sont le même chat. Syros Cats a confirmé. +10 points.',
+  mergedRefused: 'Ce chat vient de rejoindre la fiche d’un autre chat. On te montre celui-ci maintenant.',
   moreToAddSheetTitle: 'Ton observation du {date}',
   earTipYouSaid: 'Tu as répondu : {answer}',
   earTipChange: 'Changer ma réponse',

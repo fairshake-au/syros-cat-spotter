@@ -31,6 +31,9 @@ const ALLOWED: Record<string, Allow[]> = {
   'components/catPage/AboutTab.tsx': [
     { includes: 'name: cat.name, namePending: cat.namePending', why: 'handed on whole; QuestionCards picks the sentence name' },
   ],
+  'app/cat/[id].tsx': [
+    { includes: 'from: mergedFrom.name', why: 'the merged-away record\'s name carried in the address for the "now part of" note; the note says a pending cat\'s SYR number plainly, not "No name yet"' },
+  ],
   'components/ClaimCatSheet.tsx': [
     { includes: 'const nameChanged =', why: 'compares the typed name with the stored one; never drawn' },
     { includes: 'setCatName(cat.namePending', why: 'rename box prefill; empty for a pending cat' },

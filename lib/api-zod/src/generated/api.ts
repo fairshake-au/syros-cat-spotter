@@ -167,7 +167,11 @@ export const GetCatResponse = zod.object({
 })).describe('Care history, newest first, oldest entry always `discovered`'),
   "canClaim": zod.boolean().describe('Whether the phone looking may say \"This is my cat\" (claiming-a-cat.md\n§4.1). True only when it sent X-Device-Id with its matching\nX-Device-Secret and passes the same check the claim uses; false\notherwise, including for the cat\'s owner.\n'),
   "claimCooldown": zod.boolean().describe('True only for a phone that proved who it is and let this cat go in\nthe last 7 days, or was removed as its owner by the team in the\nlast 30 (claiming-a-cat.md §11). Lets the app tell the\ncooldown from \"this phone hasn\'t met the cat\". False otherwise,\nfor everyone else and for every phone that hasn\'t proved itself.\n'),
-  "canName": zod.boolean().optional().describe('SYC-709: whether this phone may name a cat Syros Cats left\nunnamed (POST \/cats\/{catId}\/name): the cat is waiting for a name\nand this phone has met it (the claim\'s \"met\" rule). Absent unless\nthe phone proved its id; an app that doesn\'t read it shows the\nbutton and the server refuses with NEEDS_SIGHTING.\n')
+  "canName": zod.boolean().optional().describe('SYC-709: whether this phone may name a cat Syros Cats left\nunnamed (POST \/cats\/{catId}\/name): the cat is waiting for a name\nand this phone has met it (the claim\'s \"met\" rule). Absent unless\nthe phone proved its id; an app that doesn\'t read it shows the\nbutton and the server refuses with NEEDS_SIGHTING.\n'),
+  "mergedFrom": zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}).optional().describe('SYC-59: present only when the id asked for was a record the team\nhas merged into this cat (an old link, a notification, a cached\nlist). `cat` is the cat it is part of now; this names the record\nasked for, so the page can say \"Mimi is now part of Agatha\'s\nrecord\". Absent otherwise; an app that doesn\'t read it just opens\nthe cat.\n')
 })
 
 
@@ -951,6 +955,10 @@ export const ListNotificationsResponseItem = zod.object({
   "message": zod.string(),
   "place": zod.number().nullish().describe('A weekly result\'s place (1 to 3) so the app can word it in the spotter\'s language; null for cat news and for results written before this field existed.'),
   "weekPoints": zod.number().nullish().describe('A weekly result\'s points that week; null as for place.'),
+  "kind": zod.enum(['cat', 'week_result', 'merged', 'duplicate_points']).optional().describe('What the entry is, sent only on the kinds that have no cat of their own: merged and duplicate_points (SYC-59). Cat news and weekly results leave it out, so a missing kind is cat news (catId set) or a weekly result (catId null). merged and duplicate_points have no cat of their own (catId null, updateType general) and carry survivorCatId, survivorCatName and mergedCatName; builds that don\'t know them show message, as for a weekly result.'),
+  "survivorCatId": zod.number().nullish().describe('A merged or duplicate_points entry\'s staying cat (the one the entry opens); absent otherwise.'),
+  "survivorCatName": zod.string().nullish(),
+  "mergedCatName": zod.string().nullish(),
   "read": zod.boolean(),
   "createdAt": zod.string()
 }).describe('A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week\'s top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.')
