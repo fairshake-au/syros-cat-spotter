@@ -27,7 +27,8 @@ import type { TieMode } from "../lib/teamPages/catPages";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { can } from "../lib/capabilities";
 import { allColonyChoices } from "../lib/colonyCats";
-import { cameFromCats, catPageFormKeys, hasSightingsMap, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
+import { notSureNotesFor } from "../lib/duplicateList";
+import { cameFromCats,catPageFormKeys, hasSightingsMap, renderCatPage, renderNoSuchCat, withoutTeamNotes } from "../lib/teamPages/catPages";
 import { historyShowOf } from "../lib/teamPages/catHistory";
 import { renderCatGridPage, withoutDefaultLives } from "../lib/teamPages/catGridPage";
 import { parseCatFilters } from "../lib/teamCatFilters";
@@ -545,6 +546,8 @@ router.get(
         visits,
         kept: kept ?? undefined,
         may: (c) => can(person, c),
+        // SYC-59 PR 5.1: "Not sure yet" notes (§3.3), for those who may review duplicates.
+        duplicateNotes: can(person, "review_duplicates") && !mergedInto ? await notSureNotesFor(view.cat.id) : undefined,
         mergedInto,
         done,
         at,

@@ -76,6 +76,7 @@ import {
 } from "../lib/photoVisibility";
 
 import { POINTS_CONFIRM, POINTS_NEW_CAT } from "../lib/points";
+import { writeNewCatChecks } from "../lib/newCatCheck";
 export { POINTS_CONFIRM, POINTS_NEW_CAT };
 
 // SYC-119 (choose-a-different-cat.md §4.8): the one refusal for a pick of a
@@ -1225,6 +1226,18 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
       });
   } catch (err) {
     req.log.error({ err, sightingId }, "Could not label the match record");
+  }
+
+  // SYC-59 PR 5.1 (which-cat-is-which.md §3.1 item 2, §9.6): a new cat the
+  // photo check had suggested existing cats for goes on the Possible
+  // duplicates list, one report per cat passed over. Never blocks the
+  // spotter, and best effort for the same reason as the label above.
+  if (isNewCat) {
+    try {
+      await writeNewCatChecks({ sightingId, deviceId: sighting.deviceId, newCatId: cat.id, suggested: stored?.suggested });
+    } catch (err) {
+      req.log.error({ err, sightingId }, "Could not write the new-cat check");
+    }
   }
 
   // Notification fan-out is best-effort and deliberately happens only after

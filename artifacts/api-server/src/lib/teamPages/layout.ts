@@ -15,7 +15,7 @@ import { assetUrl } from "../teamAssets";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "newcats" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "newcats" | "duplicates" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -47,7 +47,7 @@ const NAV: NavItem[] = [
  * the two work lists sit under Home, Feeding sites under Colonies. A cat
  * guardian's own menu still has Feeding sites, so it's mapped for the team only.
  */
-const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", newcats: "home", sites: "colonies" };
+const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", newcats: "home", duplicates: "home", sites: "colonies" };
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
@@ -360,6 +360,24 @@ form.moveform .whatmoves p,form.moveform .warn,.notice,ul.movelist .meta,p.chose
 .mergecol dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;margin:6px 0 0;font-size:15px}
 .mergecol dt{color:var(--muted)}
 .mergecol dd{margin:0}
+/* SYC-59 PR 5.1: the Possible duplicates list and New cats to check. */
+.dupcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.dupcat{min-width:0;overflow-wrap:anywhere}
+.dupcat h3{margin:0 0 4px;font-size:16px}
+.dupcat .photos{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.dupcat .photos img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.dupcat .photos img.main{width:72px;height:72px}
+@media(min-width:720px){.dupcat .photos img{width:72px;height:72px}.dupcat .photos img.main{width:96px;height:96px}}
+ul.dupwhy{margin:4px 0 8px;padding-left:20px}
+ul.dupwho{list-style:none;margin:0 0 8px;padding:0;font-size:14px;color:var(--muted)}
+.dupactions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:8px}
+.dupactions form{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dupactions a.go,.dupactions button{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;box-sizing:border-box;font:inherit;font-size:15px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer;text-decoration:none}
+.dupactions a.go{background:var(--accent);color:var(--on-accent)}
+.dupactions input.text{min-height:44px;flex:1 1 180px}
+.nearby{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.nearby figure{margin:0;width:88px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.nearby img{width:88px;height:88px;object-fit:cover;border-radius:6px;background:var(--sunk);display:block}
 ul.happens{margin:0 0 12px;padding-left:20px}
 ul.happens li{margin:6px 0;overflow-wrap:anywhere}
 form.mergeform .whatmoves{background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin:0 0 12px}

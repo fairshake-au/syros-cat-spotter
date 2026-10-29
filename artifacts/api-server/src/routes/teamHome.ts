@@ -6,7 +6,9 @@ import { renderHomePage } from "../lib/teamPages/homePage";
 import { visibleColonyIds } from "../lib/guardianView";
 import { newCatsAfterFailedCheck } from "../lib/matcherHealth";
 import { renderNewCatsPage } from "../lib/teamPages/newCatsPage";
+import { nearbyCatsOf } from "../lib/newCatsNearby";
 import { can } from "../lib/capabilities";
+import { listDuplicates } from "../lib/duplicateList";
 
 // Home: the first page after signing in (SYC-396 spec §4; plan PR 2.1).
 // `view_welfare_queue`, island-only: it shows the whole island's reports, so
@@ -25,8 +27,10 @@ router.get(
     const data = await homeData(now, {}, visibleColonyIds(person));
     // Every figure is worked out on each request; each page records how long it took (§9.6).
     req.log.info({ ms: Date.now() - started }, "home figures worked out");
+    // SYC-59 PR 5.1: the Possible duplicates count, for those who may open the list. A failed count hides the tile, not Home.
+    const duplicates = can(person, "review_duplicates") ? await listDuplicates(now).then((l) => l.length, () => 0) : 0;
     res.type("html").send(
-      renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"),
+      renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"), duplicates,
         batches: can(person, "log_vet_visit") && can(person, "view_vet_costs") && can(person, "find_cat_from_photo"),
       }),
     );
@@ -42,7 +46,8 @@ router.get(
     setTeamHeaders(res);
     const cats = await newCatsAfterFailedCheck();
     if (req.accepts(["html", "json"]) === "json") return void res.json({ cats });
-    res.type("html").send(renderNewCatsPage(cats, person.name));
+    const nearby = await nearbyCatsOf(cats.map((c) => c.catId));
+    res.type("html").send(renderNewCatsPage(cats, person.name, nearby));
   },
 );
 

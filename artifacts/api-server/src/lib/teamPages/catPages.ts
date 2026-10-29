@@ -182,6 +182,12 @@ export interface CatPageOptions {
    * when that is not the cat it was merged into (Mimi into Agatha, Agatha into Dora).
    */
   mergedInto?: { event: TeamMergeEvent; part: TeamCatRef | null };
+  /**
+   * The team's "not sure yet" notes on possible duplicates of this cat
+   * (which-cat-is-which.md §3.3; SYC-59 PR 5.1), for someone who may review
+   * duplicates. Shown on both cats' pages.
+   */
+  duplicateNotes?: { otherId: number; otherName: string; note: string }[];
   /** What was just done, from the redirect after a form (a fixed key). */
   done?: string;
   /** The history row the page lands on after a correction. */
@@ -607,6 +613,12 @@ export function renderCatPage(
       deathNotice(v, byId, shown) +
       guardianMarkNotice(v, byId, shown) +
       hiddenNote +
+      (opts.duplicateNotes ?? [])
+        .map(
+          (d) =>
+            `<p class="notice" role="note">Possibly the same cat as <a href="/api/team/cats/${d.otherId}">${esc(d.otherName)}</a>. Team note: ${esc(d.note)}</p>`,
+        )
+        .join("") +
       (landed ? "" : photoNotice) +
       (opts.kept ? keptLine() : ""),
     // The card holds the <h1> (the name and its mark), so it takes the heading's place.
