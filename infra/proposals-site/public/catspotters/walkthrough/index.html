@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cat Spotters, Four Weeks On</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap&subset=greek,latin">
+<style>
+/* Layout: a long walkthrough. Hero, then one band per workflow: words on the left, a strip of real screens on the right. Colours from the app's own Cycladic palette. */
+:root{
+  --bg:#fefcf7; --paper:#f4f2ec; --card:#ffffff; --ink:#1b2a38; --muted:#5a6b7b; --line:#d7dee4;
+  --aegean:#1c77c3; --aegean-ink:#0f4a72; --aegean-soft:#e8f4fc;
+  --bougain:#b02f66; --bougain-soft:#fce4ee;
+  --sun:#8a5a00; --sun-soft:#fff5df; --sun-line:#f5b023;
+  --olive:#4f5e26; --olive-soft:#eef1e0;
+  --terra:#b8552f; --terra-soft:#fbe8de;
+  --shot-bg:#e9edf0;
+  --display:"Poppins",ui-rounded,"Segoe UI",system-ui,sans-serif;
+  --body:"Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --paper:#152331; --card:#1b2a38; --ink:#e9edf0; --muted:#a3b2bf; --line:#2c3e4f;
+  --aegean:#66b2e8; --aegean-ink:#a3d1f2; --aegean-soft:#132f47;
+  --bougain:#f6a9c8; --bougain-soft:#3a1a29;
+  --sun:#ffd27a; --sun-soft:#30260f; --sun-line:#d99413;
+  --olive:#cbd6a8; --olive-soft:#262d17;
+  --terra:#f6c2ac; --terra-soft:#3a2219;
+  --shot-bg:#22313f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --paper:#152331; --card:#1b2a38; --ink:#e9edf0; --muted:#a3b2bf; --line:#2c3e4f;
+  --aegean:#66b2e8; --aegean-ink:#a3d1f2; --aegean-soft:#132f47;
+  --bougain:#f6a9c8; --bougain-soft:#3a1a29;
+  --sun:#ffd27a; --sun-soft:#30260f; --sun-line:#d99413;
+  --olive:#cbd6a8; --olive-soft:#262d17;
+  --terra:#f6c2ac; --terra-soft:#3a2219;
+  --shot-bg:#22313f; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;margin:0}
+a{color:var(--aegean)}
+a:focus-visible,button:focus-visible{outline:3px solid var(--aegean);outline-offset:2px;border-radius:6px}
+h1,h2,h3,h4{font-family:var(--display);line-height:1.2;text-wrap:balance;margin:0}
+p{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;gap:6px 18px;align-items:center;overflow-x:auto;padding-block:10px;scrollbar-width:none}
+.nav .brand{font-family:var(--display);font-weight:700;color:var(--aegean-ink);white-space:nowrap;margin-right:6px}
+.nav a{white-space:nowrap;text-decoration:none;color:var(--muted);font-weight:700;font-size:15px}
+.nav a:hover{color:var(--aegean)}
+
+/* hero */
+.hero{background:var(--paper);border-bottom:1px solid var(--line)}
+.hero .wrap{padding-block:56px 44px;display:grid;gap:28px}
+.eyebrow{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--bougain)}
+.hero h1{font-size:clamp(34px,5.6vw,60px);font-weight:700;letter-spacing:-.02em;max-width:16ch}
+.hero h1 em{font-style:normal;color:var(--aegean)}
+.lede{font-size:clamp(18px,2vw,21px);max-width:62ch;color:var(--ink)}
+.facts{display:flex;flex-wrap:wrap;gap:12px}
+.fact{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;min-width:0;flex:1 1 200px;max-width:280px}
+.fact b{display:block;font-family:var(--display);font-size:26px;color:var(--aegean-ink);font-variant-numeric:tabular-nums}
+.fact span{color:var(--muted);font-size:15px}
+.note{font-size:15px;color:var(--muted);max-width:75ch}
+
+/* sections */
+section.part{padding-block:56px 12px}
+.parthead{display:grid;gap:10px;margin-bottom:28px}
+.parthead h2{font-size:clamp(28px,3.6vw,40px)}
+.parthead p{max-width:68ch;color:var(--muted);font-size:18px}
+
+/* feedback table */
+.fb{display:grid;gap:14px}
+.fbrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) 140px;gap:20px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.fbrow .said{font-weight:700}
+.fbrow .said small{display:block;font-weight:600;color:var(--muted);font-size:14px;margin-top:4px}
+.fbrow .did p+p{margin-top:6px}
+.fbrow .thumb{width:140px}
+.thumb .shot{aspect-ratio:390/620;border:4px solid var(--ink);border-radius:18px}
+.thumb[data-shot^="dash"] .shot{aspect-ratio:4/3;border:1px solid var(--line);border-radius:10px}
+.done{display:inline-block;font-size:13px;font-weight:800;color:var(--olive);background:var(--olive-soft);border-radius:999px;padding:2px 10px;margin-bottom:6px}
+
+/* workflow */
+.flow{border-top:1px solid var(--line);padding-block:40px 36px;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px}
+.flow .code{font-family:var(--display);font-size:13px;font-weight:600;color:var(--bougain);letter-spacing:.08em;text-transform:uppercase}
+.flow h3{font-size:26px;margin:4px 0 8px}
+.flow .who{color:var(--muted);font-size:15px;margin-bottom:14px}
+.flow ul{margin:0;padding-left:1.1em;display:grid;gap:7px}
+.flow li{padding-left:2px}
+.side{display:grid;gap:16px;align-content:start;min-width:0}
+.newlist h4,.next h4{font-size:15px;font-family:var(--display);font-weight:600;margin-bottom:8px}
+.newlist h4{color:var(--aegean-ink)}
+.next{background:var(--sun-soft);border:1px solid var(--sun-line);border-radius:14px;padding:14px 16px}
+.next h4{color:var(--sun)}
+.next .item{display:grid;gap:3px}
+.next .item+.item{margin-top:12px;padding-top:12px;border-top:1px dashed color-mix(in srgb,var(--sun-line) 60%,transparent)}
+.next .item b{font-weight:800}
+.next .item p{font-size:15.5px}
+.pill{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:1px 9px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+.pill.ready{color:var(--olive);border-color:var(--olive);background:var(--olive-soft)}
+.pill.build{color:var(--aegean-ink);border-color:var(--aegean);background:var(--aegean-soft)}
+.pill.you{color:var(--bougain);border-color:var(--bougain);background:var(--bougain-soft)}
+.pill.later{}
+
+/* strip of screens */
+.strip{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x proximity;min-width:0}
+.strip figure{margin:0;flex:0 0 auto;scroll-snap-align:start;display:grid;gap:8px;align-content:start}
+.strip.phone figure{width:220px}
+.strip.desk figure{width:min(560px,82vw)}
+.shot{display:block;padding:0;border:0;background:var(--shot-bg);border-radius:18px;overflow:hidden;cursor:zoom-in;width:100%;box-shadow:0 1px 0 var(--line),0 8px 24px -14px rgba(15,74,114,.35)}
+.strip.phone .shot{aspect-ratio:390/700;border:6px solid var(--ink);border-radius:26px}
+.strip.desk .shot{aspect-ratio:16/10.5;border:1px solid var(--line);border-radius:12px}
+.shot img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+figcaption{font-size:14.5px;line-height:1.45;color:var(--ink)}
+figcaption .n{font-family:var(--display);font-weight:700;color:var(--aegean);margin-right:6px}
+figcaption .tag{display:inline-block;font-size:11.5px;font-weight:800;color:var(--bougain);background:var(--bougain-soft);border-radius:999px;padding:0 7px;margin-left:4px;vertical-align:1px}
+.hint{font-size:13.5px;color:var(--muted)}
+
+/* dashboard 101 */
+.menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:6px}
+.menu div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.menu b{font-family:var(--display);font-weight:600;color:var(--aegean-ink);display:block;margin-bottom:2px}
+.menu span{font-size:15px;color:var(--muted)}
+.rhythm{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:22px}
+.rhythm div{border-left:4px solid var(--aegean);padding:4px 0 4px 14px}
+.rhythm h4{font-size:16px;margin-bottom:4px}
+.rhythm p{font-size:15.5px;color:var(--muted)}
+.callout{background:var(--aegean-soft);border-radius:14px;padding:16px 18px;max-width:80ch}
+
+/* launch */
+.timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.when{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.when .d{font-family:var(--display);font-weight:700;font-size:20px;color:var(--aegean-ink)}
+.when p{font-size:15.5px;margin-top:6px}
+.asks{counter-reset:ask;display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.asks li{counter-increment:ask;display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.asks li::before{content:counter(ask);font-family:var(--display);font-weight:700;font-size:20px;color:var(--bougain);background:var(--bougain-soft);border-radius:50%;width:36px;height:36px;display:grid;place-items:center}
+.asks b{display:block}
+.asks p{font-size:15.5px;color:var(--muted)}
+.later-list{columns:2 300px;column-gap:28px;padding-left:1.1em}
+.later-list li{break-inside:avoid;margin-bottom:6px}
+footer{border-top:1px solid var(--line);margin-top:56px}
+footer .wrap{padding-block:24px 40px;font-size:14px;color:var(--muted);display:grid;gap:6px}
+
+
+/* plan table: now / next / later */
+.plan{display:grid;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)}
+.plan .row{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);border-top:1px solid var(--line)}
+.plan .row:first-child{border-top:0}
+.plan .row>div{padding:14px 16px;min-width:0}
+.plan .row>div+div{border-left:1px solid var(--line)}
+.plan .head{background:var(--paper)}
+.plan .head>div{font-family:var(--display);font-weight:600;font-size:15px}
+.plan .head .c-now{color:var(--olive)} .plan .head .c-next{color:var(--aegean-ink)} .plan .head .c-later{color:var(--muted)}
+.plan .head small{display:block;font-family:var(--body);font-weight:600;font-size:13px;color:var(--muted)}
+.plan .wf b{font-family:var(--display);font-weight:600;font-size:16px;display:block;line-height:1.25}
+.plan .wf a{font-size:13.5px;font-weight:700;text-decoration:none}
+.plan .grp{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--bougain);background:var(--bougain-soft);padding:6px 16px!important;border-top:1px solid var(--line)}
+.plan ul{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.plan li{font-size:15.5px;line-height:1.35;padding-left:16px;position:relative}
+.plan li::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;border-radius:50%}
+.plan .pnow li::before{background:var(--olive)}
+.plan .pnext li::before{background:var(--aegean)}
+.plan .plater li::before{border:1.5px solid var(--muted);width:6px;height:6px}
+.plan .pnow{background:color-mix(in srgb,var(--olive-soft) 45%,transparent)}
+.plan .when{display:inline-block;font-size:12px;font-weight:800;color:var(--aegean-ink);background:var(--aegean-soft);border-radius:999px;padding:0 7px;margin-left:3px;vertical-align:1px}
+.plan .you{display:inline-block;font-size:12px;font-weight:800;color:var(--bougain);background:var(--bougain-soft);border-radius:999px;padding:0 7px;margin-left:3px;vertical-align:1px}
+.plan .lbl{display:none}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14.5px;color:var(--muted);margin:0 0 14px}
+.ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:12px}
+.ideas div{border:1.5px dashed var(--line);border-radius:14px;padding:14px 16px}
+.ideas b{display:block;font-family:var(--display);font-weight:600;font-size:16px;margin-bottom:4px}
+.ideas p{font-size:15px;color:var(--muted)}
+@media (max-width:860px){
+  .plan .head{display:none}
+  .plan .row{grid-template-columns:minmax(0,1fr)}
+  .plan .row>div+div{border-left:0;border-top:1px dashed var(--line)}
+  .plan .wf{background:var(--paper)}
+  .plan .lbl{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+  .plan .pnow .lbl{color:var(--olive)} .plan .pnext .lbl{color:var(--aegean-ink)} .plan .plater .lbl{color:var(--muted)}
+}
+
+
+.about{display:grid;gap:12px}
+.about h4{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--aegean-ink);margin-bottom:3px}
+.about p{font-size:16px}
+.about .prop{border-left:3px solid var(--bougain);padding-left:12px}
+.about .prop h4{color:var(--bougain)}
+.about .prop p{font-size:15.5px;color:var(--muted)}
+
+
+.conv{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:32px;border-top:1px solid var(--line);padding-block:36px}
+.conv h3{font-size:26px;margin-bottom:10px}
+.conv h4{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--aegean-ink);margin:18px 0 6px}
+.conv p{max-width:68ch}
+.conv ul{margin:6px 0 0;padding-left:1.1em;display:grid;gap:6px;max-width:68ch}
+.opts{display:grid;gap:10px;margin-top:8px}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:4px}
+.opt.rec{border-color:var(--olive);box-shadow:inset 3px 0 0 var(--olive)}
+.opt .pill{justify-self:start}
+.opt p{font-size:15.5px;color:var(--muted)}
+.qbox{background:var(--bougain-soft);border-radius:16px;padding:18px 20px;align-self:start}
+.qbox h4{font-family:var(--display);font-weight:600;font-size:15px;color:var(--bougain);margin-bottom:8px}
+.qbox ol{margin:0;padding-left:1.3em;display:grid;gap:8px;font-size:15.5px}
+@media (max-width:860px){.conv{grid-template-columns:minmax(0,1fr);gap:18px}}
+
+
+.more{margin-top:10px}
+.more summary{cursor:pointer;font-weight:800;font-size:14.5px;color:var(--aegean)}
+.more ul{margin-top:8px;font-size:15.5px;color:var(--muted)}
+
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:50;background:rgba(10,20,30,.88);display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 48px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px))}
+.lb img{max-width:min(1200px,100%);max-height:100%;object-fit:contain;border-radius:10px;background:#fff}
+.lb .x{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:max(14px,env(safe-area-inset-right,0px));background:#fff;color:#1b2a38;border:0;border-radius:999px;font:700 15px var(--body);padding:8px 14px;cursor:pointer}
+.lb .cap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);text-align:center;color:#fff;font-size:15px;padding:0 16px}
+.lb.tall{place-items:start center;overflow:auto}
+.lb.tall img{max-height:none}
+
+@media (max-width:860px){
+  .flow{grid-template-columns:minmax(0,1fr);gap:20px}
+  .fbrow{grid-template-columns:minmax(0,1fr)}
+  .fbrow .thumb{width:120px}
+}
+@media (prefers-reduced-motion:no-preference){.shot img{transition:transform .25s ease}.shot:hover img{transform:scale(1.015)}}
+</style>
+<style>img{max-width:100%}</style>
+</head>
+<body>
+<nav class="nav" aria-label="Sections"><div class="wrap">
+  <span class="brand">Cat Spotters</span>
+  <a href="#feedback">Your feedback</a>
+  <a href="#app">The app</a>
+  <a href="#dashboard">Dashboard 101</a>
+  <a href="#planned">What's planned</a>
+  <a href="#questions">Coat colours</a>
+  <a href="#launch">Launch</a>
+  <a href="#decide">For you to decide</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">For Syros Cats</div>
+  <h1>Cat Spotters, <em>four weeks on</em></h1>
+  <p class="lede">You tested Cat Spotters on 29 September. Since then we've worked through everything you told us, made the app calmer and clearer for spotters, and built the team dashboard Syros Cats will use day to day. This page walks through the things people actually do, step by step, with what's new and what's coming next for each.</p>
+  <p class="note">The screens below are today's latest version, filled with sample data and real photos of Syros cats that your testers took. Tap any screen to see it full size.</p>
+</div></header>
+
+<main>
+<!-- FEEDBACK -->
+<section class="part" id="feedback"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">You asked, we changed it</div>
+    <h2>What you told us on 29 September</h2>
+    <p>Every point from the testing call, plus Linda's two notes the next day, and what each one looks like now.</p>
+  </div>
+  <div class="fb">
+    <div class="fbrow">
+      <div class="said">"Let people add details later"</div>
+      <div class="did"><span class="done">Done</span><p>For a month after spotting a cat, its page shows <b>"You spotted Barney 2 times in the last month. Anything to add?"</b> with a <b>Tell us more</b> button. It opens their own photo and only the questions still open: food and water, anything they noticed, the ear tip.</p><p>The New spot screen no longer promises "a few details". It says what it's for: showing on the map where the cat was.</p></div>
+      <div class="thumb" data-shot="app-30-cat-page-about-following"></div>
+    </div>
+    <div class="fbrow">
+      <div class="said">"Retake a bad photo"</div>
+      <div class="did"><span class="done">Done</span><p><b>Retake photo</b> is now a clear button next to the photo. Before the camera opens the first time, a short guide shows what a good cat photo looks like.</p></div>
+      <div class="thumb" data-shot="app-12-spot-photo-chosen-location-step"></div>
+    </div>
+    <div class="fbrow">
+      <div class="said">"Record when a cat dies"</div>
+      <div class="did"><span class="done">Done</span><p>The team's cat page has a <b>This cat has died</b> button: an optional date, a short "How do you know?", one save. It shows who recorded it and how to undo it. Cat guardians can say <b>Has died</b> for cats in their colonies.</p></div>
+      <div class="thumb" data-shot="dash-19-this-cat-has-died-confirm"></div>
+    </div>
+    <div class="fbrow">
+      <div class="said">"When the suggested cats are wrong, let people pick a different one"</div>
+      <div class="did"><span class="done">Done</span><p>Under the suggestions there's now <b>Not one of these? Find the cat yourself</b>, with the cats known around that spot and colour and pattern filters. The naming screen asks "Seen this cat in the app before?" too, so the same cat doesn't end up in the cat-alogue twice.</p></div>
+      <div class="thumb" data-shot="app-15-spot-choose-a-different-cat"></div>
+    </div>
+    <div class="fbrow">
+      <div class="said">"The Help tab is confusing"<small>It went to donations</small></div>
+      <div class="did"><span class="done">Done</span><p>It's now <b>Help & info</b>. At the top: <b>A cat needs help</b>, then the vets on Syros with tap-to-call, how the app works, contact us, privacy and, last, giving.</p></div>
+      <div class="thumb" data-shot="app-60-help-and-info-tab"></div>
+    </div>
+    <div class="fbrow">
+      <div class="said">"The map didn't save where I dragged it"<small>Linda, on the website</small></div>
+      <div class="did"><span class="done">Done</span><p>The map can be dragged or tapped, and the sighting is saved where the pin ends up. If a photo carries no location, the map starts in Ermoupoli rather than leaving the button greyed out.</p></div>
+      <div class="thumb" data-shot="app-12-spot-photo-chosen-location-step"></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- APP -->
+<section class="part" id="app"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">Part one · the phone app</div>
+    <h2>What people do in the app</h2>
+    <p>Spotters are locals and visitors who photograph the cats they meet. Every photo helps Syros Cats see which cats are sterilised and where to trap next. Seven things people do, in the order they meet them.</p>
+  </div>
+
+  <article class="flow" id="a1">
+    <div>
+      <div class="code">App · 1</div>
+      <h3>Getting started</h3>
+      <p class="who">Anyone opening the app for the first time, in English, Greek or French.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>A quicker start:</b> three short screens before the camera, down from five, in the phone's own language.</li><li><b>Your words up front:</b> "Look, don't touch" and "Please don't feed them", as Syros Cats wrote them.</li><li><b>Works on poor wifi:</b> "Start anyway, we'll save it later" on café or ferry connections.</li></ul><details class="more"><summary>More changes (1)</summary><ul><li>Location is only asked for at the first photo, when there's a reason.</li></ul></details></div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Getting started screens">
+      <figure data-shot="app-01-first-run-welcome-and-language"><figcaption><span class="n">1</span>Welcome, with language choice and the three steps</figcaption></figure>
+      <figure data-shot="app-02-onboarding-look-dont-touch"><figcaption><span class="n">2</span>"Look, don't touch" and please don't feed</figcaption></figure>
+      <figure data-shot="app-04-onboarding-name-typed"><figcaption><span class="n">3</span>Pick a name; an email is optional, to keep your spots safe</figcaption></figure>
+      <figure data-shot="app-05-start-screen-after-onboarding"><figcaption><span class="n">4</span>Home: "16 cats live on Syros. Can you spot one?"</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a2">
+    <div>
+      <div class="code">App · 2</div>
+      <h3>Spotting a cat</h3>
+      <p class="who">The heart of the app: photo, place, "have we met?", then a name or a match.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>Easier to get a good photo:</b> one Take a photo button, a short photo guide, and optional face and body photos.</li><li><b>Fewer duplicate cats:</b> "Find the cat yourself" when the suggested cats are wrong.</li><li><b>Nothing gets lost:</b> spots wait for signal, and an unfinished spot stays on the phone.</li></ul><details class="more"><summary>More changes (3)</summary><ul><li>An honest message when the photo check fails, instead of "you're the first".</li><li>Naming limits: you must have met the cat, up to 3 names a day, no links or phone numbers.</li><li>A cat fact while the photo is checked, in English, Greek or French. Facts you haven't approved stay hidden.</li></ul></details></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill you">Needs a test</span><b>"Check for matches" on Android phones</b><p>We fixed a crash in Chrome on Android. It needs one real test on an Android phone to confirm.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Spotting screens">
+      <figure data-shot="app-10-spot-tab-photo-tips-popup"><figcaption><span class="n">1</span>Photo tips, shown before the first photo</figcaption></figure>
+      <figure data-shot="app-11-spot-tab-take-a-photo"><figcaption><span class="n">2</span>One Take a photo button</figcaption></figure>
+      <figure data-shot="app-12-spot-photo-chosen-location-step"><figcaption><span class="n">3</span>Show where you saw the cat. Retake photo sits by the picture</figcaption></figure>
+      <figure data-shot="app-12b-spot-waiting-cat-fact"><figcaption><span class="n">4</span>While we look: a cat fact with its topic, here the clipped ear tip</figcaption></figure>
+      <figure data-shot="app-12c-spot-waiting-cat-fact-2"><figcaption><span class="n">4</span>Each spot brings a new fact, until you've seen them all</figcaption></figure>
+      <figure data-shot="app-14-spot-match-suggestions-is-this-one-of-these"><figcaption><span class="n">5</span>"Have we met?" Similar cats nearby (example suggestions)</figcaption></figure>
+      <figure data-shot="app-15-spot-choose-a-different-cat"><figcaption><span class="n">6</span>Not one of these? Find the cat yourself<span class="tag">your idea</span></figcaption></figure>
+      <figure data-shot="app-17-spot-name-a-new-cat-typed"><figcaption><span class="n">7</span>A new cat: give it a name</figcaption></figure>
+      <figure data-shot="app-18-spot-well-done"><figcaption><span class="n">8</span>Done, plus the ear-tip question with Syros Cats' photo</figcaption></figure>
+      <figure data-shot="app-13-spot-photo-check-failed"><figcaption><span class="n">!</span>When the photo check can't run, it says so</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a3">
+    <div>
+      <div class="code">App · 3</div>
+      <h3>Looking at cats</h3>
+      <p class="who">Browsing the cat-alogue, the map, and each cat's own page.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>Every cat on show:</b> all photos visible, with a Spotted stamp on the cats you've met.</li><li><b>A page for each cat:</b> About, Photos, Story and Map tabs, and a Follow button.</li><li><b>Location kept private:</b> cats show as a rough area, never an exact spot, for everyone outside Syros Cats.</li></ul><details class="more"><summary>More changes (2)</summary><ul><li>Plain words: "Sterilised, confirmed by Syros Cats", "Probably sterilised", "Sterilised: not known yet".</li><li>Maps show place names in your language: English with the Greek beneath, or Greek.</li></ul></details></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill build">Coming next</span><b>Good-news messages about cats you follow</b><p>A nightly check already notes good news (sterilised, found a home, seen again). It sends nothing yet; messages come once it has run on real data.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Browsing screens">
+      <figure data-shot="app-20-cats-tab-list"><figcaption><span class="n">1</span>The cat-alogue, with filters and Spotted stamps</figcaption></figure>
+      <figure data-shot="app-23-cats-tab-map-view"><figcaption><span class="n">2</span>The map of Syros</figcaption></figure>
+      <figure data-shot="app-30-cat-page-about-following"><figcaption><span class="n">3</span>A cat's page: About, with "Anything to add?"</figcaption></figure>
+      <figure data-shot="app-31-cat-page-photos"><figcaption><span class="n">4</span>Photos, with who took each one</figcaption></figure>
+      <figure data-shot="app-32-cat-page-story"><figcaption><span class="n">5</span>Story: first spotted, sterilised</figcaption></figure>
+      <figure data-shot="app-33-cat-page-map"><figcaption><span class="n">6</span>Map: "somewhere in here", never a pin</figcaption></figure>
+      <figure data-shot="app-36-cat-page-spotted-stamp"><figcaption><span class="n">7</span>Follow, one tap, no email needed</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a4">
+    <div>
+      <div class="code">App · 4</div>
+      <h3>Reporting a cat that needs help</h3>
+      <p class="who">Anyone who finds a cat that's hurt, sick, or kittens on their own. No account needed.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>Easy to find:</b> from Help & info, a cat's page, the map, and after a photo.</li><li><b>Urgent means vets first:</b> closest first, with tap-to-call and directions.</li><li><b>Reaches your team:</b> the report lands in the Queue, already knowing the cat if sent from its page.</li></ul><details class="more"><summary>More changes (1)</summary><ul><li>Greek and French wording checked.</li></ul></details></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill you">Needs you</span><b>Reports to admin@syroscats.com</b><p>We'd like to confirm reports land in your inbox, with one test report (it emails real people, so we'll warn first).</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Report a cat that needs help screens">
+      <figure data-shot="app-40-report-help-first-screen"><figcaption><span class="n">1</span>Where's the cat? Add a photo, place the pin</figcaption></figure>
+      <figure data-shot="app-43-report-help-urgent-picked"><figcaption><span class="n">2</span>How bad is it? Urgent, needs attention, or kittens</figcaption></figure>
+      <figure data-shot="app-44-report-help-step-3-vets-first"><figcaption><span class="n">3</span>Urgent: call a vet now, closest first</figcaption></figure>
+      <figure data-shot="app-46-report-help-step-4-what-you-saw"><figcaption><span class="n">4</span>Send the report to Syros Cats</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a5">
+    <div>
+      <div class="code">App · 5</div>
+      <h3>Your profile, badges and the weekly board</h3>
+      <p class="who">What keeps spotters coming back, and how they keep their spots if they change phone.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>A reason to come back:</b> a weekly Spotters board that starts fresh each Monday, with last week's top three.</li><li><b>22 badges</b>, 15 of them new, each saying how to earn it.</li><li><b>Spots kept safe:</b> get them back on a new phone with an 8-digit code by email.</li></ul><details class="more"><summary>More changes (2)</summary><ul><li>Profile in three tabs: Me, Badges, Spotters.</li><li>Delete my data in Settings, and "Are you sure?" before anything risky.</li></ul></details></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill ready">Built, switched off</span><b>Spots kept safe in the phone apps</b><p>For the App Store and Google Play versions, the phone remembers who you are even after the app is reinstalled. Switched on with the store apps, which come later.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Profile screens">
+      <figure data-shot="app-50-profile-me-tab"><figcaption><span class="n">1</span>Me: your cats, first finds and next badge</figcaption></figure>
+      <figure data-shot="app-51-profile-badges-tab"><figcaption><span class="n">2</span>Badges, each with how to earn it</figcaption></figure>
+      <figure data-shot="app-52-profile-spotters-weekly-board"><figcaption><span class="n">3</span>Spotters: this week's board</figcaption></figure>
+      <figure data-shot="app-A5a-weekly-podium-celebration"><figcaption><span class="n">4</span>A full-screen celebration for last week's top three</figcaption></figure>
+      <figure data-shot="app-53-settings"><figcaption><span class="n">5</span>Settings: language, light or dark, Delete my data</figcaption></figure>
+      <figure data-shot="app-55-get-your-spots-back-with-a-code"><figcaption><span class="n">6</span>Get your spots back with a code</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a6">
+    <div>
+      <div class="code">App · 6</div>
+      <h3>Help & info, and giving</h3>
+      <p class="who">The tab that used to be "Help" and went straight to donations.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>Help first:</b> "A cat needs help" at the top, then the vets with phone numbers and maps.</li><li><b>Giving last:</b> after how the app works, contact us and privacy.</li><li><b>Your team is in control:</b> turn the giving button and the feeding figures on or off, and choose which cat facts show.</li></ul><details class="more"><summary>More changes (1)</summary><ul><li>Cat facts in English, Greek and French, each checked against a source.</li></ul></details></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill later">Being settled</span><b>How donations reach Syros Cats</b><p>The giving button links to your page on syroscats.com until this is agreed.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip phone" aria-label="Help and info screens">
+      <figure data-shot="app-60-help-and-info-tab"><figcaption><span class="n">1</span>Help & info: a cat needs help, then the vets</figcaption></figure>
+      <figure data-shot="app-90-greek-cat-page"><figcaption><span class="n">Ελ</span>Everything works in Greek too: a cat's page</figcaption></figure>
+      <figure data-shot="app-92-greek-home"><figcaption><span class="n">Ελ</span>Home in Greek</figcaption></figure>
+      <figure data-shot="app-91b-greek-spot-waiting-cat-fact"><figcaption><span class="n">Ελ</span>A cat fact in Greek</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="a7">
+    <div>
+      <div class="code">App · 7</div>
+      <h3>Reporting a problem with a photo</h3>
+      <p class="who">For a wrong name, a photo that shows someone's home, or a cat that has died.</p>
+      <div class="side">
+        <div class="newlist"><h4>New since you tested</h4><ul><li><b>One tap to report:</b> "Report an issue" on any cat's page or under any full-size photo, with big plain reasons.</li><li><b>Privacy first:</b> a report about where someone lives hides the photo until the team has looked.</li><li><b>Removed for good on request:</b> a photo can be deleted completely.</li></ul></div></div>
+    </div>
+    <div class="strip phone" aria-label="Report an issue screens">
+      <figure data-shot="app-80-report-an-issue-reason-sheet"><figcaption><span class="n">1</span>Pick what's wrong</figcaption></figure>
+      <figure data-shot="app-81-report-an-issue-confirm"><figcaption><span class="n">2</span>Add a note and send</figcaption></figure>
+    </div>
+  </article>
+</div></section>
+
+<!-- DASHBOARD -->
+<section class="part" id="dashboard" style="background:var(--paper);border-top:1px solid var(--line);margin-top:28px"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">Part two · the team dashboard</div>
+    <h2>Dashboard 101</h2>
+    <p>The dashboard is Syros Cats' side of the app: every cat, every report from the public, colonies, vet visits and the numbers. It's a website, so it works on a laptop or a phone.</p>
+  </div>
+  <div class="callout">
+    <p><b>Where:</b> team.catspotters.com &nbsp;·&nbsp; <b>Who:</b> people Syros Cats invites. Each person has a role. Team members see everything; a cat guardian sees only their own colonies and cats. &nbsp;·&nbsp; <b>Help:</b> every page now opens with a short line about what it's for, a "How this page works" fold, and a <b>Words we use</b> page for the terms.</p>
+  </div>
+  <h3 style="margin:28px 0 6px;font-size:20px">The menu, in one line each</h3>
+  <div class="menu">
+    <div><b>Home</b><span>What needs a person today, where to trap next, how we're doing.</span></div>
+    <div><b>Cats</b><span>Every cat as a photo grid, with filters, and Find from a photo.</span></div>
+    <div><b>Map</b><span>Every cat and feeding site on one island map.</span></div>
+    <div><b>Queue</b><span>Reports from the public: hurt cats, kittens, problems with photos.</span></div>
+    <div><b>Colonies</b><span>Groups of cats, with feeding sites and cat guardians where they have them, and trapping plans.</span></div>
+    <div><b>Reports</b><span>Sterilisation progress, colony health, coverage, welfare, vet costs.</span></div>
+    <div><b>People</b><span>Who has access, their roles, invitations.</span></div>
+    <div><b>Settings</b><span>Areas, the vet price, and the app's switches.</span></div>
+  </div>
+
+  <article class="flow" id="d1">
+    <div>
+      <div class="code">Dashboard · 1</div>
+      <h3>Home, and finding your way</h3>
+      <p class="who">The first page after signing in.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>The first page after signing in. It answers three questions: what needs a person today, which colony to trap next, and how the island is doing.</p></div><div><h4>How it helps</h4><p>Nobody has to go looking. Urgent reports and kittens come first. <b>Where to trap next</b> puts the colonies with the most cats still to sterilise at the top, with what that would cost at €60 a cat. <b>How we're doing</b> gives the island's sterilisation figure at a glance. Every page explains itself in a short "How this page works" fold, and there's a Words we use page. It works on a phone and in dark mode.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 1 called the app a <i>working tool</i> for your team: which cats are sterilised, which colonies need attention, which cat was just reported injured. Home puts all three on one page.</p></div></div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Home screens">
+      <figure data-shot="dash-01-home"><figcaption><span class="n">1</span>Home: Today, Where to trap next, How we're doing</figcaption></figure>
+      <figure data-shot="dash-02-home-dark"><figcaption><span class="n">2</span>The same page in dark mode</figcaption></figure>
+      <figure data-shot="dash-04-help-how-this-page-works"><figcaption><span class="n">3</span>"How this page works", on every page</figcaption></figure>
+      <figure data-shot="dash-05-words-we-use"><figcaption><span class="n">4</span>Words we use</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d2">
+    <div>
+      <div class="code">Dashboard · 2</div>
+      <h3>Finding a cat</h3>
+      <p class="who">Looking up a cat by name, look, place or status, or from a photo someone sent you.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Every cat as a photo grid. Narrow it by colour, pattern, area, colony, whether it's sterilised, and where it lives. Or use <b>Find from a photo</b>: add any photo and see which known cats it looks like. A report in the Queue links straight to it.</p></div><div><h4>How it helps</h4><p>It answers "do we already know this cat?" in seconds, whether a photo arrives by message or in a report. Checking first stops the same cat being counted twice.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 5 asked for a cat's look to be chosen from lists, "rather than typed", so the record can be searched in any language. Section 6 called duplicates "the single biggest threat to your numbers".</p></div></div>
+        </div>
+    </div>
+    <div class="strip desk" aria-label="Cats screens">
+      <figure data-shot="dash-06-cats-grid"><figcaption><span class="n">1</span>Every cat, with filters</figcaption></figure>
+      <figure data-shot="dash-07b-cats-grid-filtered-homed"><figcaption><span class="n">2</span>Filters apply as you tap: here, cats with a home</figcaption></figure>
+      <figure data-shot="dash-08-find-from-a-photo"><figcaption><span class="n">3</span>Find from a photo: choose where to look, add the photo</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d3">
+    <div>
+      <div class="code">Dashboard · 3</div>
+      <h3>A cat's record</h3>
+      <p class="who">Everything known about one cat, and the buttons to change it.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Everything known about one cat: photos, where it's seen, whether it's sterilised, how it lives, its colony, and its full history. Buttons to log a vet visit, update the cat, add a team note, or record that it has died.</p></div><div><h4>How it helps</h4><p>One place to check before trapping or answering a question about a cat. Nothing is overwritten: every change joins the history with who made it and when, so you can see how an answer was reached and undo a mistake.</p></div><div class="prop"><h4>In the proposal</h4><p>Sections 5 and 6: each cat has its own page and history. A vet or your team makes a fact <b>Confirmed</b>, a clipped ear seen by several people makes it <b>Probably</b>, and "nothing is ever deleted". "This cat has died" came from your testing call.</p></div></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill build">Being built</span><b>Move a sighting to the right cat</b><p>For when a spotter matched the wrong cat.</p></div>
+          <div class="item"><span class="pill build">Being built</span><b>Merge two records of the same cat</b><p>Both records' sightings and history are kept, and nothing merges until a person confirms it.</p></div>
+          <div class="item"><span class="pill build">Being built</span><b>Coat colour read from the photo</b><p>The app suggests the coat colour; the team confirms or corrects it.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Cat record screens">
+      <figure data-shot="dash-10-cat-page-header-and-history"><figcaption><span class="n">1</span>The header card and History</figcaption></figure>
+      <figure data-shot="dash-cat-tab-11-photos"><figcaption><span class="n">2</span>Photos tab</figcaption></figure>
+      <figure data-shot="dash-cat-tab-13-coat-and-markings"><figcaption><span class="n">3</span>Coat and markings: confirm or correct</figcaption></figure>
+      <figure data-shot="dash-18-log-a-vet-visit-form"><figcaption><span class="n">4</span>Log a vet visit</figcaption></figure>
+      <figure data-shot="dash-19-this-cat-has-died-confirm"><figcaption><span class="n">5</span>This cat has died<span class="tag">your idea</span></figcaption></figure>
+      <figure data-shot="dash-13-cat-page-dark"><figcaption><span class="n">6</span>A cat's record in dark mode</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d4">
+    <div>
+      <div class="code">Dashboard · 4</div>
+      <h3>The Queue: reports from the public</h3>
+      <p class="who">Where "A cat needs help" reports and photo problems land.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Where the public's reports land: hurt or sick cats, kittens, and problems with a photo or a cat's name. Each report moves from new, to looking at it, to done.</p></div><div><h4>How it helps</h4><p>Every report reaches a person, and whoever sent it hears back. Before any email goes, the dashboard shows exactly what they'll receive. A photo someone has reported stays hidden until the team has looked.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 8: a report "must reach a person", and the person who reported it "is told what happened". Section 7: a queue for reported photos and names, "with the power to hide a photograph or rename a cat". The proposal left open who should be told about an urgent report. That's one of the questions at the end of this page.</p></div></div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Queue screens">
+      <figure data-shot="dash-20-queue"><figcaption><span class="n">1</span>The Queue</figcaption></figure>
+      <figure data-shot="dash-20b-queue-report-open-actions"><figcaption><span class="n">2</span>One report opened</figcaption></figure>
+      <figure data-shot="dash-21-close-report-email-confirm-page"><figcaption><span class="n">3</span>Check before the closing email goes</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d5">
+    <div>
+      <div class="code">Dashboard · 5</div>
+      <h3>Colonies and trapping plans</h3>
+      <p class="who">Planning where to trap, and keeping each colony's cats and feeding sites straight.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Colonies are groups of cats that live in the same place. Some also have feeding sites or a cat guardian. Each colony shows how close it is to every cat sterilised, and has a trapping plan.</p></div><div><h4>How it helps</h4><p>Trapping rounds are planned from the record, not from memory. The plan lists the cats still to do, where each is usually seen and when it was last seen, and what the round would cost. It prints on one page to take out, with a tick box per cat.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 9: feeding sites double as "a map of where the cats you need to trap can reliably be found". Section 10: "choose a colony" and the app has "most of a target list, assembled without anybody compiling it".</p></div></div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Colonies screens">
+      <figure data-shot="dash-30-colonies-list"><figcaption><span class="n">1</span>Colonies, with progress and flags</figcaption></figure>
+      <figure data-shot="dash-33-colony-page-galissas"><figcaption><span class="n">2</span>One colony</figcaption></figure>
+      <figure data-shot="dash-35-trapping-planner-galissas"><figcaption><span class="n">3</span>The printable trapping plan</figcaption></figure>
+      <figure data-shot="dash-36-feeding-sites-list"><figcaption><span class="n">4</span>Feeding sites</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d6">
+    <div>
+      <div class="code">Dashboard · 6</div>
+      <h3>Vet visits and clinic days</h3>
+      <p class="who">Recording sterilisations and what they cost.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Record a vet visit on one cat, or a whole clinic day in one go, matching each cat's photo to a known cat or adding it as new. A standard price per sterilisation (€60 today) fills in the cost, and can be changed for a visit that cost something else.</p></div><div><h4>How it helps</h4><p>Each cat's record updates itself, so the sterilisation figures stay right without a separate spreadsheet, and the cost per cat adds up for your accounts and funders.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 10, "what a cat has cost": vet visits are recorded against the cat they were for. Section 11 also suggested letting the island's vets record sterilisations themselves. That idea isn't built yet.</p></div></div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Vet screens">
+      <figure data-shot="dash-40-vet-batches-list"><figcaption><span class="n">1</span>Clinic days</figcaption></figure>
+      <figure data-shot="dash-41b-vet-batch-draft-top"><figcaption><span class="n">2</span>Recording a clinic day</figcaption></figure>
+      <figure data-shot="dash-44-vet-settings"><figcaption><span class="n">3</span>Vet settings: the standard price</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d7">
+    <div>
+      <div class="code">Dashboard · 7</div>
+      <h3>The island map and areas</h3>
+      <p class="who">Seeing where cats and feeding sites are across Syros.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Every cat and feeding site on one map of Syros, using the same filters as the photo grid. Place names show in your own language: English with the Greek beneath, or Greek. Named areas, such as Ermoupoli or Kini, which the team can edit.</p></div><div><h4>How it helps</h4><p>See where cats that still need sterilising are clustered, and which parts of the island nobody has photographed yet. Feeding sites and area centres are placed by dragging a pin on the map.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 11: show "which parts of Syros nobody has photographed". Section 9: the feeding-site map. Section 15: the public only ever sees a cat as a rough area, never an exact spot.</p></div></div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Map screens">
+      <figure data-shot="dash-51-cats-map-view"><figcaption><span class="n">1</span>Cats on the map</figcaption></figure>
+      <figure data-shot="dash-52-areas-list"><figcaption><span class="n">2</span>Areas</figcaption></figure>
+      <figure data-shot="dash-53-area-centre-map-picker"><figcaption><span class="n">3</span>Tap the map to set an area's centre</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d8">
+    <div>
+      <div class="code">Dashboard · 8</div>
+      <h3>Reports</h3>
+      <p class="who">The numbers, for planning, funders and the accounts.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Five reports: sterilisation progress, colony health, coverage and spotting, welfare patterns, and vet visits and costs. Pick the dates, and download any of them as a spreadsheet.</p></div><div><h4>How it helps</h4><p>Figures you can put in front of a funder or the municipality, each saying what it counts. For example, "confirmed sterilised" counts only cats a vet or your team confirmed, never a guess.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 11, "proving what you have achieved": figures that carry their own confidence, and answers to questions like "how many cats did we sterilise between January and December", with the method stated.</p></div></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill later">After launch</span><b>An impact report for funders</b><p>Your achievements on one page, ready to share.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Reports screens">
+      <figure data-shot="dash-60-reports-index"><figcaption><span class="n">1</span>The Reports page</figcaption></figure>
+      <figure data-shot="dash-61-sterilisation-progress"><figcaption><span class="n">2</span>Sterilisation progress</figcaption></figure>
+      <figure data-shot="dash-62-colony-health"><figcaption><span class="n">3</span>Colony health</figcaption></figure>
+      <figure data-shot="dash-63-coverage-and-spotting"><figcaption><span class="n">4</span>Coverage and spotting</figcaption></figure>
+      <figure data-shot="dash-65-vet-visits-and-costs"><figcaption><span class="n">5</span>Vet visits and costs</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d9">
+    <div>
+      <div class="code">Dashboard · 9</div>
+      <h3>People, settings and app switches</h3>
+      <p class="who">Who can get in, and the few things the team can change in the app.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Who can sign in, and with which role. Invitations. Settings for area names, the vet price, and <b>App switches</b> that change the public app: the giving button, the extra photo boxes, and which cat facts show.</p></div><div><h4>How it helps</h4><p>You decide who sees what without asking us. A change to the public app reaches phones within minutes, with no new version needed.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 3: apart from spotters, every role "comes only by invitation from you", and removing someone keeps what they recorded. The App switches look after the teaching moments and giving from sections 13 and 14.</p></div></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill you">Needs you</span><b>The rest of your team</b><p>Names and emails, so we can invite them.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="People and settings screens">
+      <figure data-shot="dash-70-people"><figcaption><span class="n">1</span>People</figcaption></figure>
+      <figure data-shot="dash-72-settings"><figcaption><span class="n">2</span>Settings</figcaption></figure>
+      <figure data-shot="dash-73-app-switches"><figcaption><span class="n">3</span>App switches</figcaption></figure>
+      <figure data-shot="dash-74-likely-cats-to-check"><figcaption><span class="n">4</span>Ear clips to check</figcaption></figure>
+    </div>
+  </article>
+
+  <article class="flow" id="d10">
+    <div>
+      <div class="code">Dashboard · 10 · Optional</div>
+      <h3>What a cat guardian sees</h3>
+      <p class="who">Optional, and your call. It only switches on for the cat guardians you choose to invite.</p>
+      <div class="side">
+        <div class="about"><div><h4>What it is</h4><p>Cat guardians sign in to the same dashboard and see only their own colonies: their cats, their feeding sites (always private) and the counts.</p></div><div><h4>How it helps</h4><p>A guardian can say a cat is sterilised, has a home, is in care or has died, in one tap, and undo it within 30 days. Their word counts for more than a passing visitor's; a vet's counts most. A new guardian can start their first colony.</p></div><div class="prop"><h4>In the proposal</h4><p>Section 3: a guardian "gets their area in one view", and their word about it carries weight. The proposal also suggested guardians hear about cats in trouble nearby. That's on the list for later.</p></div></div>
+        <div class="next"><h4>Coming next</h4>
+          <div class="item"><span class="pill you">Your call</span><b>Whether to give cat guardians access</b><p>It's built and ready, but optional. Nobody sees these pages until you invite a cat guardian, so you can start with none, a few, or all of them.</p></div>
+          <div class="item"><span class="pill later">After launch</span><b>Progress for cat guardians</b><p>Each guardian sees how their colony is doing, and a "needs a look" list.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip desk" aria-label="Cat guardian screens">
+      <figure data-shot="dash-80b-guardian-eleni-my-colonies"><figcaption><span class="n">1</span>My colonies</figcaption></figure>
+      <figure data-shot="dash-81-guardian-eleni-colony-page"><figcaption><span class="n">2</span>One colony, as its cat guardian sees it</figcaption></figure>
+      <figure data-shot="dash-82-guardian-eleni-cat-page"><figcaption><span class="n">3</span>A cat, with the guardian's buttons</figcaption></figure>
+    </div>
+  </article>
+</div></section>
+
+
+<!-- PLANNED -->
+<section class="part" id="planned"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">The plan on one page</div>
+    <h2>What's planned, by what people do</h2>
+    <p>For each thing people do in Cat Spotters, what's coming next. Anything marked <span class="you" style="font-size:13px">needs you</span> is waiting on Syros Cats.</p>
+  </div>
+  <div class="plan" aria-label="What's coming next, for each workflow">
+    <div class="row head"><div>What people do</div><div class="c-next">Coming next<small>Being built, or waiting on you</small></div></div>
+    <div class="row grp" style="display:block">The app</div><div class="row"><div class="wf"><b>Getting started</b><a href="#a1">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Nothing scheduled yet</li></ul></div></div><div class="row"><div class="wf"><b>Spotting a cat</b><a href="#a2">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Android phones: one real test of Check for matches <span class="you">needs you</span></li></ul></div></div><div class="row"><div class="wf"><b>Looking at cats</b><a href="#a3">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Coat colour suggested from the photo, checked by the team</li><li>Good-news emails about cats you follow, like "the cat you named was sterilised"</li></ul></div></div><div class="row"><div class="wf"><b>Reporting a cat that needs help</b><a href="#a4">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Reports arrive at admin@syroscats.com <span class="you">needs you</span></li></ul></div></div><div class="row"><div class="wf"><b>Profile, badges and your spots</b><a href="#a5">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Choose which emails you get</li><li>"You've met 14 cats on Syros" at the end of a visit</li><li>A different celebration for each badge</li></ul></div></div><div class="row"><div class="wf"><b>Help, cat facts and giving</b><a href="#a6">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Giving inside the app, once we agree how donations reach Syros Cats</li></ul></div></div><div class="row"><div class="wf"><b>Privacy and photo problems</b><a href="#a7">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>A privacy policy page</li></ul></div></div><div class="row grp" style="display:block">The dashboard</div><div class="row"><div class="wf"><b>Daily work: Home, Queue, finding cats</b><a href="#d1">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>Move a sighting to the right cat</li><li>Merge two records of the same cat</li></ul></div></div><div class="row"><div class="wf"><b>Colonies, trapping and vets</b><a href="#d5">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>An owner can confirm their cat is sterilised</li><li>A list of health conditions, once you tell us what you track</li></ul></div></div><div class="row"><div class="wf"><b>Reports and numbers</b><a href="#d8">See the screens ↑</a></div><div class="pnext"><span class="lbl">Coming next</span><ul><li>An impact report for funders <span class="when">after launch</span></li></ul></div></div>
+  </div>
+</div></section>
+
+<!-- LAUNCH -->
+<section class="part" id="launch"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">What happens next</div>
+    <h2>Launch, and after</h2>
+    <p>Launch means switching off the tester password, so anyone can open Cat Spotters in a browser at syros.catspotters.com, in English, Greek or French.</p>
+  </div>
+  <div class="timeline">
+    <div class="when"><div class="d">Before launch</div><p>Final checks on the live site, including one real report sent from the public address.</p></div>
+    <div class="when"><div class="d">Launch day</div><p>The tester password comes off and anyone can open the app. If anything goes wrong, one switch puts it back.</p></div>
+    <div class="when"><div class="d">The first two weeks</div><p>Fixes and polish only, while we watch how people really use it.</p></div>
+    <div class="when"><div class="d">After that</div><p>What we build next is chosen from real use and from your answers on this page. The App Store and Google Play versions follow later.</p></div>
+  </div>
+</div></section>
+
+
+<!-- QUESTIONS -->
+<section class="part" id="questions" style="background:var(--paper);border-top:1px solid var(--line)"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">A bigger question</div>
+    <h2>Where we need your view before we build</h2>
+    <p>This depends on how Syros Cats works, so we'd rather ask than guess.</p>
+  </div>
+
+  <article class="conv" id="coats">
+    <div>
+      <h3>Coat colours and patterns</h3>
+      <p>The app describes every cat's coat by its colours and one pattern: plain, stripes or patches. On the team's pages, a patchy black-and-ginger cat also gets a familiar name: <b>Tortoiseshell</b>, or <b>Calico</b> if it has white.</p>
+      <h4>What we plan to change</h4>
+      <p>People, and the app's photo reader, keep mixing up some colours. So we plan to:</p>
+      <ul>
+        <li>turn <b>Black</b> into <b>Black or dark grey</b>, including charcoal, mid grey and the dark stripes on a tabby</li>
+        <li>turn <b>Ginger</b> into <b>Ginger or cream</b>, including pale, washed-out ginger</li>
+        <li>keep <b>light grey</b> separate</li>
+      </ul>
+      <p>That means more cats count as "black and ginger", so more would be called tortoiseshell or calico. Most rightly, but not all.</p>
+      <h4>Three ways we could do it</h4>
+      <div class="opts">
+        <div class="opt"><b>A. Name tortoiseshells and calicos only</b><p>Includes pale grey-and-cream ones. A brown tabby with ginger patches (a "torbie") is described in plain words: "black, brown and ginger patches".</p></div>
+        <div class="opt"><b>B. Name torbies too</b><p>Closest to how experts talk, but "torbie" is a word many people don't know, and some sandy tabbies would be named wrongly.</p></div>
+        <div class="opt"><b>C. No names at all</b><p>Always plain colours. Never wrong, but the team loses the familiar names.</p></div>
+      </div>
+    </div>
+    <div class="qbox">
+      <h4>Our questions for you</h4>
+      <ol>
+        <li>Do your volunteers and vets use the words tortoiseshell, calico or torbie for the island's cats? Which ones?</li>
+        <li>Would you rather see torbies named (option B), even if a few sandy tabbies get it wrong?</li>
+        <li>Do you prefer "Calico" or "Tortoiseshell and white"?</li>
+      </ol>
+    </div>
+  </article>
+</div></section>
+
+<!-- DECIDE -->
+<section class="part" id="decide"><div class="wrap">
+  <div class="parthead">
+    <div class="eyebrow">Over to you</div>
+    <h2>Things we need from you</h2>
+    <p>Each of these is small. Most need only a quick reply.</p>
+  </div>
+  <ol class="asks">
+    <li><div><b>Three questions on naming patchy cats</b><p>Tortoiseshell, calico or torbie: see <a href="#coats">coat colours and patterns</a> above.</p></div></li>
+    <li><div><b>Confirm reports go to admin@syroscats.com</b><p>And agree a time for one test report. It emails real people, so we'll tell you first.</p></div></li>
+    <li><div><b>Send the rest of your team's names and emails</b><p>So we can invite them to the dashboard with the right roles.</p></div></li>
+    <li><div><b>Ask your testers to start testing the app again</b><p>A lot has changed since 29 September. A fresh round of testing on real phones will catch anything we've missed.</p></div></li>
+    <li><div><b>Try "Check for matches" on an Android phone</b><p>One test confirms the Android fix.</p></div></li>
+  </ol>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <p>Prepared by Samuel Porter (Fair Shake) for Syros Cats. Covers what has changed since the 29 September testing call. Reading on a phone? There's a <a href="brief/">shorter version</a>.</p>
+  <p>Screens show sample data with real photos of Syros cats taken by your testers. Names of people and some cats are made up for the walkthrough.</p>
+</div></footer>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Screen, full size">
+  <button class="x" id="lbx" type="button">Close ✕</button>
+  <img id="lbimg" alt="">
+  <div class="cap" id="lbcap"></div>
+</div>
+
+<script>
+(function(){
+  function src(name){ return 'img/' + name + '.jpg'; }
+  document.querySelectorAll('[data-shot]').forEach(function(el){
+    var name = el.getAttribute('data-shot');
+    var cap = el.querySelector('figcaption');
+    var label = cap ? cap.textContent.replace(/^\S+\s/, '') : 'Screen';
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'shot'; b.setAttribute('aria-label', 'Open full size: ' + label);
+    var img = document.createElement('img');
+    img.src = src(name); img.alt = label; img.loading = 'lazy'; img.decoding = 'async';
+    b.appendChild(img);
+    el.insertBefore(b, el.firstChild);
+    b.addEventListener('click', function(){ openLb(name, label, el.closest('.strip.desk') || el.classList.contains('thumb') && name.indexOf('dash')===0); });
+  });
+  var lb = document.getElementById('lb'), li = document.getElementById('lbimg'), lc = document.getElementById('lbcap');
+  var last = null;
+  function openLb(name, label, wide){
+    last = document.activeElement;
+    li.src = src(name); li.alt = label; lc.textContent = label;
+    lb.classList.toggle('tall', !!wide);
+    lb.hidden = false; document.getElementById('lbx').focus();
+  }
+  function close(){ lb.hidden = true; li.src=''; if (last) last.focus(); }
+  document.getElementById('lbx').addEventListener('click', close);
+  lb.addEventListener('click', function(e){ if (e.target === lb) close(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !lb.hidden) close(); });
+})();
+</script>
+</body>
+</html>
