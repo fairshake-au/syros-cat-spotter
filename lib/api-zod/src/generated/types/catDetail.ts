@@ -7,6 +7,7 @@
  */
 import type { CareEvent } from './careEvent';
 import type { Cat } from './cat';
+import type { CatDetailMergedFrom } from './catDetailMergedFrom';
 import type { Sighting } from './sighting';
 
 export interface CatDetail {
@@ -45,4 +46,13 @@ export interface CatDetail {
      * button and the server refuses with NEEDS_SIGHTING.
      */
   canName?: boolean;
+  /**
+     * SYC-59: present only when the id asked for was a record the team
+     * has merged into this cat (an old link, a notification, a cached
+     * list). `cat` is the cat it is part of now; this names the record
+     * asked for, so the page can say "Mimi is now part of Agatha's
+     * record". Absent otherwise; an app that doesn't read it just opens
+     * the cat.
+     */
+  mergedFrom?: CatDetailMergedFrom;
 }

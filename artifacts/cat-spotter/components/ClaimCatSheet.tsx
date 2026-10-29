@@ -31,6 +31,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { registerModalOpen } from '@/lib/modalVisibility';
 import { classifyResolveError, isBlankName } from '@/lib/catPicker';
 import { claimRefusal, isNotOwnerError, pinMovedFrom, pinTooFar } from '@/lib/claimCat';
+import { mergedSurvivorId } from '@/lib/mergedCats';
 import { getCurrentCoords } from '@/lib/currentPosition';
 import { LocationPicker } from '@/components/LocationPicker';
 import { Button } from '@/components/purropolis/Button';
@@ -122,6 +123,16 @@ export function ClaimCatSheet({
     onClose();
   };
 
+  // SYC-59: the team merged this record into another cat while the sheet was
+  // open (409 MERGED). Close the sheet and reload the page: it asks for this
+  // record again and now shows the cat it is part of, with the note saying so.
+  const onMerged = (err: unknown): boolean => {
+    if (mergedSurvivorId(err) === null) return false;
+    refreshCat();
+    onClose();
+    return true;
+  };
+
   // SYC-3: this phone's spotter moved to a new phone. The app shows "Your
   // spots moved to a new phone" (the API client's device_moved listener);
   // never "Only the owner of this cat can edit it".
@@ -130,6 +141,7 @@ export function ClaimCatSheet({
       onClose();
       return;
     }
+    if (onMerged(err)) return;
     // Spec §4.4: the words come from the refusal's `code`; a 409 means the
     // page was out of date, so it refreshes.
     const refusal = claimRefusal(err);
@@ -155,6 +167,7 @@ export function ClaimCatSheet({
       dropStaleOwnership();
       return;
     }
+    if (onMerged(err)) return;
     const status = (err as { status?: number })?.status;
     const failure = classifyResolveError(err);
     // SYC-101: a rename to a name another cat already has (the same once
@@ -184,6 +197,7 @@ export function ClaimCatSheet({
       dropStaleOwnership();
       return;
     }
+    if (onMerged(err)) return;
     setError(named(claimRefusal(err).key));
   };
 

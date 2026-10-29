@@ -319,6 +319,21 @@ describe('what the server says no to (§4.4)', () => {
     expect(h.invalidate).toHaveBeenCalled();
   });
 
+  it('SYC-59: 409 MERGED (claim, edit, let go) closes the sheet and reloads the page, which now shows the cat it is part of', () => {
+    const merged = refusal(409, 'MERGED');
+    (merged as unknown as { data: object }).data = { code: 'MERGED', catId: 12 };
+    stepTwo();
+    onClose.mockClear();
+    h.invalidate.mockClear();
+    act(() => h.claimOpts.mutation.onError(merged));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(h.invalidate).toHaveBeenCalledWith({ queryKey: ['/api/cats/7'] });
+    expect(screen.queryByText(say('claimRefusedLater'))).toBeNull();
+    act(() => h.updateOpts.mutation.onError(merged));
+    act(() => h.letGoOpts.mutation.onError(merged));
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
+
   it('success makes this phone the owner, and closes', () => {
     stepTwo();
     act(() => h.claimOpts.mutation.onSuccess({ ...CAT, hasHome: true }));

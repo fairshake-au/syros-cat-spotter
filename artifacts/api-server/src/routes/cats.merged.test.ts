@@ -89,9 +89,10 @@ describe("GET /cats/:id for a merged-away cat (spec test 14's last clause)", () 
     expect(res.status).toBe(200);
     expect(res.body.mergedFrom).toEqual({ id: c.mimi, name: c.mimiName });
     expect(res.body.cat).toMatchObject({ id: c.agatha, name: c.agathaName, sightingsCount: 2 });
-    // An app that doesn't know the field: the schema it was built from
-    // parses the answer and drops `mergedFrom` (zod strips unknown keys).
-    const old = GetCatResponse.safeParse(res.body);
+    // An app that doesn't know the field (before PR 4.3 declared it): the
+    // schema it was built from parses the answer and drops `mergedFrom` (zod
+    // strips unknown keys).
+    const old = GetCatResponse.omit({ mergedFrom: true }).safeParse(res.body);
     expect(old.success, JSON.stringify(old.error?.issues)).toBe(true);
     expect((old.data as Record<string, unknown>)["mergedFrom"]).toBeUndefined();
     expect(old.data!.cat.id).toBe(c.agatha);
@@ -252,6 +253,8 @@ describe("the bell (plan C5; D4, D10)", () => {
     expect(res.status).toBe(200);
     const [mergedLine, news] = res.body as Record<string, unknown>[];
     expect(news).toMatchObject({ catId: c.agatha, catName: c.agathaName, catUpdateId: update!.id, message: `${c.mimiName} has a new collar` });
+    // Shaped like a weekly result (no cat of its own, the words in `message`),
+    // plus the additive fields the 4.3 app words the line and opens Agatha from.
     expect(mergedLine).toEqual({
       id: expect.any(Number),
       catId: null,
@@ -262,9 +265,15 @@ describe("the bell (plan C5; D4, D10)", () => {
       message: MERGE_WORDS.merged(c.mimiName, c.agathaName),
       place: null,
       weekPoints: null,
+      kind: "merged",
+      survivorCatId: c.agatha,
+      survivorCatName: c.agathaName,
+      mergedCatName: c.mimiName,
       read: false,
       createdAt: expect.any(String),
     });
+    // Cat news is byte-for-byte what it was (publicPayload.p6): no kind on it.
+    expect(news).not.toHaveProperty("kind");
     // The oldest app's own schema reads every row.
     const parsed = ListNotificationsResponse.safeParse(res.body);
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
@@ -276,8 +285,25 @@ describe("the bell (plan C5; D4, D10)", () => {
     const d = await bound();
     await db.insert(notificationsTable).values({ deviceId: d, kind: "duplicate_points", message: MERGE_WORDS.duplicatePoints("Mimi", "Agatha") });
     const res = await request(app).get(`/api/notifications/${d}`).set("X-Device-Secret", SECRET);
-    expect(res.body).toEqual([expect.objectContaining({ catId: null, message: MERGE_WORDS.duplicatePoints("Mimi", "Agatha"), place: null, weekPoints: null })]);
+    expect(res.body).toEqual([expect.objectContaining({ catId: null, kind: "duplicate_points", message: MERGE_WORDS.duplicatePoints("Mimi", "Agatha"), place: null, weekPoints: null })]);
     expect(ListNotificationsResponse.safeParse(res.body).success).toBe(true);
+  });
+
+  it("a merged line opens the cat Agatha is part of now, and lines from before the columns carry no cats", async () => {
+    const c = await merged();
+    const dora = await kit.cat(daysAgo(400));
+    const d = await bound();
+    await db.insert(catSubscriptionsTable).values({ deviceId: d, catId: c.mimi });
+    await libMerge(c.mimi, c.agatha);
+    await libMerge(c.agatha, dora);
+    await db.insert(notificationsTable).values({ deviceId: d, kind: "merged", message: "Old words.", createdAt: daysAgo(3) });
+    const res = await request(app).get(`/api/notifications/${d}`).set("X-Device-Secret", SECRET);
+    const lines = res.body as Record<string, unknown>[];
+    const line = lines.find((l) => l.mergedCatName === c.mimiName);
+    const oldLine = lines.find((l) => l.message === "Old words.");
+    expect(line).toMatchObject({ kind: "merged", survivorCatId: dora });
+    expect(oldLine).toMatchObject({ kind: "merged", message: "Old words." });
+    expect(oldLine).not.toHaveProperty("survivorCatId");
   });
 });
 
