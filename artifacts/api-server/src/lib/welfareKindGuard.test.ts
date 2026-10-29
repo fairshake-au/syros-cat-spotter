@@ -56,6 +56,8 @@ const ALLOWLIST: Record<string, string> = {
   // SYC-44 PR 7.1: the team's Issues section.
   "artifacts/api-server/src/lib/issues/queue.ts":
     "content only: every read (the section, one report, the cat page's strip, the others count) carries kind = 'content'; no reporter column is selected",
+  "artifacts/api-server/src/lib/moveSightings.ts":
+    "moving a sighting (SYC-150 PR 3.2): \"nothing left\" counts kind = 'welfare' rows only; closing the report locks a kind = 'content', reason = 'wrong_cat', is_draft = false row, or refuses",
   "artifacts/api-server/src/lib/issues/teamActions.ts":
     "content only: Keep hidden, Restore and Hide lock a report with kind = 'content' and is_draft = false, or do nothing",
   // SYC-44 PR 8.1: the one-year clean-up.
