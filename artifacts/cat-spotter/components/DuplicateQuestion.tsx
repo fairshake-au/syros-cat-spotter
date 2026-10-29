@@ -40,7 +40,7 @@ export function DuplicateQuestion({ question, chosen, cats, yourPhoto, value, on
   const colors = useColors();
   const cached = cats.find((c) => c.id === question.otherCatId);
   const fetched = useGetCat(question.otherCatId, { query: { enabled: !cached, retry: 1, queryKey: getGetCatQueryKey(question.otherCatId) } });
-  const other: CatCard | null = cached ?? (fetched.data?.cat?.id === question.otherCatId ? fetched.data.cat : null);
+  const other: CatCard | null = cached ?? fetched.data?.cat ?? null;
   if (!other) return null;
 
   const toggle = (choice: DuplicateChoice) => onChange(value === choice ? null : choice);

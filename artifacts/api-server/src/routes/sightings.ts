@@ -1352,9 +1352,10 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
  *   nothing in the request could be recorded.
  * - `duplicate` (SYC-59 PR 5.2): the answer to resolve's "Are these the same
  *   cat?", once per sighting, written as a `spotter_question` report (not an
- *   observation). Left out like the others when already answered; refused
- *   with NO_DUPLICATE_QUESTION (422) when this sighting was not asked about
- *   a pair, and as NOT_THEIRS for the team desk.
+ *   observation). Left out like the others when already answered, or when
+ *   this sighting was not asked about a pair (the rest is still saved);
+ *   NO_DUPLICATE_QUESTION (422) only when the request held nothing else.
+ *   NOT_THEIRS for the team desk.
  * - The ear tip once per device per cat (Q3 → B): a second answer is left
  *   out, unless `changeEarTip` asks to replace the device's own current
  *   answer (Decision 3 → B), which is refused with EAR_TIP_CHECKED once
@@ -1521,18 +1522,24 @@ router.post("/sightings/:sightingId/answers", async (req, res) => {
 
       // SYC-59 PR 5.2 (which-cat-is-which.md §3.1 item 1, §9.6): "Are these
       // the same cat?" is a report for the team, not a statement about a
-      // cat, so it is not an observation. Once per sighting, under its own
-      // lock; refused when no question was offered for this sighting.
+      // cat, so it is not an observation. Once per sighting: the
+      // `sighting-answers` lock taken above serialises every answer this
+      // device sends for this sighting, so the check inside
+      // recordDuplicateAnswer is exact (guarded by the simultaneous-answers
+      // test). No question offered: left out, see below.
       duplicateRecorded = false;
       if (body.duplicate) {
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('duplicate-answer'), ${sightingId})`);
         const [match] = await tx
           .select({ choice: sightingMatchesTable.choice, chosenCatId: sightingMatchesTable.chosenCatId, suggested: sightingMatchesTable.suggested })
           .from(sightingMatchesTable)
           .where(eq(sightingMatchesTable.sightingId, sightingId));
         const outcome = await recordDuplicateAnswer(tx, { sightingId, deviceId: spotterId, says: body.duplicate, match });
         if (!outcome.ok && outcome.refused === "TEAM_DESK") throw NOT_THEIRS;
-        if (!outcome.ok && outcome.refused === "NO_QUESTION") throw NO_DUPLICATE_QUESTION;
+        // An honest spotter can reach this (the team decided the pair, or a cat
+        // died, between the resolve and the answer). The duplicate answer is left
+        // out the way a repeated one is, and the rest is saved; only a request
+        // holding nothing else is refused.
+        if (!outcome.ok && outcome.refused === "NO_QUESTION" && toWrite.length === 0) throw NO_DUPLICATE_QUESTION;
         duplicateRecorded = outcome.ok;
       }
 

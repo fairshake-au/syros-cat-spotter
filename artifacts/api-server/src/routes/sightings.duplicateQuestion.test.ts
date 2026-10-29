@@ -221,15 +221,24 @@ describe("the answer (POST /sightings/:id/answers { duplicate })", () => {
     expect(await reportsFor(sightingId)).toHaveLength(1);
   });
 
-  it("is refused when the resolve did not ask about a pair, and nothing in that request is recorded", async () => {
+  it("is refused when the resolve did not ask about a pair and it is all the request holds", async () => {
     const [a, b] = [await kit.cat(), await kit.cat()];
-    // One suggestion only: no question.
+    // Too far apart: no question.
     const { sightingId, device } = await resolved(suggest([a, 0.9], [b, 0.5]));
-    const res = await answer(sightingId, device, { duplicate: "same", foodAndWater: "yes" });
+    const res = await answer(sightingId, device, { duplicate: "same" });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("NO_DUPLICATE_QUESTION");
     expect(await reportsFor(sightingId)).toEqual([]);
-    expect(await db.select().from(observationsTable).where(eq(observationsTable.sightingId, sightingId))).toEqual([]);
+  });
+
+  it("when no question stands, the duplicate answer is left out and the rest of the request is saved", async () => {
+    const [a, b] = [await kit.cat(), await kit.cat()];
+    const { sightingId, device } = await resolved(suggest([a, 0.9], [b, 0.5]));
+    const res = await answer(sightingId, device, { duplicate: "same", foodAndWater: "yes", note: "a limp" });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.recorded.sort()).toEqual(["food_and_water", "note"]);
+    expect(await reportsFor(sightingId)).toEqual([]);
+    expect((await db.select().from(observationsTable).where(eq(observationsTable.sightingId, sightingId))).map((o) => o.kind).sort()).toEqual(["food_and_water", "note"]);
   });
 
   it("is refused for a spot that was a new cat, or hand-picked", async () => {
@@ -253,6 +262,23 @@ describe("the answer (POST /sightings/:id/answers { duplicate })", () => {
     const res = await answer(sightingId, device, { duplicate: "same" });
     expect(res.status).toBe(422);
     expect(await reportsFor(sightingId)).toEqual([]);
+    // Beside a note it is left out and the note is kept.
+    const withNote = await answer(sightingId, device, { duplicate: "same", note: "still here" });
+    expect(withNote.status, JSON.stringify(withNote.body)).toBe(200);
+    expect(withNote.body.recorded).toEqual(["note"]);
+    expect(await reportsFor(sightingId)).toEqual([]);
+  });
+
+  it("when the look-alike was merged into another cat after the resolve, the question names the cat that was shown and the report the cat it is part of now", async () => {
+    const [a, mimi, bella] = [await kit.cat(), await kit.cat(), await kit.cat()];
+    const { sightingId, device, question } = await resolved(suggest([a, 0.8], [mimi, 0.75]));
+    expect(question).toEqual({ catId: a, otherCatId: mimi });
+    await kit.sighting(mimi, kit.device());
+    await libMerge(mimi, bella);
+    expect((await answer(sightingId, device, { duplicate: "same" })).status).toBe(200);
+    const rows = await reportsFor(sightingId);
+    expect(rows).toHaveLength(1);
+    expect([rows[0]!.catLow, rows[0]!.catHigh].sort()).toEqual([a, bella].sort());
   });
 
   it("is refused for someone else's sighting, as every answer is", async () => {

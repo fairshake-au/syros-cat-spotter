@@ -31,7 +31,11 @@ export const NEAR_TIE_GAP_MILLI = 150;
 export interface DuplicateQuestion {
   /** The cat the spotter confirmed (canonical). */
   catId: number;
-  /** The look-alike the photo check suggested beside it (canonical). */
+  /**
+   * The look-alike as the photo check suggested it, so the phone can show the
+   * cat the spotter was offered. If that cat has since been merged into
+   * another, the report is still written against the cat it is part of now.
+   */
   otherCatId: number;
 }
 
@@ -70,27 +74,28 @@ export async function duplicateQuestionFor(
   const canon = await canonicalCatOf([match.chosenCatId, ...shown.map((s) => s.catId)]);
   const chosen = canon.get(match.chosenCatId) ?? null;
   if (chosen === null) return null;
-  const best = new Map<number, number>();
+  // Per canonical cat: its best score, and the id the photo check suggested for it.
+  const best = new Map<number, { score: number; suggestedId: number }>();
   for (const s of shown) {
     const c = canon.get(s.catId) ?? null;
-    if (c !== null) best.set(c, Math.max(best.get(c) ?? 0, s.score));
+    if (c !== null && s.score > (best.get(c)?.score ?? -1)) best.set(c, { score: s.score, suggestedId: s.catId });
   }
-  const chosenScore = best.get(chosen);
+  const chosenScore = best.get(chosen)?.score;
   if (chosenScore === undefined) return null;
 
   const close = [...best]
-    .filter(([id, score]) => id !== chosen && Math.abs(milli(score) - milli(chosenScore)) <= NEAR_TIE_GAP_MILLI)
-    .sort(([ia, sa], [ib, sb]) => Math.abs(milli(sa) - milli(chosenScore)) - Math.abs(milli(sb) - milli(chosenScore)) || sb - sa || ia - ib);
+    .filter(([id, b]) => id !== chosen && Math.abs(milli(b.score) - milli(chosenScore)) <= NEAR_TIE_GAP_MILLI)
+    .sort(([ia, a], [ib, b]) => Math.abs(milli(a.score) - milli(chosenScore)) - Math.abs(milli(b.score) - milli(chosenScore)) || b.score - a.score || ia - ib);
   if (close.length === 0) return null;
 
   const real = new Set((await liveCats({ id: catsTable.id }, { where: inArray(catsTable.id, [chosen, ...close.map(([id]) => id)]) })).map((c) => c.id));
   if (!real.has(chosen) || (await isResolvedDeceased(chosen, exec))) return null;
   const decided = await decidedPairs(exec);
-  for (const [other] of close) {
+  for (const [other, { suggestedId }] of close) {
     if (!real.has(other)) continue;
     if (decided.has(`${Math.min(chosen, other)}:${Math.max(chosen, other)}`)) continue;
     if (await isResolvedDeceased(other, exec)) continue;
-    return { catId: chosen, otherCatId: other };
+    return { catId: chosen, otherCatId: suggestedId };
   }
   return null;
 }
@@ -123,8 +128,12 @@ export async function recordDuplicateAnswer(
   if (already) return { ok: false, refused: "ALREADY_ANSWERED" };
   const question = input.match ? await duplicateQuestionFor(input.match, tx) : null;
   if (!question) return { ok: false, refused: "NO_QUESTION" };
-  const catLow = Math.min(question.catId, question.otherCatId);
-  const catHigh = Math.max(question.catId, question.otherCatId);
+  // The report is against the cats as they stand now, which is what the list reads.
+  const canon = await canonicalCatOf([question.catId, question.otherCatId]);
+  const a = canon.get(question.catId) ?? question.catId;
+  const b = canon.get(question.otherCatId) ?? question.otherCatId;
+  const catLow = Math.min(a, b);
+  const catHigh = Math.max(a, b);
   await tx.insert(duplicateReportsTable).values({
     catLow,
     catHigh,
