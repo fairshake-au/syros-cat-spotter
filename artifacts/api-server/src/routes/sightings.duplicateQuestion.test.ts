@@ -271,10 +271,11 @@ describe("the answer (POST /sightings/:id/answers { duplicate })", () => {
 
   it("when the look-alike was merged into another cat after the resolve, the question names the cat that was shown and the report the cat it is part of now", async () => {
     const [a, mimi, bella] = [await kit.cat(), await kit.cat(), await kit.cat()];
-    const { sightingId, device, question } = await resolved(suggest([a, 0.8], [mimi, 0.75]));
-    expect(question).toEqual({ catId: a, otherCatId: mimi });
+    // Mimi was part of Bella by the time the spotter's photo was checked, yet the check still named her.
     await kit.sighting(mimi, kit.device());
     await libMerge(mimi, bella);
+    const { sightingId, device, question } = await resolved(suggest([a, 0.8], [mimi, 0.75]));
+    expect(question).toEqual({ catId: a, otherCatId: mimi });
     expect((await answer(sightingId, device, { duplicate: "same" })).status).toBe(200);
     const rows = await reportsFor(sightingId);
     expect(rows).toHaveLength(1);
