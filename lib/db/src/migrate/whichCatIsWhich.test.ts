@@ -599,11 +599,12 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     await c.query(`update sightings set cat_id = $1, status = 'resolved' where id = $2`, [away, p]);
     await c2.query("begin");
     await mergeRow(c2, away, survivor);
-    const mergeCommit = c2.query("commit");
+    // Attach the expectation now: the commit can fail before the next await returns.
+    const mergeRefused = expect(c2.query("commit")).rejects.toThrow(/still has resolved sightings/);
     // Give the merge's commit time to reach the cat lock and wait on it.
     await new Promise((r) => setTimeout(r, 200));
     await c.query("commit");
-    await expect(mergeCommit).rejects.toThrow(/still has resolved sightings/);
+    await mergeRefused;
     expect((await sightingRow(p)).cat_id).toBe(away);
     expect((await c.query(`select 1 from cat_identity where cat_id = $1`, [away])).rowCount).toBe(0);
 
@@ -616,13 +617,13 @@ describe("a recorded merge (spec test 1, §9.2)", () => {
     await mergeRow(c2, away2, survivor2);
     await c2.query(`set constraints all immediate`);
     await c.query("begin");
-    const resolve = c.query(`update sightings set cat_id = $1, status = 'resolved' where id = $2`, [
-      away2,
-      p2,
-    ]);
+    // Same here: the resolve is refused the moment the merge commits.
+    const resolveRefused = expect(
+      c.query(`update sightings set cat_id = $1, status = 'resolved' where id = $2`, [away2, p2]),
+    ).rejects.toThrow(/merged into another/);
     await new Promise((r) => setTimeout(r, 200));
     await c2.query("commit");
-    await expect(resolve).rejects.toThrow(/merged into another/);
+    await resolveRefused;
     await c.query("rollback");
     expect((await sightingRow(p2)).cat_id).toBeNull();
   });
