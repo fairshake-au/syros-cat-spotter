@@ -33,10 +33,7 @@ vi.mock("../lib/matching", () => ({
 import app from "../app";
 import { loadCatRecords } from "../lib/observations";
 import { resolveCat } from "../lib/resolve";
-
-// SYC-709: a cat name can't hold a phone-number-like run of digits, so
-// names made here get a letters-only tag instead of Date.now().
-const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+import { nameTag } from "../test/nameTag";
 
 const DEVICE = "vitest-answers";
 const SECRET = "vitest-answers-secret-0123456789abcd";

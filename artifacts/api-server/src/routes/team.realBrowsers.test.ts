@@ -21,6 +21,7 @@ import {
   signInThroughHandoff,
 } from "../lib/teamAuth/__fixtures__/queueKit";
 import { removeTestPerson } from "../test/removeTestPerson";
+import { nameTag } from "../test/nameTag";
 
 // SYC-330: the dashboard's buttons, pressed in real browsers.
 //
@@ -249,7 +250,7 @@ describe.skipIf(!ENABLED)("SYC-330: real browsers press the dashboard buttons", 
         expect(noted?.note).toBe(noteText);
 
         // (3) Create a colony (open the form, fill the name, press the button).
-        const colonyName = `rb-${name}-${Date.now().toString(36)}`;
+        const colonyName = `rb-${name}-${nameTag()}`;
         await page.goto(`${local.origin}/api/team/colonies`);
         await page.getByText("Create a colony").click();
         await page.getByLabel("Colony name").fill(colonyName);

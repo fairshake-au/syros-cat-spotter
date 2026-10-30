@@ -25,10 +25,7 @@ import app from "../app";
 import { _resetDeviceMatchLimitForTests } from "../middlewares/rateLimit";
 import { signedPerson, type Signed } from "../test/roleKit";
 import { markRemoved } from "../test/removalKit";
-
-// SYC-709: a cat name can't hold a phone-number-like run of digits, so
-// names made here get a letters-only tag instead of Date.now().
-const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+import { nameTag } from "../test/nameTag";
 
 // Out at sea, away from every other file's cats (as matchHardening does).
 const ORIGIN = { lat: 35.9, lng: 21.1 };
