@@ -4,10 +4,7 @@ import { db, pool, catsTable, deviceCredentialsTable } from "@workspace/db";
 import { like } from "drizzle-orm";
 
 import app from "../app";
-
-// SYC-709: a cat name can't hold a phone-number-like run of digits, so
-// names made here get a letters-only tag instead of Date.now().
-const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+import { nameTag } from "../test/nameTag";
 
 const DEVICE = "vitest-registercat-modn-device";
 // SYC-107: these routes require the device's secret. Every device id in this

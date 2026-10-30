@@ -43,10 +43,7 @@ vi.mock("../middlewares/rateLimit", async (importOriginal) => ({
 
 import app from "../app";
 import { markRemoved } from "../test/removalKit";
-
-// SYC-709: a cat name can't hold a phone-number-like run of digits, so
-// names made here get a letters-only tag instead of Date.now().
-const nameTag = (): string => Date.now().toString(36).replace(/\d/g, (d) => "abcdefghij"[Number(d)]!);
+import { nameTag } from "../test/nameTag";
 
 /** The person a removal names (photos_removed_ck); left in place, like removalKit says. */
 let staff: { id: string };
