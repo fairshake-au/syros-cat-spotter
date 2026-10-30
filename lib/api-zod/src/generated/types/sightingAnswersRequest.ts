@@ -5,6 +5,7 @@
  * Syros Cat Spotter API
  * OpenAPI spec version: 0.1.0
  */
+import type { SightingAnswersRequestDuplicate } from './sightingAnswersRequestDuplicate';
 import type { SightingAnswersRequestEarTip } from './sightingAnswersRequestEarTip';
 import type { SightingAnswersRequestFoodAndWater } from './sightingAnswersRequestFoodAndWater';
 
@@ -22,4 +23,6 @@ export interface SightingAnswersRequest {
   note?: string;
   /** With earTip: replace this device's own current ear-tip answer for this cat (from the cat's page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out. */
   changeEarTip?: boolean;
+  /** The answer to resolve's `duplicateQuestion`: "Are these the same cat?" (which-cat-is-which.md §3.1 item 1). Written as a report for the team to weigh; it never changes either cat. Once per sighting (a second one is left out, or ALREADY_ANSWERED if nothing else in the request was recorded). Refused with NO_DUPLICATE_QUESTION when this sighting was not asked about a pair, and with NOT_THEIRS for the team desk. */
+  duplicate?: SightingAnswersRequestDuplicate;
 }

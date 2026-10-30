@@ -29,6 +29,7 @@ const MAY_NAME_THE_TABLES: Record<string, string> = {
   "artifacts/api-server/src/lib/duplicateDecide.ts": "the team's two answers (team)",
   "artifacts/api-server/src/lib/duplicateSweep.ts": "the nightly sweep: reads decisions and recent sweep reports, writes sweep reports (internal job, behind its switch)",
   "artifacts/api-server/src/lib/newCatCheck.ts": "the resolve's write of new_cat_check reports (write only)",
+  "artifacts/api-server/src/lib/duplicateQuestion.ts": "the resolve's question (reads decisions only to skip a decided pair) and the spotter's answer (writes a spotter_question report; reads back only that sighting's own answer, to refuse a second)",
   "artifacts/api-server/src/lib/mergeCats.ts": "the merge's `merged` decision and its points (team)",
   "artifacts/api-server/src/lib/matcherHealth.ts": "New cats to check leaves out cats marked checked (team)",
   "artifacts/api-server/src/lib/severPerson.ts": "deletion clears the spotter from reports and decisions",

@@ -1971,6 +1971,25 @@ components:
             False once this device has given any ear-tip answer for this cat
             ("clipped", "looks whole" or "can't tell"), so each spotter is
             asked once per cat (data spine plan, decision Q3 → B).
+        duplicateQuestion:
+          type: object
+          nullable: true
+          description: >-
+            "Are these the same cat?" (which-cat-is-which.md §3.1 item 1, D8).
+            Present only when the spotter confirmed a suggested cat and the
+            photo check also suggested a look-alike scoring nearly as high,
+            and the team has not decided the pair. The app asks it below the
+            other questions, with both cats' main photos, and answers it
+            with `duplicate` on the answers route. Absent from an older
+            server, and ignored by an older app: both mean no question.
+          properties:
+            catId:
+              type: integer
+              description: The cat the spotter confirmed.
+            otherCatId:
+              type: integer
+              description: The look-alike the photo check suggested beside it.
+          required: [catId, otherCatId]
       required: [cat, pointsAwarded, pointsReason, isNewCat, newBadges, momentId, profile, askEarTip]
     SightingAnswersRequest:
       type: object
@@ -2001,6 +2020,17 @@ components:
             this cat (from the cat's page). The old answer is kept, marked
             replaced. Refused with EAR_TIP_CHECKED once Syros Cats have
             checked it. Without this, a second ear-tip answer is left out.
+        duplicate:
+          type: string
+          enum: [same, different, not_sure]
+          description: >-
+            The answer to resolve's `duplicateQuestion`: "Are these the same
+            cat?" (which-cat-is-which.md §3.1 item 1). Written as a report for
+            the team to weigh; it never changes either cat. Once per sighting
+            (a second one is left out, or ALREADY_ANSWERED if nothing else in
+            the request was recorded). Refused with NO_DUPLICATE_QUESTION
+            when this sighting was not asked about a pair, and with
+            NOT_THEIRS for the team desk.
       required: [deviceId]
     MyOpenSightings:
       type: object
@@ -2061,7 +2091,7 @@ components:
           description: Which answers were written (empty if everything was skipped)
           items:
             type: string
-            enum: [ear_tip, food_and_water, note]
+            enum: [ear_tip, food_and_water, note, duplicate]
       required: [recorded]
     UpdateProfileRequest:
       type: object

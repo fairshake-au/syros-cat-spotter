@@ -665,7 +665,11 @@ export const ResolveSightingResponse = zod.object({
   "spottedCatIds": zod.array(zod.number()).describe('Ids of cats this device has personally spotted, driving the collected-vs-locked treatment on the cat grids. Same privacy reasoning as ownedCatIds.'),
   "totalCats": zod.number().describe('Size of the whole cat-alog — the denominator in \"12 of 142\".')
 }),
-  "askEarTip": zod.boolean().describe('Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat (\"clipped\", \"looks whole\" or \"can\'t tell\"), so each spotter is asked once per cat (data spine plan, decision Q3 → B).')
+  "askEarTip": zod.boolean().describe('Whether to ask this spotter the ear-tip question about this cat. False once this device has given any ear-tip answer for this cat (\"clipped\", \"looks whole\" or \"can\'t tell\"), so each spotter is asked once per cat (data spine plan, decision Q3 → B).'),
+  "duplicateQuestion": zod.object({
+  "catId": zod.number().describe('The cat the spotter confirmed.'),
+  "otherCatId": zod.number().describe('The look-alike the photo check suggested beside it.')
+}).nullish().describe('\"Are these the same cat?\" (which-cat-is-which.md §3.1 item 1, D8). Present only when the spotter confirmed a suggested cat and the photo check also suggested a look-alike scoring nearly as high, and the team has not decided the pair. The app asks it below the other questions, with both cats\' main photos, and answers it with `duplicate` on the answers route. Absent from an older server, and ignored by an older app: both mean no question.')
 })
 
 
@@ -686,11 +690,12 @@ export const AnswerSightingQuestionsBody = zod.object({
   "earTip": zod.enum(['clipped_left', 'clipped_right', 'clipped_unsure', 'looks_whole', 'cant_tell']).optional().describe('Is the ear tip clipped? \"clipped_unsure\" means clipped, but the spotter isn\'t sure which ear. Omit to skip.'),
   "foodAndWater": zod.enum(['yes', 'no', 'cant_tell']).optional().describe('Do they have food and water? Omit to skip.'),
   "note": zod.string().max(answerSightingQuestionsBodyNoteMax).optional().describe('\"Anything you noticed?\" Seen only by the Syros Cats team, never published. Blank is treated as skipped.'),
-  "changeEarTip": zod.boolean().optional().describe('With earTip: replace this device\'s own current ear-tip answer for this cat (from the cat\'s page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out.')
+  "changeEarTip": zod.boolean().optional().describe('With earTip: replace this device\'s own current ear-tip answer for this cat (from the cat\'s page). The old answer is kept, marked replaced. Refused with EAR_TIP_CHECKED once Syros Cats have checked it. Without this, a second ear-tip answer is left out.'),
+  "duplicate": zod.enum(['same', 'different', 'not_sure']).optional().describe('The answer to resolve\'s `duplicateQuestion`: \"Are these the same cat?\" (which-cat-is-which.md §3.1 item 1). Written as a report for the team to weigh; it never changes either cat. Once per sighting (a second one is left out, or ALREADY_ANSWERED if nothing else in the request was recorded). Refused with NO_DUPLICATE_QUESTION when this sighting was not asked about a pair, and with NOT_THEIRS for the team desk.')
 })
 
 export const AnswerSightingQuestionsResponse = zod.object({
-  "recorded": zod.array(zod.enum(['ear_tip', 'food_and_water', 'note'])).describe('Which answers were written (empty if everything was skipped)')
+  "recorded": zod.array(zod.enum(['ear_tip', 'food_and_water', 'note', 'duplicate'])).describe('Which answers were written (empty if everything was skipped)')
 })
 
 

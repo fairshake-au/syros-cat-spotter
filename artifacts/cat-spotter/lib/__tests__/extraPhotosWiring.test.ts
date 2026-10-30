@@ -184,8 +184,9 @@ describe('the review screen (review.tsx)', () => {
     expect(review).not.toMatch(/queuedItem\.photoUri/);
     expect(review).not.toMatch(/queuedItem\?\.photoBase64/);
     // SYC-503 added two: the "couldn't check" screen and the naming screen's photo.
-    expect(review.match(/\bcover\.uri\b/g)?.length).toBe(5);
-    expect(review.match(/\bcover\?\.base64\b/g)?.length).toBe(5);
+    // SYC-59 PR 5.2 added one: the spotter's own photo above "Are these the same cat?".
+    expect(review.match(/\bcover\.uri\b/g)?.length).toBe(6);
+    expect(review.match(/\bcover\?\.base64\b/g)?.length).toBe(6);
     expect(review).toMatch(/const cover = queuedItem \? coverOf\(queuedItem\) : null;/);
   });
 
