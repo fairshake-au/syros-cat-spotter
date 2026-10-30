@@ -1,6 +1,6 @@
 # Launch measures: a report on the team dashboard
 
-SYC-795 · parent SYC-760 · draft 3, 30 Oct 2026 · adversarial review folded in (§11) · Decision 2 made (Samuel checks matches, §4.6) · Decision 1 open · for Samuel's approval
+SYC-795 · parent SYC-760 · draft 4, 30 Oct 2026 · adversarial review folded in (§11) · both decisions made (Decision 1 = A; Samuel checks matches, §4.6) · for Samuel's approval
 
 ## 1. What this is
 
@@ -191,7 +191,9 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 
 ## 7. Decisions for Samuel
 
-### Decision 1: how to time the wait (measure 4)
+### Decision 1: how to time the wait (measure 4): decided, A
+
+**Samuel, 30 Oct 2026:** "Yes, option A". The options as they were put to him:
 
 **What this is about.** The app doesn't currently keep a trustworthy record of how long a spotter waits for matches. To show the wait, it has to start recording one.
 
