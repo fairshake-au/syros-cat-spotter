@@ -1,6 +1,6 @@
 # Launch measures: a report on the team dashboard
 
-SYC-795 · parent SYC-760 · draft 2, 30 Oct 2026 · adversarial review folded in (§11) · for Samuel's approval
+SYC-795 · parent SYC-760 · draft 3, 30 Oct 2026 · adversarial review folded in (§11) · Decision 2 made (Samuel checks matches, §4.6) · Decision 1 open · for Samuel's approval
 
 ## 1. What this is
 
@@ -107,9 +107,28 @@ Every sighting spotted that week falls in exactly one group. The rules are check
 
 - "The team moved it" means a real correction. A sighting moved because two records of the same cat were merged (or a merge was undone) is not a correction, and doesn't count.
 - **The headline:** "Right first time", as a share of all six rows.
-- **The second figure:** "Corrected by the team", as a share of suggestions taken. That's the floor on how often the app is wrong: the real rate is at least this.
-- **Caveat on the page:** "A suggestion the spotter took and nobody checked counts as right. 'Corrected by the team' shows how often we know it was wrong."
-- **There's no "looks right" figure.** The team can't confirm a match is right today. The dashboard only records it when they correct one. See **Decision 2**.
+- **The checked figure:** of the suggestions Samuel has checked (§4.6), the share he said looks right. It sits under the headline with its count ("Checked: 88% right · 44 of 50"). Below 20 checked it shows "Not enough checked yet". This is the figure to trust; the headline is the fast one.
+- **Corrected by the team:** as a share of suggestions taken. It counts corrections made anywhere, including outside the check list.
+- **Caveat on the page:** "The headline counts a suggestion nobody checked as right. The checked figure is the one to trust once it has enough behind it."
+
+### 4.6 Matches to check (Samuel's list)
+
+Samuel decided on 30 Oct 2026 that he checks matches himself: "I'll do the match checking, not the team". This adds a list to the dashboard, built like the existing **Probably sterilised** and **New cats to check** lists.
+
+- **What's on it:** sightings since launch where the spotter took one of the app's suggestions, and nobody has checked or moved the sighting yet.
+- **Each row shows:**
+  - the spotter's photo next to the chosen cat's main photo
+  - the cat's name and number
+  - the area and day spotted
+  - which suggestion it was (1st, 2nd or 3rd)
+- **Two buttons:**
+  - **Looks right.** Records that the match was checked and right, and takes it off the list.
+  - **Different cat.** Opens the existing move screen with this sighting filled in. Moving it records the correction exactly as moves already do.
+- **Order is fixed, oldest first.** It doesn't let you pick easy ones, and it isn't sorted by how confident the app was. Otherwise the checked figure would only measure the easy cases. If Samuel skips a row it stays at the top, so the order is never chosen by hand.
+- **Who sees it:** people who can move sightings today. That's the team permission added for moving and merging. Nobody else on the team sees it, and nothing goes to Jacky or Susan.
+- **On the road:** it's a phone-width page, usable on Samuel's phone. Server-drawn with no scripts, like the other lists.
+- **Where:** a link from the dashboard home with a count ("12 matches to check"), the same way New cats to check is reached.
+- **Recording:** "Looks right" fills the match record's team step, which is written once and only while empty, with "looks right", who, and when. The app already allows that value. Nothing writes it today. A later move still counts as a correction, and moves already only fill the step if it's empty. So a sighting checked as right and later moved shows in both rows. The report counts it as "corrected", because the later word wins.
 
 ### 4.4 Match wait time
 
@@ -155,7 +174,20 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **The island-only guard:** the new module is registered in the list of team-only report modules in `guardianView.source.test.ts`, with the reports and export permissions. Without that, the existing safety test fails.
 - **Charts** are drawn on the server with the existing chart helpers, like the other reports. The dashboard runs no scripts.
 - **Decision 1, option A:** one small database change, adding one number to the match record. It follows `lib/db/migrations/README.md`, and the coordinator decides when it merges. The match code has to note the time the photos arrived and pass it through to where the match is saved.
-- **Shared areas** (repo CLAUDE.md): reports are English-only and don't use the translation files. The Reports menu entry already exists, so the dashboard layout file isn't touched. The only shared area is the migration, if Decision 1 is A.
+- **Matches to check (§4.6):**
+  - its page, next to `likelyPage.ts` and `newCatsPage.ts`
+  - its routes
+  - a "Looks right" action that writes the match record's team step
+  - its count on the dashboard home
+- **Shared areas** (repo CLAUDE.md): reports are English-only and don't use the translation files.
+  - The report needs no dashboard layout change, because the Reports menu entry already exists.
+  - **The Matches to check page does touch the dashboard layout file** (`teamPages/layout.ts`), to register the page under Home, as the other check lists are. That's a one-line change, but the builder brief names the layout owner.
+  - The migration (Decision 1 = A) is the other shared area.
+- **Build order:** two PRs.
+  1. The report, plus the `launch_date` setting and the wait-time number.
+  2. Matches to check.
+
+  The report shows "Not enough checked yet" until PR 2 is in and Samuel has checked 20, so PR 1 doesn't wait for PR 2.
 
 ## 7. Decisions for Samuel
 
@@ -172,17 +204,9 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 
 **Recommendation: A.** It's accurate for what it measures, and small enough to be ready before launch. If the server part turns out tiny and spotters still say they're waiting, B becomes its own ticket.
 
-### Decision 2: how the team confirms a match (measure 3)
+### Decision 2: who confirms a match is right (measure 3): decided
 
-**What this is about.** When a spotter takes the app's suggestion, nobody checks it unless the team happens to correct it. So the accuracy figure trusts every unchecked suggestion. The dashboard has no button for the team to say "yes, this is the right cat", only ways to move a sighting when it's wrong.
-
-| Option | Benefit | Risk |
-|---|---|---|
-| **A. Report it as above, and leave confirming for later (Recommended)** | Ready with the report. "Corrected by the team" already tells us the least-wrong the app can be. | The headline flatters the matcher, because spotters tend to accept a plausible suggestion. The caveat has to carry that. |
-| B. Also add a "Looks right" button for the team on each sighting | A truly checked accuracy figure, which SYC-56 will want anyway | New dashboard work for the team. Jacky and Susan would have to check sightings they'd otherwise skip, so it's work on their plates. It becomes its own ticket and can't be ready by launch. |
-| C. Drop the accuracy measure until confirming exists | No flattering number on the page | One of your five measures is missing at the baseline, which is exactly when SYC-56 needs it |
-
-**Recommendation: A.** Have the honest-as-possible figure from launch, and file B as an SYC-56 follow-up to decide after the hold.
+**Samuel, 30 Oct 2026:** "I'll do the match checking, not the team". So the dashboard gets the **Matches to check** list (§4.6) with a "Looks right" button, for Samuel. The report shows a checked accuracy figure under the headline. This replaces draft 2's options, which were to defer confirming, to have the team do it, or to drop accuracy.
 
 ## 8. How we'll know it's right (tests)
 
@@ -207,6 +231,13 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - Sending the same photos again doesn't overwrite it.
 - A timed-out first try followed by a success records the success.
 
+**Matches to check**
+- Only suggestions taken, unchecked and unmoved, since launch, oldest first.
+- "Looks right" writes the team step once. A second press, or a press after a move, changes nothing.
+- A sighting checked right and later moved counts as corrected in the report.
+- Someone without the move permission gets the usual refusal and sees no count on the home page.
+- The page works at phone width.
+
 **Baseline and labels**
 - Launch on a Tuesday gives "Launch days" then the baseline from the next Monday.
 - Launch on a Monday gives a baseline that week.
@@ -225,7 +256,8 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - Targets. They get set once the baseline exists (Samuel, 30 Oct).
 - Welfare reports closed within a week, active guardians, and donation taps. Samuel left these off. Donation taps keep their own ticket (SYC-525).
 - Building the follow card itself (SYC-45). This report only measures it.
-- A team "looks right" button (Decision 2, option B) and phone-side upload timing (Decision 1, option B), unless Samuel picks them.
+- Checking matches the spotter picked by hand, or new cats. New cats already have their own list, and hand picks can come later if the checked figure needs them.
+- Phone-side upload timing (Decision 1, option B), unless Samuel picks it.
 - Marking tester devices.
 - An email or push summary of the numbers. Samuel chose the dashboard.
 
@@ -234,7 +266,7 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **SYC-345 (launch day):** add "set `launch_date`" to the checklist.
 - **SYC-45 (email capture):** record the date the follow card is switched on.
 - **SYC-389 and SYC-376:** point each at this report as where its number now lives. SYC-56 keeps the deeper accuracy work.
-- **If Decision 2 = A:** file "team can confirm a match is right" under SYC-56.
+- **SYC-56:** note that Samuel's checked matches are its first labelled set.
 
 ## 11. Adversarial review (30 Oct), and what changed
 
