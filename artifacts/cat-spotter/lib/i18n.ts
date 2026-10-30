@@ -730,6 +730,14 @@ const en: Dict = {
   answersSend: 'Send',
   answersFailed: 'We couldn’t send your answers. Check your signal and try again.',
   answersContinueWithout: 'Continue without sending',
+  // SYC-59 PR 5.2 (which-cat-is-which.md §3.1 item 1, D8): "Are these the same cat?"
+  // below the other questions. Greek and French are drafts for Johnny's pack.
+  dupQuestion: 'These two look alike. Are they the same cat?',
+  dupSame: 'Same cat',
+  dupDifferent: 'Different cats',
+  dupNotSure: 'Not sure',
+  dupYourPhotoAlt: 'Your photo',
+  dupCatPhotoAlt: 'Main photo of {name}',
   // SYC-117 part 2: adding details later, from the cat's page.
   moreToAddOne: 'You spotted {name} on {date}.',
   moreToAddMany: 'You spotted {name} {count} times in the last month.',
@@ -1732,6 +1740,13 @@ const el: Dict = {
   answersSend: 'Αποστολή',
   answersFailed: 'Δεν μπορέσαμε να στείλουμε τις απαντήσεις σου. Έλεγξε το σήμα σου και δοκίμασε ξανά.',
   answersContinueWithout: 'Συνέχεια χωρίς αποστολή',
+  // SYC-59 PR 5.2: draft for Johnny's checking pack.
+  dupQuestion: 'Αυτές οι δύο μοιάζουν. Είναι η ίδια γάτα;',
+  dupSame: 'Η ίδια γάτα',
+  dupDifferent: 'Διαφορετικές γάτες',
+  dupNotSure: 'Δεν είμαι σίγουρος/η',
+  dupYourPhotoAlt: 'Η φωτογραφία σου',
+  dupCatPhotoAlt: 'Κύρια φωτογραφία της γάτας {name}',
   // SYC-117 part 2: needs native review (SYC-4).
   moreToAddOne: 'Είδες τη γάτα {name} στις {date}.',
   moreToAddMany: 'Είδες τη γάτα {name} {count} φορές τον τελευταίο μήνα.',
@@ -2705,6 +2720,13 @@ const fr: Dict = {
   answersSend: 'Envoyer',
   answersFailed: 'Impossible d’envoyer tes réponses. Vérifie ton réseau et réessaie.',
   answersContinueWithout: 'Continuer sans envoyer',
+  // SYC-59 PR 5.2: draft for Johnny's checking pack.
+  dupQuestion: 'Ces deux-là se ressemblent. C’est le même chat ?',
+  dupSame: 'Le même chat',
+  dupDifferent: 'Deux chats différents',
+  dupNotSure: 'Pas sûr(e)',
+  dupYourPhotoAlt: 'Ta photo',
+  dupCatPhotoAlt: 'Photo principale de {name}',
   // SYC-117 part 2: needs native review (SYC-4).
   moreToAddOne: 'Tu as vu {name} le {date}.',
   moreToAddMany: 'Tu as vu {name} {count} fois ce dernier mois.',

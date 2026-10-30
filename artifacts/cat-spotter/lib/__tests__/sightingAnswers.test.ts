@@ -58,6 +58,24 @@ describe('answersRequest', () => {
   });
 });
 
+describe('answersRequest and "Are these the same cat?" (SYC-59 PR 5.2)', () => {
+  it.each(['same', 'different', 'not_sure'] as const)('sends "%s" on its own', (duplicate) => {
+    expect(answersRequest(DEVICE, { ...NO_ANSWERS, duplicate })).toEqual({ deviceId: DEVICE, duplicate });
+  });
+
+  it('sends it with the other answers', () => {
+    expect(answersRequest(DEVICE, { ...NO_ANSWERS, foodAndWater: 'yes', duplicate: 'same' })).toEqual({
+      deviceId: DEVICE,
+      foodAndWater: 'yes',
+      duplicate: 'same',
+    });
+  });
+
+  it('leaves it out when it was not answered', () => {
+    expect(answersRequest(DEVICE, { ...NO_ANSWERS, foodAndWater: 'yes' })).toEqual({ deviceId: DEVICE, foodAndWater: 'yes' });
+  });
+});
+
 describe('classifyAnswersError', () => {
   function apiError(status: number, data: unknown) {
     return new ApiError(new Response(JSON.stringify(data), { status }), data, {
@@ -82,6 +100,7 @@ describe('classifyAnswersError', () => {
 
   it.each([
     [422, 'ANSWERS_CLOSED'],
+    [422, 'NO_DUPLICATE_QUESTION'],
     [409, 'NOT_RESOLVED'],
     [400, undefined],
   ])('a %s %s cannot be fixed by retrying', (status, code) => {

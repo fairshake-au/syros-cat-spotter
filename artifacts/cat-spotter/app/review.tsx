@@ -49,6 +49,7 @@ import { FeedNudge } from "@/components/FeedNudge";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { useResultNudge } from "@/hooks/useResultNudge";
 import { SightingQuestions } from "@/components/SightingQuestions";
+import { DuplicateQuestion } from "@/components/DuplicateQuestion";
 import { BadgeCelebration } from "@/components/celebration/BadgeCelebration";
 import { useCelebration } from "@/context/CelebrationContext";
 import { badgeViews } from "@/lib/badgeProgress";
@@ -664,6 +665,26 @@ export default function ReviewScreen() {
             onChange={(patch) => setAnswers((prev) => ({ ...prev, ...patch }))}
             t={t}
           />
+          {/* SYC-59 PR 5.2 (which-cat-is-which.md §3.1 item 1, D8): the last,
+              optional question, below the usual ones. */}
+          {result.duplicateQuestion && result.duplicateQuestion.catId === result.cat.id ? (
+            <DuplicateQuestion
+              question={result.duplicateQuestion}
+              chosen={result.cat}
+              cats={cats}
+              yourPhoto={
+                <SightingPhoto
+                  uri={cover ? cover.uri : data.photoRef}
+                  base64={cover?.base64}
+                  style={styles.duplicateYourPhoto}
+                  contentFit="cover"
+                />
+              }
+              value={answers.duplicate}
+              onChange={(duplicate) => setAnswers((prev) => ({ ...prev, duplicate }))}
+              t={t}
+            />
+          ) : null}
         </View>
         ) : null}
         {answersFailed ? (
@@ -1555,6 +1576,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
   },
+  // Fills the frame DuplicateQuestion gives the spotter's own photo.
+  duplicateYourPhoto: { width: "100%", height: "100%" },
   compareRow: { flexDirection: "row", gap: 12 },
   nameTakenBody: {
     padding: 16,
