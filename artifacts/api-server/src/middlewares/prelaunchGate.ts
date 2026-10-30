@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import {
   COAT_SWEEP_PATH,
+  DUPLICATE_SWEEP_PATH,
   FINGERPRINT_NIGHTLY_PATH,
   MAIL_DRAIN_PATH,
   VET_BATCH_CLEANUP_PATH,
@@ -47,7 +48,8 @@ import {
  *    Exactly POST /api/internal/news/nightly, or exactly GET or HEAD
  *    /api/internal/news/last-run (SYC-45 Slice 1) → only `Authorization:
  *    Bearer <NEWS_JOB_TOKEN>`, the nightly news check's own token.
- *    Exactly POST /api/internal/fingerprints/nightly (SYC-527 piece 3) → only
+ *    Exactly POST /api/internal/fingerprints/nightly (SYC-527 piece 3), or
+ *    exactly POST /api/internal/duplicates/sweep (SYC-59 PR 5.3) → only
  *    `Authorization: Bearer <FINGERPRINT_JOB_TOKEN>`, the looks-like batch's
  *    own token.
  *    Any other /api/internal/* → only `Authorization: Bearer
@@ -153,7 +155,7 @@ export function prelaunchGate(
     return;
   }
 
-  if (path === FINGERPRINT_NIGHTLY_PATH && req.method === "POST") {
+  if ((path === FINGERPRINT_NIGHTLY_PATH || path === DUPLICATE_SWEEP_PATH) && req.method === "POST") {
     // SYC-527 piece 3: the looks-like batch's own token, and only it.
     if (checkFingerprintJobToken(req.headers.authorization) === "ok") {
       next();

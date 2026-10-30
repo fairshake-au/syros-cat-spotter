@@ -51,6 +51,9 @@ const COMMA_JOIN = /,\s*cats\b(?=\s+(?:as\s+)?\w|\s*(?:where|on|,|$))/i;
  * file turns this red as surely as a read in a new file.
  */
 const ALLOWLIST: Record<string, readonly string[]> = {
+  "artifacts/api-server/src/lib/duplicateSweep.ts": [
+    "decidedPairScores: the cats of pairs the team decided, by id; a merged pair's merged-away cat is exactly what calibration must read (spec 9.6)",
+  ],
   "artifacts/api-server/src/lib/moveSightings.ts": [
     "moveSightingsIn: the two cats of a move, locked by id (§9.7 lock 4)",
     "moveSightingsIn: the cat the sightings leave, by id, under its lock",

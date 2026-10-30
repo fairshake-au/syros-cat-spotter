@@ -2,12 +2,12 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { formRoute } from "./teamCorrections";
-import { SwitchRefused, setDonateAddress, setExtraPhotos, setFactShown, switchDonationOff, switchesNow } from "../lib/appSwitches";
+import { SwitchRefused, setDonateAddress, setDuplicateSweep, setExtraPhotos, setFactShown, switchDonationOff, switchesNow } from "../lib/appSwitches";
 import { renderAppSwitchesPage, APP_SWITCHES_DONE, APP_SWITCHES_PATH } from "../lib/teamPages/appSwitchesPage";
 import { renderConfirmPage } from "../lib/teamPages/confirm";
 
 // The App switches page (SYC-383): the Help feed a cat button's address, the
-// extra photo boxes' On / Off (SYC-415) and the starter facts' Shown / Hidden. Team-only: `edit_app_switches` is
+// extra photo boxes' On / Off (SYC-415), the look-alike sweep's On / Off (SYC-59 PR 5.3) and the starter facts' Shown / Hidden. Team-only: `edit_app_switches` is
 // island-only, so a cat guardian gets the 403 on every route here.
 
 const router: IRouter = Router();
@@ -24,6 +24,7 @@ async function page(res: Response, status: number, extra: { again?: { typed: str
       donateUrl: now.donateUrl,
       hidden: now.hidden,
       extraPhotosOn: now.extraPhotosOn,
+      duplicateSweepOn: now.duplicateSweepOn,
       ...extra,
     }),
   );
@@ -33,7 +34,7 @@ router.get("/team/app-switches", requireTeam("edit_app_switches"), async (req: R
   setTeamHeaders(res); // before any await, so an error answer carries them too
   if (wantsJson(req)) {
     const now = await switchesNow();
-    return void res.json({ donateUrl: now.donateUrl, hiddenFacts: [...now.hidden], extraPhotosOn: now.extraPhotosOn });
+    return void res.json({ donateUrl: now.donateUrl, hiddenFacts: [...now.hidden], extraPhotosOn: now.extraPhotosOn, duplicateSweepOn: now.duplicateSweepOn });
   }
   const done = str(req.query["done"]);
   await page(res, 200, { done: Object.hasOwn(APP_SWITCHES_DONE, done) ? done : undefined });
@@ -87,6 +88,19 @@ router.post("/team/app-switches/extra-photos", ...formRoute("edit_app_switches")
   await setExtraPhotos(on);
   if (wantsJson(req)) return void res.json({ ok: true, extraPhotosOn: on });
   res.redirect(303, `${APP_SWITCHES_PATH}?done=${on ? "photosOn" : "photosOff"}#extra-photos`);
+});
+
+// Both ways are one tap: turning the sweep off only stops new reports; the ones written stay on the list.
+router.post("/team/app-switches/duplicate-sweep", ...formRoute("edit_app_switches"), async (req: Request, res: Response) => {
+  const raw = body(req)["on"];
+  if (!(raw === true || raw === false || raw === "1" || raw === "0")) {
+    if (wantsJson(req)) return void res.status(400).json({ error: "bad_form", field: "on" });
+    return page(res, 400, {});
+  }
+  const on = raw === true || raw === "1";
+  await setDuplicateSweep(on);
+  if (wantsJson(req)) return void res.json({ ok: true, duplicateSweepOn: on });
+  res.redirect(303, `${APP_SWITCHES_PATH}?done=${on ? "sweepOn" : "sweepOff"}#duplicate-sweep`);
 });
 
 router.post("/team/app-switches/fact", ...formRoute("edit_app_switches"), async (req: Request, res: Response) => {

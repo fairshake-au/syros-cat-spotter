@@ -6,7 +6,7 @@ import { FACT_WORDS } from "./appSwitchFacts";
 import { DEFAULT_DONATE_ADDRESS, EXPECTED_DONATE_HOST } from "../appSwitches";
 
 // The App switches page (SYC-383): the "Help feed a cat" button, the extra
-// photo boxes on New spot (SYC-415) and the starter facts, which the team can
+// photo boxes on New spot (SYC-415), the look-alike sweep (SYC-59 PR 5.3) and the starter facts, which the team can
 // switch without a new app. Team-only
 // (`edit_app_switches`). No history: Samuel chose that on 24 Oct 2026.
 
@@ -17,6 +17,8 @@ export const APP_SWITCHES_DONE: Record<string, string> = {
   off: "The button is off. Visitors see the words without a button.",
   photosOn: "The extra photo boxes are on.",
   photosOff: "The extra photo boxes are off.",
+  sweepOn: "The nightly look-alike sweep is on.",
+  sweepOff: "The nightly look-alike sweep is off.",
   shown: "That fact is now shown in the app.",
   hidden: "That fact is now hidden in the app.",
 };
@@ -29,6 +31,8 @@ export interface AppSwitchesPageOptions {
   hidden: ReadonlySet<string>;
   /** Whether the New spot screen shows the extra photo boxes. */
   extraPhotosOn: boolean;
+  /** Whether the nightly look-alike sweep adds pairs to Possible duplicates. */
+  duplicateSweepOn: boolean;
   /** The address form sent back with a problem: what was typed, and why. */
   again?: { typed: string; message: string };
   /** A change that just went through. */
@@ -81,6 +85,20 @@ function extraPhotosSection(on: boolean): string {
   );
 }
 
+function duplicateSweepSection(on: boolean): string {
+  return (
+    '<h2 id="duplicate-sweep">Nightly look-alike sweep</h2>' +
+    `<p class="hbig"><strong>${on ? "On" : "Off"}</strong></p>` +
+    (on
+      ? '<p class="hint">Each night the app compares the main photos of cats seen close together and adds up to 10 look-alike pairs to Possible duplicates. Nothing is ever merged for you.</p>'
+      : '<p class="hint">No pairs are added by look-alike photos. Keep it off until the team has checked how well it does on pairs already decided.</p>') +
+    `<form method="post" action="${APP_SWITCHES_PATH}/duplicate-sweep">` +
+    `<input type="hidden" name="on" value="${on ? "0" : "1"}">` +
+    `<button type="submit" class="${on ? "secondary" : "primary"}">${on ? "Turn the sweep off" : "Turn the sweep on"}</button>` +
+    "</form>"
+  );
+}
+
 function factRow(id: string, text: string, n: number, hidden: boolean): string {
   return (
     `<li id="${esc(id)}"><p><strong>${n}.</strong> ${esc(text)}</p>` +
@@ -101,16 +119,18 @@ export function renderAppSwitchesPage(o: AppSwitchesPageOptions): string {
     beforeTitle: backLink(SETTINGS_PATH, "Settings"),
     body:
       (done ? `<p class="notice" role="status">${esc(done)}</p>` : "") +
-      pageIntro("Three things the public app shows, which you can change without a new version of the app.") +
+      pageIntro("Things you can change without a new version of the app. The first three change what the public app shows; the look-alike sweep only adds pairs to the team's Possible duplicates list.") +
       whatHappens("These switches change the public app for everyone. Each phone sees a change within a couple of minutes, the next time the app is opened. Agree a change with the team first.", { warn: true }) +
       howFold([
         'Help feed a cat button: while a visitor waits for a photo match, the app asks them not to feed the cats. It also shows "€1 feeds a cat for a day. €30 feeds one for a month." Those are the figures. With the button off, visitors see the words with no button and no figures.',
         'Extra photos: when someone spots a cat, the app can ask for a photo of its face and one of its whole body as well as the first photo. They help the team tell look-alike cats apart. Turning this off hides the two boxes; anyone halfway through a spot loses the extra photos they hadn\'t sent yet.',
+        'Nightly look-alike sweep: when on, the app compares the main photos of cats seen close together each night and adds up to 10 look-alike pairs to Possible duplicates. It never merges anything and the public never sees it. Keep it off until it has been checked against pairs the team has already decided.',
         'Starter facts: short facts about street cats that the app shows while it looks for a match. Hide a fact to stop it appearing.',
         "A change reaches each phone within a couple of minutes, the next time the app is opened.",
       ], { words: false }) +
       donationSection(o) +
       extraPhotosSection(o.extraPhotosOn) +
+      duplicateSweepSection(o.duplicateSweepOn) +
       `<h2 id="facts">Starter facts</h2><p class="hint">${shownCount} of ${FACT_WORDS.length} shown. These appear while the app looks for a match.</p>` +
       "<ul>" +
       FACT_WORDS.map((f, i) => factRow(f.id, f.text, i + 1, o.hidden.has(f.id))).join("") +

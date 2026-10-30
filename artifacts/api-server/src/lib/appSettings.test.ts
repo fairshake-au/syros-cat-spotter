@@ -18,8 +18,15 @@ describe("settingsFromRows", () => {
       hiddenFacts: [...SIGN_OFF_FACT_IDS],
       countTaps: true,
       extraPhotosOn: false,
+      duplicateSweepOn: false,
       sterilisationPriceEur: 60,
     });
+  });
+
+  it("duplicate_sweep (SYC-59 PR 5.3) is off with no row, on only for true; a wrong shape keeps it off", () => {
+    expect(settingsFromRows([]).duplicateSweepOn).toBe(false);
+    expect(settingsFromRows([{ key: "duplicate_sweep", value: true }]).duplicateSweepOn).toBe(true);
+    expect(settingsFromRows([{ key: "duplicate_sweep", value: "on" }]).duplicateSweepOn).toBe(false);
   });
 
   it("the nine sign-off facts are facts 1, 3, 4, 5, 6, 8, 9, 12 and 19", () => {

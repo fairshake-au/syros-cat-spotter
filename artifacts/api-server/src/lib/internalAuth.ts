@@ -101,15 +101,24 @@ export function checkNewsJobToken(
 
 /**
  * SYC-527 piece 3: `FINGERPRINT_JOB_TOKEN`, the nightly looks-like batch's
- * own token, like NEWS_JOB_TOKEN. It opens exactly one path and nothing
- * else, and no other token opens it:
+ * own token, like NEWS_JOB_TOKEN. It opens exactly these two paths and
+ * nothing else, and no other token opens them:
  * - POST /api/internal/fingerprints/nightly (fingerprint every active cat's
- *   display photo that has none, within a 90-second budget).
+ *   display photo that has none, within a 90-second budget), and
+ * - POST /api/internal/duplicates/sweep (SYC-59 PR 5.3, below).
  * A leaked token can at worst make the server do 90 seconds at a time of its own
  * fingerprinting, which a search would do anyway. Held only in Replit's
  * deployment secrets and the GitHub `production` environment; never in a file.
  */
 export const FINGERPRINT_NIGHTLY_PATH = "/api/internal/fingerprints/nightly";
+/**
+ * SYC-59 PR 5.3: the nightly look-alike sweep, which runs straight after the
+ * fingerprint batch and takes the same token (no new secret). Behind the app
+ * switch `duplicate_sweep`; with it off the route does nothing. A leaked
+ * token can at worst run a sweep that writes at most 10 pairs onto the
+ * team's list, and only while the switch is on.
+ */
+export const DUPLICATE_SWEEP_PATH = "/api/internal/duplicates/sweep";
 
 export function checkFingerprintJobToken(
   authorization: string | undefined,

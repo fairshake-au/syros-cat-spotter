@@ -53,6 +53,10 @@ export const SETTING_KEYS = [
   // this is true, set after the live build is confirmed to include SYC-462.
   // Hiding never needs it. The server doesn't read it; the photos command does.
   "photo_removal_on",
+  // SYC-59 PR 5.3 (which-cat-is-which.md §9.6, D11): the nightly look-alike
+  // sweep. Off until it has been calibrated on decided pairs; a missing row
+  // is off.
+  "duplicate_sweep",
   // SYC-396 PR 2.3 (dashboard §8.4): the standard sterilisation price in whole
   // euros. The trapping planner's estimate and the vet-visit form's cost read
   // it; the Vet settings page (PR 3.1b) changes it, with its history.
@@ -94,6 +98,7 @@ export function settingShapeProblem(key: SettingKey, value: unknown): string | n
     case "feed_tap_count":
     case "extra_photos_on":
     case "photo_removal_on":
+    case "duplicate_sweep":
       return typeof value === "boolean" ? null : "must be true or false";
     case "standard_sterilisation_price_eur":
       return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 500

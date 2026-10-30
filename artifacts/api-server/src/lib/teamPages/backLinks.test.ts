@@ -65,7 +65,7 @@ const ROWS: [string, () => string, string, string][] = [
   ["Ear clips to check", () => renderLikelyPage([], "Susan"), "← Home", HOME_PATH],
   ["Colour check", () => renderColourCheckPage([], "Susan"), "← Home", HOME_PATH],
   ["Vet settings", () => renderVetSettingsPage({ personName: "Susan", priceEur: 55, history: [] }), "← Settings", SETTINGS_PATH],
-  ["App switches", () => renderAppSwitchesPage({ personName: "Susan", donateUrl: null, hidden: new Set(), extraPhotosOn: false }), "← Settings", SETTINGS_PATH],
+  ["App switches", () => renderAppSwitchesPage({ personName: "Susan", donateUrl: null, hidden: new Set(), extraPhotosOn: false, duplicateSweepOn: false }), "← Settings", SETTINGS_PATH],
   [
     "A colony",
     () =>

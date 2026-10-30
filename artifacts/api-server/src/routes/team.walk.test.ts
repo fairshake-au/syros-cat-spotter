@@ -303,6 +303,7 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/app-switches": { why: "edit_app_switches: island-only, so every cat guardian gets the 403" },
   "POST /api/team/app-switches/donation": { why: "edit_app_switches: island-only; the walk's empty address is a 400 for the team, and changes nothing" },
   "POST /api/team/app-switches/fact": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
+  "POST /api/team/app-switches/duplicate-sweep": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "POST /api/team/app-switches/extra-photos": { why: "edit_app_switches: island-only; the walk's empty form is a 400 for the team, and changes nothing" },
   "GET /api/team/settings": { why: "Settings (SYC-694): view_welfare_queue, island-only, so every cat guardian gets the 403" },
   "GET /api/team/words": { why: "Words we use (SYC-739): view_welfare_queue, island-only, so every cat guardian gets the 403" },
@@ -388,6 +389,7 @@ const OWN_CHECKS: Record<string, string> = {
   "POST /api/internal/news/nightly": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
   "GET /api/internal/news/last-run": "the news check's own bearer token, SYC-45 (news/nightly.test.ts)",
   "POST /api/internal/fingerprints/nightly": "the fingerprint batch's own bearer token, SYC-527 (fingerprintJob.test.ts)",
+  "POST /api/internal/duplicates/sweep": "the fingerprint batch's bearer token, SYC-59 PR 5.3 (duplicateSweepJob.test.ts)",
 };
 
 /**

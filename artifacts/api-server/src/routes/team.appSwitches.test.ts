@@ -13,6 +13,7 @@ const SESSION_KEY = "vitest-app-switches-key-0123456789abcdef-0123456789";
 const URL_KEY = "feed_nudge_donate_url";
 const FACTS_KEY = "starter_facts_hidden";
 const PHOTOS_KEY = "extra_photos_on";
+const SWEEP_KEY = "duplicate_sweep";
 const PATH = "/api/team/app-switches";
 
 let team: Signed;
@@ -37,7 +38,7 @@ beforeAll(async () => {
   process.env["TEAM_SESSION_KEYS"] = SESSION_KEY;
   team = await signedPerson("app-switches-team", ["staff"]);
   guardian = await guardianOn("app-switches-guardian", [await newColony("app-switches")]);
-  for (const k of [URL_KEY, FACTS_KEY, PHOTOS_KEY]) original.set(k, await stored(k));
+  for (const k of [URL_KEY, FACTS_KEY, PHOTOS_KEY, SWEEP_KEY]) original.set(k, await stored(k));
 });
 
 beforeEach(async () => {
@@ -45,6 +46,8 @@ beforeEach(async () => {
   await put(URL_KEY, "https://syroscats.com/donations");
   await put(FACTS_KEY, ["fact.earTip", "fact.cost"]);
   await put(PHOTOS_KEY, false);
+  await pool.query(`delete from app_settings where key = $1`, [SWEEP_KEY]);
+  clearAppSettingsCache();
 });
 
 afterAll(async () => {
@@ -167,6 +170,38 @@ describe("the App switches page", () => {
     expect(await stored(PHOTOS_KEY)).toBe(false);
   });
 
+  it("turns the nightly look-alike sweep on and off in one tap; it starts off with no row (SYC-59 PR 5.3)", async () => {
+    const off = await page(team.cookie);
+    expect(off.text).toContain('<h2 id="duplicate-sweep">Nightly look-alike sweep</h2>');
+    expect(off.text).toContain("Turn the sweep on");
+    expect(await stored(SWEEP_KEY)).toBeUndefined();
+    expect((await settings()).duplicateSweepOn).toBe(false);
+    const on = await send(team.cookie, "duplicate-sweep", { on: "1" });
+    expect([on.status, on.headers["location"]]).toEqual([303, `${PATH}?done=sweepOn#duplicate-sweep`]);
+    expect(await stored(SWEEP_KEY)).toBe(true);
+    expect((await getAppSettings()).duplicateSweepOn).toBe(true);
+    const shown = await page(team.cookie, "?done=sweepOn");
+    expect(shown.text).toContain("The nightly look-alike sweep is on.");
+    expect(shown.text).toContain("Turn the sweep off");
+    const back = await send(team.cookie, "duplicate-sweep", { on: "0" });
+    expect(back.headers["location"]).toBe(`${PATH}?done=sweepOff#duplicate-sweep`);
+    expect((await getAppSettings()).duplicateSweepOn).toBe(false);
+  });
+
+  it("refuses a sweep form with no state, and writes nothing", async () => {
+    for (const body of [{}, { on: "yes" }] as Record<string, string>[]) {
+      expect((await send(team.cookie, "duplicate-sweep", body)).status).toBe(400);
+    }
+    expect(await stored(SWEEP_KEY)).toBeUndefined();
+  });
+
+  it("never tells the public app about the sweep", async () => {
+    await send(team.cookie, "duplicate-sweep", { on: "1" });
+    const res = await request(app).get("/api/app-settings");
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toMatch(/sweep|duplicate/i);
+  });
+
   it("shows and hides one fact without touching the others", async () => {
     const show = await send(team.cookie, "fact", { id: "fact.earTip", shown: "1" });
     expect([show.status, show.headers["location"]]).toEqual([303, `${PATH}?done=shown#fact.earTip`]);
@@ -192,18 +227,19 @@ describe("the App switches page", () => {
   });
 
   it("a cat guardian gets 403 on the page and on every form", async () => {
-    const before = [await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY)];
+    const before = [await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY), await stored(SWEEP_KEY)];
     const g = await request(app).get(PATH).set("Cookie", guardian.cookie);
     expect([g.status, g.text]).toEqual([403, '{"error":"forbidden"}']);
     for (const [sub, body] of [
       ["donation", { do: "off" }],
       ["fact", { id: "fact.milk", shown: "0" }],
       ["extra-photos", { on: "1" }],
+      ["duplicate-sweep", { on: "1" }],
     ] as const) {
       const p = await request(app).post(`${PATH}/${sub}`).set("Origin", TEAM_ORIGIN).set("Cookie", guardian.cookie).type("form").send(body);
       expect([p.status, p.text]).toEqual([403, '{"error":"forbidden"}']);
     }
-    expect([await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY)]).toEqual(before);
+    expect([await stored(URL_KEY), await stored(FACTS_KEY), await stored(PHOTOS_KEY), await stored(SWEEP_KEY)]).toEqual(before);
   });
 
   it("a POST from another site, or with no Origin, is refused", async () => {
@@ -220,7 +256,7 @@ describe("the App switches page", () => {
   it("answers JSON too", async () => {
     const res = await request(app).get(PATH).set("Cookie", team.cookie).set("Accept", "application/json");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"], extraPhotosOn: false });
+    expect(res.body).toEqual({ donateUrl: "https://syroscats.com/donations", hiddenFacts: ["fact.earTip", "fact.cost"], extraPhotosOn: false, duplicateSweepOn: false });
   });
 
   it("is reachable: Settings links it", async () => {
