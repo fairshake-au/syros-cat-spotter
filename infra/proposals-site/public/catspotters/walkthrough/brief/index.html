@@ -190,6 +190,7 @@ details p{color:var(--ink);font-size:15px;margin-top:6px}
   var lb=document.getElementById('lb'), li=document.getElementById('lbimg'), last=null;
   document.querySelectorAll('[data-shot]').forEach(function(el){
     var name=el.getAttribute('data-shot'), cap=el.querySelector('figcaption b'), label=cap?cap.textContent:'Screen';
+    if (!/^[A-Za-z0-9-]+$/.test(name||'')) return;
     var b=document.createElement('button'); b.type='button'; b.setAttribute('aria-label','Open full size: '+label);
     var img=document.createElement('img'); img.src='img/'+name+'.jpg'; img.alt=label; img.loading='lazy'; img.decoding='async';
     b.appendChild(img); el.insertBefore(b, el.firstChild);

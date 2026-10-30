@@ -748,6 +748,7 @@ footer .wrap{padding-block:24px 40px;font-size:14px;color:var(--muted);display:g
   function src(name){ return 'img/' + name + '.jpg'; }
   document.querySelectorAll('[data-shot]').forEach(function(el){
     var name = el.getAttribute('data-shot');
+    if (!/^[A-Za-z0-9-]+$/.test(name || '')) return;
     var cap = el.querySelector('figcaption');
     var label = cap ? cap.textContent.replace(/^\S+\s/, '') : 'Screen';
     var b = document.createElement('button');
