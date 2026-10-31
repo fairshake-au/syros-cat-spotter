@@ -1,6 +1,6 @@
 # Launch measures: a report on the team dashboard
 
-SYC-795 · parent SYC-760 · draft 4, 30 Oct 2026 · adversarial review folded in (§11) · both decisions made (Decision 1 = A; Samuel checks matches, §4.6) · for Samuel's approval
+SYC-795 · parent SYC-760 · draft 5, 31 Oct 2026 · adversarial review folded in (§11) · both decisions made (Decision 1 = B; Samuel checks matches, §4.6) · **approved by Samuel, 31 Oct 2026** ("decisions: 1B. approved with that change.")
 
 ## 1. What this is
 
@@ -134,11 +134,25 @@ Samuel decided on 30 Oct 2026 that he checks matches himself: "I'll do the match
 
 *What it tells us:* how long a spotter waits after "Check for matches". A long wait on island signal loses spots. This is SYC-389's measure.
 
-**What the app keeps today isn't enough.** It does record when the matcher last answered. But that time is overwritten whenever the same sighting is matched again, which happens when a phone sends the same photos twice. And the sighting's own time is when the photo was taken, not when it reached the server. So the app has to start recording the wait (see **Decision 1**). With the recommended option the page shows:
+**What the app keeps today isn't enough.** It does record when the matcher last answered. But that time is overwritten whenever the same sighting is matched again, which happens when a phone sends the same photos twice. And the sighting's own time is when the photo was taken, not when it reached the server. So the app starts recording two times for each sighting (**Decision 1 = B**):
 
-- **Typical wait** (the median) and **slow end** (the 90th percentile) per week, in seconds, as two lines on one chart.
-- It covers the server's part only: from the photos arriving to the matcher's answer. Upload time on the phone isn't included, and the page says: "Doesn't include upload time on the spotter's phone".
-- It counts **only each sighting's first successful match**. When the matcher was down or timed out, the sighting is left out of the times and counted instead in a third line: "Matcher down or timed out", as a share of sightings. A timeout is about 35 seconds, and mixing those in would drown the typical wait.
+- **The wait on the phone:** the wait the spotter actually feels. It runs from tapping "Check for matches" until the matches appear, so it includes shrinking the photo on poor signal and the upload. The phone measures it and sends it to the server straight after the matches appear, in a small separate message, so it's kept even if the spotter leaves without choosing.
+- **The server's part:** from the photos arriving at the server to the matcher's answer.
+
+Comparing the two shows whether a slow wait is the signal or the matcher. Rules for both:
+
+- **Only each sighting's first successful match counts.** Sending the same photos again doesn't overwrite either time, and each is written once.
+- **Matcher down or timed out:** the sighting is left out of the times and counted instead as "Matcher down or timed out", as a share of sightings. A timeout is about 35 seconds, and mixing those in would drown the typical wait.
+- **Sightings saved for later on no signal have no phone wait.** The spotter wasn't waiting when the queued sighting went later, so the phone sends nothing. They still have a server time.
+- **A send that fails and is tried again** is timed from the tap that got the matches.
+- **Phone waits over 10 minutes are left out** (the app was put away mid-wait) and counted in the note.
+- **The phone and the website are one app**, so both send it. Sightings sent before the update have no phone wait. The page says "Phone wait recorded from [date]" and greys earlier weeks.
+
+The page shows, per week, as lines on one chart:
+
+- **Wait on the phone:** typical (the median) and slow end (the 90th percentile), in seconds.
+- **Server's part:** typical (the median).
+- Under the chart: "Matcher down or timed out" as a share of sightings, and how many sightings have a server time but no phone wait (saved for later, sent before the update, or over 10 minutes).
 
 SYC-389's own rule still applies: if the typical wait is under 2 seconds, those numbers go to Samuel with a recommendation about the feeding nudge.
 
@@ -173,7 +187,11 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **Settings:** `launch_date` joins the known setting keys and shape checks (`lib/db/src/appSettings/shape.ts`), and the settings reader (`lib/appSettings.ts`).
 - **The island-only guard:** the new module is registered in the list of team-only report modules in `guardianView.source.test.ts`, with the reports and export permissions. Without that, the existing safety test fails.
 - **Charts** are drawn on the server with the existing chart helpers, like the other reports. The dashboard runs no scripts.
-- **Decision 1, option A:** one small database change, adding one number to the match record. It follows `lib/db/migrations/README.md`, and the coordinator decides when it merges. The match code has to note the time the photos arrived and pass it through to where the match is saved.
+- **Decision 1, option B:**
+  - one database change adding two numbers to the match record (the server's part and the phone wait). It follows `lib/db/migrations/README.md`, and the coordinator decides when it merges.
+  - the match code notes the time the photos arrived and passes it through to where the match is saved.
+  - a small new route, `POST /sightings/:id/wait`, that takes the phone wait. Like the other sighting routes, it checks the device owns the sighting and holds its secret. It writes once and ignores repeats, and refuses values that aren't whole milliseconds from 0 to 10 minutes. The API description (`lib/api-spec`) and generated clients are updated to match.
+  - in the app, the spot screen times the live send and posts the wait after the matches arrive, without making the spotter wait for it. Queued sends from the offline queue (`OfflineContext.tsx`) send nothing. No new words appear on screen, so the translation files aren't touched.
 - **Matches to check (§4.6):**
   - its page, next to `likelyPage.ts` and `newCatsPage.ts`
   - its routes
@@ -182,18 +200,19 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **Shared areas** (repo CLAUDE.md): reports are English-only and don't use the translation files.
   - The report needs no dashboard layout change, because the Reports menu entry already exists.
   - **The Matches to check page does touch the dashboard layout file** (`teamPages/layout.ts`), to register the page under Home, as the other check lists are. That's a one-line change, but the builder brief names the layout owner.
-  - The migration (Decision 1 = A) is the other shared area.
-- **Build order:** two PRs.
-  1. The report, plus the `launch_date` setting and the wait-time number.
-  2. Matches to check.
+  - The migration (Decision 1 = B) is the other shared area.
+- **Build order:** three PRs.
+  1. The report, plus the `launch_date` setting, the migration with both wait numbers, and the server's part being recorded.
+  2. The phone wait: the new route and the app timing it. It needs PR 1's migration.
+  3. Matches to check.
 
-  The report shows "Not enough checked yet" until PR 2 is in and Samuel has checked 20, so PR 1 doesn't wait for PR 2.
+  The report shows "Not enough checked yet" until PR 3 is in and Samuel has checked 20, and "Phone wait not recorded yet" until PR 2 is live, so PR 1 doesn't wait for the others.
 
 ## 7. Decisions for Samuel
 
-### Decision 1: how to time the wait (measure 4): decided, A
+### Decision 1: how to time the wait (measure 4): decided, B
 
-**Samuel, 30 Oct 2026:** "Yes, option A". The options as they were put to him:
+**Samuel, 31 Oct 2026:** "decisions: 1B. approved with that change." This replaced his 30 Oct answer ("Yes, option A"). Checking the code for B showed the website and the phone are one app, so there's one timing change, not two, and B is now in scope for before launch (§4.4, §6). The options as they were put to him:
 
 **What this is about.** The app doesn't currently keep a trustworthy record of how long a spotter waits for matches. To show the wait, it has to start recording one.
 
@@ -228,10 +247,14 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - A move made because of a merge is not counted as "Suggested, then corrected".
 - A rank-1 suggestion later corrected by the team counts only as "Suggested, then corrected".
 
-**Wait time** (if Decision 1 = A)
+**Wait time**
 - Only the first successful match is recorded.
 - Sending the same photos again doesn't overwrite it.
 - A timed-out first try followed by a success records the success.
+- The phone wait is written once: a second post changes nothing.
+- The phone-wait route refuses another device, a missing or wrong secret, and values below 0, above 10 minutes or not whole numbers.
+- A sighting sent from the offline queue posts no phone wait. A live send posts one, and doesn't hold up the matches screen if the post fails.
+- Weeks before the phone wait was first recorded show "not recorded yet", not zero.
 
 **Matches to check**
 - Only suggestions taken, unchecked and unmoved, since launch, oldest first.
@@ -259,7 +282,6 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - Welfare reports closed within a week, active guardians, and donation taps. Samuel left these off. Donation taps keep their own ticket (SYC-525).
 - Building the follow card itself (SYC-45). This report only measures it.
 - Checking matches the spotter picked by hand, or new cats. New cats already have their own list, and hand picks can come later if the checked figure needs them.
-- Phone-side upload timing (Decision 1, option B), unless Samuel picks it.
 - Marking tester devices.
 - An email or push summary of the numbers. Samuel chose the dashboard.
 
