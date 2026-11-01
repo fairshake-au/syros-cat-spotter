@@ -1,0 +1,214 @@
+<title>Telling the Four Marks Apart</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one reading column; before/after pairs sit side by side on desktop, stacked on a phone. Colours are the dashboard's own Aegean tokens. */
+:root {
+  --page: #f4f2ec; --card: #fefcf7; --ink: #1b2a38; --muted: #5a6b7c; --line: #d7dee4; --line-strong: #75838f;
+  --accent: #135f92; --accent-soft: #e8f4fc; --warn-soft: #fff5df; --warn-ink: #6b4a00;
+  --m-st: #0f4a72; --m-pr: #1c77c3; --m-nk-old: #2f92dc; --m-nk: #d7dee4; --m-ns: #b8552f; --m-nk-icon: #5a6b7c;
+  --display: "Fraunces", Georgia, serif; --body: "Inter", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #071e30; --card: #0a3350; --ink: #fefcf7; --muted: #b6c2cc; --line: #1c5a85; --line-strong: #8c9caa;
+  --accent: #7cc0ef; --accent-soft: #0c3b5d; --warn-soft: #33270c; --warn-ink: #ffe0a0; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #071e30; --card: #0a3350; --ink: #fefcf7; --muted: #b6c2cc; --line: #1c5a85; --line-strong: #8c9caa;
+  --accent: #7cc0ef; --accent-soft: #0c3b5d; --warn-soft: #33270c; --warn-ink: #ffe0a0; color-scheme: dark }
+body { background: var(--page); color: var(--ink); font: 16px/1.55 var(--body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; display: grid; gap: 40px; }
+.read { max-width: 66ch; }
+h1 { font: 600 clamp(28px, 5vw, 40px)/1.15 var(--display); margin: 0 0 8px; text-wrap: balance; }
+h2 { font: 700 21px/1.3 var(--body); margin: 0 0 10px; text-wrap: balance; }
+h3 { font: 700 16px/1.3 var(--body); margin: 0 0 6px; }
+p { margin: 0 0 10px; }
+.eyebrow { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+section { display: grid; gap: 14px; }
+.ask { background: var(--accent-soft); border-radius: 12px; padding: 16px 18px; }
+.ask p:last-child { margin: 0; }
+/* The four marks, side by side: old and new. */
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.mark { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.mark .name { font-weight: 700; }
+.chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.sw { width: 56px; height: 16px; border-radius: 4px; flex: none; }
+.sw.st { background: var(--m-st); } .sw.pr-old { background: var(--m-pr); } .sw.nk-old { background: var(--m-nk-old); }
+.sw.pr { background-color: var(--m-pr); background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.75) 0 2px, transparent 2px 6px); }
+.sw.nk { background: var(--m-nk); box-shadow: inset 0 0 0 1px var(--line-strong); } .sw.ns { background: var(--m-ns); }
+.bar { display: flex; gap: 2px; height: 16px; border-radius: 10px; overflow: hidden; max-width: 460px; }
+.bar span { display: block; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+figcaption { font-size: 14px; color: var(--muted); }
+.shot-group { display: grid; gap: 10px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--card); }
+th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ok { color: var(--ink); font-weight: 700; } .short { color: var(--warn-ink); background: var(--warn-soft); border-radius: 4px; padding: 0 5px; font-weight: 700; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; } li { margin: 0 0 6px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.opt.rec { border: 2px solid var(--accent); }
+.opt h3 span { font-weight: 600; color: var(--accent); }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header class="read">
+    <div class="eyebrow">SYC-783 · Team dashboard · spec for approval</div>
+    <h1>Telling the four marks apart</h1>
+    <p>On the dashboard's bars, map dots and charts, three of the four sterilisation marks are blues that sit close together. Sterilised, Probably and Not known are hard to tell apart at a glance, and in a black-and-white print they merge. Only Not sterilised (rust) stands out.</p>
+    <p>This spec changes how two of the marks are drawn so all four can be told apart by shape and pattern as well as colour. The words, the icons and their order stay the same.</p>
+  </header>
+
+  <section class="ask read">
+    <h2>What I need from you</h2>
+    <p>Approve the change below (option A), or pick option B or C. Once you approve, I build it as one small PR, with the same screenshots retaken from the real code.</p>
+  </section>
+
+  <section>
+    <h2>The change</h2>
+    <div class="legend">
+      <div class="mark"><span class="name">Sterilised</span><div class="chips"><span class="sw st"></span>Dark blue, solid. Unchanged.</div></div>
+      <div class="mark"><span class="name">Probably sterilised</span><div class="chips"><span class="sw pr"></span>Mid blue <strong>with white diagonal stripes</strong>.</div></div>
+      <div class="mark"><span class="name">Sterilisation not known yet</span><div class="chips"><span class="sw nk"></span><strong>Light grey with a thin grey outline</strong>, instead of a third blue.</div></div>
+      <div class="mark"><span class="name">Not sterilised</span><div class="chips"><span class="sw ns"></span>Rust, with its slashed icon. Unchanged.</div></div>
+    </div>
+    <div class="read">
+      <p>A colony bar, before and after:</p>
+      <div class="bar" role="img" aria-label="Before: three blues then rust"><span style="flex:2;background:var(--m-st)"></span><span style="flex:3;background:var(--m-pr)"></span><span style="flex:2;background:var(--m-nk-old)"></span><span style="flex:4;background:var(--m-ns)"></span></div>
+      <p style="margin-top:8px"></p>
+      <div class="bar" role="img" aria-label="After: dark blue, striped blue, grey, rust"><span class="sw st" style="flex:2;width:auto;border-radius:0"></span><span class="sw pr" style="flex:3;width:auto;border-radius:0"></span><span class="sw nk" style="flex:2;width:auto;border-radius:0"></span><span class="sw ns" style="flex:4;width:auto;border-radius:0"></span></div>
+    </div>
+    <div class="read">
+      <h3>Why grey for "Not known"</h3>
+      <p>"Not known" is the absence of a fact, so it shouldn't look like a shade of "sterilised". Grey reads as "no information yet", next to the blues (yes, probably) and rust (no). The icon beside the word stays a ring and is drawn in a darker grey, so it is still easy to read on a white card.</p>
+      <h3>Where it changes</h3>
+      <ul>
+        <li>The four-part bars: Home (Where to trap next), Colonies list, colony pages, Sterilisation progress.</li>
+        <li>The island Map: single cat dots and the rings round a group of cats. Group rings also get a thin white gap between parts, like the bars already have.</li>
+        <li>The Cats grid dots and the icons beside every legend word.</li>
+        <li>The dark theme: "Not known" becomes a mid grey there too. Maps and report charts stay on light paper, as now.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Before and after</h2>
+    <p class="read">Screenshots from a local copy of the dashboard with made-up Syros colonies (no real data, nothing sent anywhere). The "after" pictures use the proposed colours drawn by the real page code, changed temporarily in a scratch copy.</p>
+
+    <div class="shot-group">
+      <h3>Colonies list, desktop</h3>
+      <div class="pair">
+        <figure><img src="before-colony-1280.png" alt="Before: colony bars where three parts are similar blues" loading="lazy"><figcaption>Before. In Ano Syros steps the middle three blues blur together.</figcaption></figure>
+        <figure><img src="after-colony-1280.png" alt="After: colony bars with dark blue, striped blue, grey and rust" loading="lazy"><figcaption>After. Each part is different at a glance.</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Colonies list, phone (390 px)</h3>
+      <div class="pair">
+        <figure><img src="before-colony-390.png" alt="Before, on a phone" loading="lazy"><figcaption>Before</figcaption></figure>
+        <figure><img src="after-colony-390.png" alt="After, on a phone" loading="lazy"><figcaption>After</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Island map, desktop</h3>
+      <div class="pair">
+        <figure><img src="before-map-1280.png" alt="Before: map dots and group rings in three blues" loading="lazy"><figcaption>Before</figcaption></figure>
+        <figure><img src="after-map-1280.png" alt="After: map with grey not-known dots and separated ring parts" loading="lazy"><figcaption>After. The key, dots and group rings all match.</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Island map, phone</h3>
+      <div class="pair">
+        <figure><img src="before-map-390.png" alt="Before, map on a phone" loading="lazy"><figcaption>Before</figcaption></figure>
+        <figure><img src="after-map-390.png" alt="After, map on a phone" loading="lazy"><figcaption>After</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Cats grid, desktop and phone</h3>
+      <div class="pair">
+        <figure><img src="before-cats-1280.png" alt="Before, cats grid" loading="lazy"><figcaption>Before, desktop</figcaption></figure>
+        <figure><img src="after-cats-1280.png" alt="After, cats grid" loading="lazy"><figcaption>After, desktop</figcaption></figure>
+        <figure><img src="before-cats-390.png" alt="Before, cats grid on a phone" loading="lazy"><figcaption>Before, phone</figcaption></figure>
+        <figure><img src="after-cats-390.png" alt="After, cats grid on a phone" loading="lazy"><figcaption>After, phone</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Sterilisation progress, desktop and phone</h3>
+      <div class="pair">
+        <figure><img src="before-progress-1280.png" alt="Before, Sterilisation progress" loading="lazy"><figcaption>Before, desktop</figcaption></figure>
+        <figure><img src="after-progress-1280.png" alt="After, Sterilisation progress" loading="lazy"><figcaption>After, desktop</figcaption></figure>
+        <figure><img src="before-progress-390.png" alt="Before, progress on a phone" loading="lazy"><figcaption>Before, phone</figcaption></figure>
+        <figure><img src="after-progress-390.png" alt="After, progress on a phone" loading="lazy"><figcaption>After, phone</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="shot-group">
+      <h3>Printed in black and white</h3>
+      <div class="pair">
+        <figure><img src="before-progress-print.png" alt="Before, greyscale print" loading="lazy"><figcaption>Before. Three of the four parts print as near-identical greys.</figcaption></figure>
+        <figure><img src="after-progress-print.png" alt="After, greyscale print" loading="lazy"><figcaption>After. Stripes and the outline still show without colour.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="read">
+    <h2>The contrast check, in plain terms</h2>
+    <p>The ticket asked for every pair of neighbouring parts, and every part against the white card, to differ by at least 3 to 1 (the accessibility guideline for shapes). <strong>Colour alone can't meet that for all four marks at once.</strong> Any blue light enough to stand apart from the dark blue is too light against white, and a light grey is too pale against white. So the design uses the other two tools the guideline allows: a pattern (the stripes) and an edge (the white gaps already between parts, and the outline on grey).</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Pair</th><th>Now</th><th>Proposed</th><th>What separates them</th></tr></thead>
+        <tbody>
+          <tr><td>Sterilised next to Probably</td><td class="num"><span class="short">2.0 : 1</span></td><td class="num"><span class="short">2.0 : 1</span></td><td>Stripes on Probably, and the white gap</td></tr>
+          <tr><td>Probably next to Not known</td><td class="num"><span class="short">1.4 : 1</span></td><td class="num"><span class="ok">3.5 : 1</span></td><td>Colour</td></tr>
+          <tr><td>Not known next to Not sterilised</td><td class="num"><span class="short">1.4 : 1</span></td><td class="num"><span class="ok">3.5 : 1</span></td><td>Colour</td></tr>
+          <tr><td>Not known against the white card</td><td class="num"><span class="ok">3.4 : 1</span></td><td class="num"><span class="short">1.4 : 1</span></td><td>Its outline, 3.9 : 1</td></tr>
+          <tr><td>The Not known icon against white</td><td class="num"><span class="ok">3.4 : 1</span></td><td class="num"><span class="ok">5.5 : 1</span></td><td>Colour</td></tr>
+          <tr><td>Probably's stripes against its blue</td><td class="num">none</td><td class="num"><span class="ok">4.7 : 1</span></td><td>Colour</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Every part also keeps its word and its icon (filled, half, ring, slashed) beside it, so nothing relies on colour.</p>
+  </section>
+
+  <section>
+    <h2 class="read">Options</h2>
+    <div class="pair">
+      <div class="opt rec">
+        <h3>A. Stripes and grey <span>· recommended</span></h3>
+        <p>As shown above.</p>
+        <p><strong>Good:</strong> all four look different at a glance, in colour and in print. "Not known" reads as "no information", which is what it means. Small change: two colours, one pattern, one outline.</p>
+        <p><strong>Risk:</strong> the team has learned "light blue = not known" over the past weeks; this changes it. The legend under every bar shows the new look, so it relearns quickly.</p>
+      </div>
+      <div class="opt">
+        <h3>B. Keep three blues, add stripes only</h3>
+        <p>Leave "Not known" blue; stripe "Probably".</p>
+        <p><strong>Good:</strong> the smallest change.</p>
+        <p><strong>Risk:</strong> "Probably" and "Not known" still look alike in print and at small sizes (map dots, rings), which is the main complaint.</p>
+      </div>
+      <div class="opt">
+        <h3>C. Four different hues</h3>
+        <p>For example blue, teal, grey, rust.</p>
+        <p><strong>Good:</strong> strongest colour difference.</p>
+        <p><strong>Risk:</strong> loses the idea that the blues are "the sterilised family". It adds a colour that isn't in the app's Aegean palette, and it still prints poorly without a pattern.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="read">
+    <h2>Not in this change</h2>
+    <ul>
+      <li>The public app's colours (owned by the accessibility lane, SYC-766).</li>
+      <li>Any change to the words, the order of the marks, or what counts as each mark.</li>
+    </ul>
+  </section>
+</div>
