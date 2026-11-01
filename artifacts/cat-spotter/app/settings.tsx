@@ -119,7 +119,7 @@ export default function SettingsScreen() {
                   aria-checked={active}
                   accessibilityLabel={lang.label}
                   onPress={() => setLanguage(lang.code)}
-                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent' }]}
+                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent', borderColor: active ? colors.primary : 'transparent' }]}
                 >
                   <Text
                     style={[styles.segmentText, { color: active ? colors.primaryForeground : colors.foreground }]}
@@ -146,7 +146,7 @@ export default function SettingsScreen() {
                   aria-checked={active}
                   accessibilityLabel={option.label}
                   onPress={() => setAppearance(option.key)}
-                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent' }]}
+                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent', borderColor: active ? colors.primary : 'transparent' }]}
                 >
                   <Feather
                     name={option.icon}
@@ -231,6 +231,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing[1],
     borderRadius: radii.sm,
+    // SYC-766: the selected segment gets a primary outline (transparent
+    // otherwise, so nothing shifts), as its fill is under 3:1 on a dark card.
+    borderWidth: 1,
     paddingHorizontal: spacing[1],
   },
   segmentText: { fontFamily: fonts.bodyBold, fontSize: fontSizes.xs, textAlign: 'center' },

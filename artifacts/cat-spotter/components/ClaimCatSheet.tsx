@@ -367,7 +367,7 @@ export function ClaimCatSheet({
               style={[
                 styles.checkBox,
                 {
-                  borderColor: livesOnSyros ? colors.primaryFill : colors.border,
+                  borderColor: livesOnSyros ? colors.primary : colors.controlBorder,
                   backgroundColor: livesOnSyros ? colors.primaryFill : colors.card,
                 },
               ]}

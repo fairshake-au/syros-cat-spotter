@@ -43,7 +43,9 @@ export function Chip({ label, active = false, disabled = false, onPress, style }
             styles.pill,
             {
               backgroundColor: active ? colors.primaryFill : colors.card,
-              borderColor: active ? 'transparent' : colors.controlBorder,
+              // SYC-766: the primary outline marks the selected chip in dark mode,
+              // where the fill alone is under 3:1 against the card.
+              borderColor: active ? colors.primary : colors.controlBorder,
               opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}

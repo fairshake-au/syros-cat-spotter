@@ -28,7 +28,12 @@ const OUTLINE = 3;
 
 describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
   const c = colors[scheme];
-  const surfaces = { background: c.background, card: c.card, muted: c.muted };
+  const surfaces = {
+    background: c.background,
+    card: c.card,
+    muted: c.muted,
+    secondary: c.secondary,
+  };
 
   const textOnSurfaces = [
     'foreground',
@@ -63,10 +68,14 @@ describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(TEXT);
   });
 
+  // Focused and selected controls carry a `primary` outline, so a selected
+  // fill that is itself under 3:1 against a dark card is still marked.
   const outlinePairs: [string, string, string][] = [
     ['controlBorder on background', c.controlBorder, c.background],
     ['controlBorder on card', c.controlBorder, c.card],
-    ['focused outline (primary) on card', c.primary, c.card],
+    ['controlBorder on muted', c.controlBorder, c.muted],
+    ['focused or selected outline (primary) on background', c.primary, c.background],
+    ['focused or selected outline (primary) on card', c.primary, c.card],
     ['error outline (danger) on card', c.danger, c.card],
   ];
   it.each(outlinePairs)('%s', (_name, fg, bg) => {

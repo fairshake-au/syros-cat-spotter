@@ -13,8 +13,9 @@ export const palette = {
   aegean700: '#135f92',
   aegean600: '#1c77c3', // primary
   aegean500: '#2f92dc',
-  // SYC-766: control outlines in dark mode (3.6:1 on cards, 4.7:1 on the page).
-  aegean450: '#6a8aa6',
+  // SYC-766: control outlines in dark mode (4.6:1 on cards, 5.9:1 on the
+  // page, 3.3:1 on the sunk surface).
+  aegean450: '#7f9cb6',
   aegean400: '#66b2e8',
   // SYC-766: dark-mode text and icons (6.6:1 on cards, 4.8:1 on the sunk
   // surface), the dashboard's dark --accent-text.

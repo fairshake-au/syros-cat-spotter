@@ -97,7 +97,7 @@ function CoatChip({
         styles.chip,
         {
           backgroundColor: selected ? colors.primaryFill : colors.card,
-          borderColor: selected ? colors.primaryFill : colors.controlBorder,
+          borderColor: selected ? colors.primary : colors.controlBorder,
           opacity: pressed ? 0.85 : 1,
         },
       ]}
