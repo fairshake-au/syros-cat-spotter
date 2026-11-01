@@ -22,7 +22,7 @@ On a spotter's **first** spot, that card is the feeding nudge:
 
 > **Thinking of sharing your lunch?**
 > We'd gently ask you not to. Cats fed all summer by visitors come to rely on it. When the visitors leave, the food leaves with them, and the cats go hungry through the winter.
-> Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round.
+> Syros Cats and local cat guardians feed many colonies the right food, in the right places.
 > **€1 feeds a cat for a day. €30 feeds one for a month.**
 
 When the matches come back, the nudge **comes with the spotter** to the first result screen, below the matches, now with two buttons: **Help feed a cat**, which opens Syros Cats' own donation page (**syroscats.com/donations**) in the phone's browser, and **Got it**. It never sits above the matches or between the spotter and their cat.
@@ -146,7 +146,7 @@ These are drafts. Greek and French go to Johnny for native review (SYC-283) on T
 |---|---|---|---|
 | `feedNudgeTitle` | Thinking of sharing your lunch? | Σκέφτεσαι να μοιραστείς το φαγητό σου; | Tu comptes partager ton déjeuner ? |
 | `feedNudgeWhy` | We'd gently ask you not to. Cats fed all summer by visitors come to rely on it. When the visitors leave, the food leaves with them, and the cats go hungry through the winter. | Σου ζητάμε ευγενικά να μην το κάνεις. Οι γάτες που τις ταΐζουν οι επισκέπτες όλο το καλοκαίρι καταλήγουν να εξαρτώνται από αυτό. Όταν φεύγουν οι επισκέπτες, φεύγει και το φαγητό, και οι γάτες πεινάνε όλο τον χειμώνα. | On te demande gentiment de ne pas le faire. Les chats nourris tout l’été par les visiteurs finissent par en dépendre. Quand les visiteurs partent, la nourriture part avec eux, et les chats ont faim tout l’hiver. |
-| `feedNudgeInstead` | Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο. | Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année. |
+| `feedNudgeInstead` | Syros Cats and local cat guardians feed many colonies the right food, in the right places. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία. | Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits. |
 | `feedNudgeEuro` | €1 feeds a cat for a day. €30 feeds one for a month. | Με 1 € τρέφεται μια γάτα για μια μέρα. Με 30 €, για έναν μήνα. | 1 € nourrit un chat pendant une journée. 30 € le nourrissent pendant un mois. |
 | `feedNudgeHelp` | Help feed a cat | Βοήθησε να φάει μια γάτα | Aide à nourrir un chat |
 | `feedNudgeDismiss` | Got it | Κατάλαβα | Compris |
@@ -178,7 +178,7 @@ It uses the same **Help feed a cat** button and *"Opens {host} in your browser"*
 
 | Key | English | Ελληνικά | Français |
 |---|---|---|---|
-| `feedNudgeInsteadNoLink` | Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο. | Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année. |
+| `feedNudgeInsteadNoLink` | Syros Cats and local cat guardians feed many colonies the right food, in the right places. | Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία. | Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits. |
 
 The quoted tab names match the live tab labels (`tabHelp`: Help, Βοήθεια, Aider, checked against `i18n.ts` on origin/main `f757c0d`); if a label changes, these change with it. The line says "how to give", not "how to help", so it isn't confused with the **This cat needs help** button, which is for a cat in trouble.
 
@@ -203,7 +203,7 @@ These go to Syros Cats in one message, with the English copy, by **Monday 19 Oct
 1. **The figures.** On food alone, €1 covers more than a day: decent dry food in Greece costs roughly 20–60 cents per cat per day (§12). So "€1 feeds a cat for a day" errs on the safe side, if it's meant to cover the food plus the round, water and bowls. Card and PayPal fees take a fixed amount from each payment, which hurts a €1 gift most, so the nudge also says *"€30 feeds one for a month"*. **Are you happy for the app to say both?**
 2. **The page.** Should **Help feed a cat** open **syroscats.com/donations** (your existing page: PayPal, card, bank transfer)? It's a general page, so it won't repeat the €1 or €30 figures. And are you happy for Cat Spotters, which isn't run by Syros Cats, to send people there?
 3. **The winter explanation.** Is it right for Syros that colonies fed by visitors through the summer go hungry when the visitors leave?
-4. **The guardians line.** *"Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round."* Fair as stated, given many guardians are volunteers?
+4. **The guardians line.** *"Syros Cats and local cat guardians feed many colonies the right food, in the right places."* Fair as stated, given many guardians are volunteers? (SYC-650, 1 Nov 2026: "all year round" dropped and "colonies" made "many colonies", because not every colony is fed, or fed all year.)
 5. **Counting.** Are you happy for the app to count how many times the donation link is opened (a number only, nothing about who; Decision 6, which Samuel has said yes to)?
 
 ### 7.1 App Store and Google Play

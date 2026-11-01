@@ -1986,13 +1986,13 @@ const el: Dict = {
   'fact.cantTell': '«Δεν μπορώ να πω» είναι καλή απάντηση. Μια λάθος εικασία μπορεί να κάνει μια γάτα να φαίνεται στειρωμένη ενώ δεν είναι.',
   feedNudgeTitle: "Σκέφτεσαι να μοιραστείς το φαγητό σου;",
   feedNudgeWhy: "Σου ζητάμε ευγενικά να μην το κάνεις. Οι γάτες που τις ταΐζουν οι επισκέπτες όλο το καλοκαίρι καταλήγουν να εξαρτώνται από αυτό. Όταν φεύγουν οι επισκέπτες, φεύγει και το φαγητό, και οι γάτες πεινάνε όλο τον χειμώνα.",
-  feedNudgeInstead: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία." // SYC-4: draft,
+  feedNudgeInstead: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία.", // SYC-4: draft
   feedNudgeEuro: "Με 1 € τρέφεται μια γάτα για μια μέρα. Με 30 €, για έναν μήνα.",
   feedNudgeHelp: "Βοήθησε να φάει μια γάτα",
   feedNudgeDismiss: "Κατάλαβα",
   feedNudgeA11yLabel: "Γιατί να μην ταΐζεις τις γάτες",
   feedNudgeLine: "Σου ζητάμε να μην ταΐζεις τις γάτες. Με 1 € τρέφεται μια γάτα για μια μέρα.",
-  feedNudgeInsteadNoLink: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία." // SYC-4: draft,
+  feedNudgeInsteadNoLink: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία.", // SYC-4: draft
   helpInfoTitle: "Βοήθεια και πληροφορίες",
   helpCatHeading: "Βρήκες γάτα τραυματισμένη, άρρωστη ή σε κίνδυνο;",
   helpCatButton: "Μια γάτα χρειάζεται βοήθεια",
@@ -2967,13 +2967,13 @@ const fr: Dict = {
   'fact.cantTell': '« Je ne sais pas » est une bonne réponse. Une mauvaise supposition peut faire croire qu’un chat est stérilisé alors qu’il ne l’est pas.',
   feedNudgeTitle: "Tu comptes partager ton déjeuner ?",
   feedNudgeWhy: "On te demande gentiment de ne pas le faire. Les chats nourris tout l’été par les visiteurs finissent par en dépendre. Quand les visiteurs partent, la nourriture part avec eux, et les chats ont faim tout l’hiver.",
-  feedNudgeInstead: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits." // SYC-4: draft,
+  feedNudgeInstead: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits.", // SYC-4: draft
   feedNudgeEuro: "1 € nourrit un chat pendant une journée. 30 € le nourrissent pendant un mois.",
   feedNudgeHelp: "Aide à nourrir un chat",
   feedNudgeDismiss: "Compris",
   feedNudgeA11yLabel: "Pourquoi ne pas nourrir les chats",
   feedNudgeLine: "S’il te plaît, ne nourris pas les chats. 1 € en nourrit un pendant une journée.",
-  feedNudgeInsteadNoLink: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits." // SYC-4: draft,
+  feedNudgeInsteadNoLink: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits.", // SYC-4: draft
   helpInfoTitle: "Aide et infos",
   helpCatHeading: "Tu as trouvé un chat blessé, malade ou en danger ?",
   helpCatButton: "Un chat a besoin d'aide",
