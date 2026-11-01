@@ -124,6 +124,17 @@ describe("workflows that send a job token (SYC-769)", () => {
     for (const id of [...Object.keys(DELEGATED), ...Object.keys(INPUTS)]) expect(tokenSteps.map((s) => s.id)).toContain(id);
   });
 
+  it("misses no workflow that reads a secret and calls out with curl (each is walked, delegated, or listed here)", () => {
+    // Fixed endpoints only, no BASE_URL a run can change.
+    const FIXED: Record<string, string> = {};
+    const walked = new Set(tokenSteps.map((s) => s.id.split("#")[0]));
+    for (const file of workflows) {
+      const text = readFileSync(join(DIR, file), "utf8");
+      if (!/secrets\.[A-Z0-9_]+/.test(text) || !/\bcurl\b/.test(text)) continue;
+      expect(walked.has(file) || file in FIXED, `${file} reads a secret and runs curl but no step was walked`).toBe(true);
+    }
+  });
+
   it("each one calls the app with the default address (so the refusals below are real refusals)", () => {
     for (const step of guarded) {
       expect(run(step, "https://apptest.catspotters.com").calls.length, step.id).toBeGreaterThan(0);

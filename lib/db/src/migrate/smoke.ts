@@ -30,8 +30,13 @@ function parseSmokeTimeoutMs(raw: string | undefined): number {
  * manual run's `base_url` straight here, so check it before any request:
  * never a user-info part ("https://apptest.catspotters.com:pw@evil.example"
  * would send the key to evil.example), and with the key set, only a
- * catspotters.com address over https or this machine.
+ * catspotters.com address over https, the EU project's own replit.app
+ * address (the recovery runbook's smoke target, docs/runbooks/neon-database.md),
+ * or this machine. One named replit.app host, not *.replit.app: that would
+ * trust every Replit app.
  */
+const EU_PROJECT_HOST = "syros-cat-spotter-eu.replit.app";
+
 function checkBaseUrl(baseUrl: string, sendsKey: boolean): void {
   let url: URL;
   try {
@@ -44,9 +49,11 @@ function checkBaseUrl(baseUrl: string, sendsKey: boolean): void {
   }
   if (!sendsKey) return;
   const local = (url.protocol === "http:" || url.protocol === "https:") && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
-  const ours = url.protocol === "https:" && (url.hostname === "catspotters.com" || url.hostname.endsWith(".catspotters.com"));
+  const ours =
+    url.protocol === "https:" &&
+    (url.hostname === "catspotters.com" || url.hostname.endsWith(".catspotters.com") || url.hostname === EU_PROJECT_HOST);
   if (!local && !ours) {
-    throw new MigrationError("smoke: with PRELAUNCH_KEY set, the base URL must be https://….catspotters.com or localhost");
+    throw new MigrationError(`smoke: with PRELAUNCH_KEY set, the base URL must be https://….catspotters.com, https://${EU_PROJECT_HOST} or localhost`);
   }
 }
 

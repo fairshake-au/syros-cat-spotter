@@ -137,10 +137,32 @@ describe("smoke sends the pre-launch key only to the app (SYC-769)", () => {
   it("with the key set, refuses another host or plain http to the app, before any request", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     try {
-      for (const base of ["https://evil.example.com", "https://apptest.catspotters.com.evil.com", "http://apptest.catspotters.com", "not a url"]) {
+      for (const base of [
+        "https://evil.example.com",
+        "https://apptest.catspotters.com.evil.com",
+        "http://apptest.catspotters.com",
+        "not a url",
+        "https://someone-else.replit.app",
+        "https://syros-cat-spotter-eu.replit.app.evil.com",
+        "http://syros-cat-spotter-eu.replit.app",
+      ]) {
         await expect(smoke(base, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow(/^smoke: /);
       }
       expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe("smoke's allowed addresses with the key set (SYC-769)", () => {
+  it("lets the recovery runbook's EU replit.app address and the catspotters.com hosts through to the first request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("stub: no network"));
+    try {
+      for (const base of ["https://syros-cat-spotter-eu.replit.app", "https://apptest.catspotters.com", "https://rehearsal.catspotters.com/"]) {
+        await expect(smoke(base, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow("stub: no network");
+      }
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
     } finally {
       fetchSpy.mockRestore();
     }
