@@ -1,7 +1,7 @@
 # Cat news in your language (pushes and the bell)
 
 **Linear:** SYC-221 · epic SYC-612 · groundwork for SYC-779 ("Tigris, the cat you found, was sterilised today")
-**Status:** reviewed (adversarial review folded in, §9), waiting for Samuel's approval · 1 Nov 2026
+**Status:** approved by Samuel, 1 Nov 2026 ("Approve, all A": Decisions 1, 2 and 3 are all A) · adversarial review folded in (§9)
 
 ## 1. The problem, in plain English
 
