@@ -393,6 +393,13 @@
       "when": 1793155416588,
       "tag": "0055_notification_merge_cats",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793554144258,
+      "tag": "0056_cats_no_truncate",
+      "breakpoints": true
     }
   ]
 }
