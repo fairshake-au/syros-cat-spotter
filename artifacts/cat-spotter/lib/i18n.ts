@@ -148,6 +148,11 @@ const en: Dict = {
   celebrateHistoryTitle: 'Your spots so far have earned you {n} new badges',
   celebrateHistoryTitleOne: 'Your spots so far have earned you 1 new badge',
   celebrateWeekLine: 'You came {place} last week with {points} points',
+  newsSterilised: '{name} has been sterilised!',
+  newsSpottedAgain: '{name} was spotted again!',
+  newsSeenWeekday: '{name} was seen on {day}',
+  newsSeenDate: '{name} was seen on {date}',
+  newsNewCat: '{name} was just discovered on Syros!',
   celebrateGroupDone: 'You have every badge in this set. Nicely done!',
   celebrateNext: 'Next:',
   celebrateProgress: '{value} of {goal}',
@@ -1173,6 +1178,11 @@ const el: Dict = {
   celebrateHistoryTitle: 'Οι εντοπισμοί σου μέχρι τώρα σου χάρισαν {n} νέα παράσημα',
   celebrateHistoryTitleOne: 'Οι εντοπισμοί σου μέχρι τώρα σου χάρισαν 1 νέο παράσημο',
   celebrateWeekLine: 'Την περασμένη εβδομάδα ήρθες στη θέση {place} με {points} πόντους',
+  newsSterilised: 'Η γάτα {name} στειρώθηκε!', // SYC-4: draft
+  newsSpottedAgain: 'Η γάτα {name} εντοπίστηκε ξανά!', // SYC-4: draft
+  newsSeenWeekday: 'Η γάτα {name} εντοπίστηκε {day}', // SYC-4: draft
+  newsSeenDate: 'Η γάτα {name} εντοπίστηκε στις {date}', // SYC-4: draft
+  newsNewCat: 'Νέα γάτα στη Σύρο: {name}!', // SYC-4: draft
   celebrateGroupDone: 'Έχεις όλα τα παράσημα αυτής της σειράς. Μπράβο!',
   celebrateNext: 'Επόμενο:',
   celebrateProgress: '{value} από {goal}',
@@ -2153,6 +2163,11 @@ const fr: Dict = {
   celebrateHistoryTitle: 'Tes repérages jusqu\'ici t\'ont valu {n} nouveaux badges',
   celebrateHistoryTitleOne: 'Tes repérages jusqu\'ici t\'ont valu 1 nouveau badge',
   celebrateWeekLine: 'La semaine dernière, tu as terminé {place} avec {points} points',
+  newsSterilised: '{name} : stérilisation faite !', // SYC-4: draft
+  newsSpottedAgain: '{name} : vu à nouveau !', // SYC-4: draft
+  newsSeenWeekday: '{name} : vu {day}', // SYC-4: draft
+  newsSeenDate: '{name} : vu le {date}', // SYC-4: draft
+  newsNewCat: 'Nouveau chat à Syros : {name} !', // SYC-4: draft
   celebrateGroupDone: 'Tu as tous les badges de cette série. Bravo !',
   celebrateNext: 'Suivant :',
   celebrateProgress: '{value} sur {goal}',

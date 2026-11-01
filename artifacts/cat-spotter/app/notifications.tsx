@@ -33,6 +33,7 @@ import type { Language } from '@/lib/i18n';
 import { goToSpotTab } from '@/lib/goToSpotTab';
 import { useBannerAreaReserve } from '@/lib/bannerArea';
 import { bellTap, mergeLineText } from '@/lib/mergedCats';
+import { newsLineText } from '@/lib/newsLine';
 
 function relativeTime(iso: string, t: (k: string) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -82,6 +83,12 @@ function notificationText(
     return t('celebrateWeekLine')
       .replace('{place}', formatRank(language, n.place))
       .replace('{points}', String(n.weekPoints));
+  }
+  // SYC-221: cat news the server labelled is worded here, in this language,
+  // with the cat's name as it is now. No label: the stored words.
+  if (n.catId != null) {
+    const news = newsLineText(n, t, language);
+    if (news !== null) return news;
   }
   return n.message;
 }
