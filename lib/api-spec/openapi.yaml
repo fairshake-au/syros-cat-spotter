@@ -1283,6 +1283,21 @@ components:
         mergedCatName:
           type: string
           nullable: true
+        wording:
+          type: string
+          nullable: true
+          enum: [sterilised, spotted_again, seen_weekday, seen_date, new_cat]
+          description: >-
+            Which cat news this is, so the app words it in its own language
+            (SYC-221). Null for staff text, weekly results, merge lines and
+            entries written before this field existed: those show message.
+        wordingDay:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            The Syros calendar day (YYYY-MM-DD) for seen_weekday and
+            seen_date; null otherwise.
         read: { type: boolean }
         createdAt: { type: string }
       required:
