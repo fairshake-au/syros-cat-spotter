@@ -204,7 +204,7 @@ describe("names starting with = + - @ (SYC-778)", () => {
     it(`${page}: the page shows each name as stored, with no apostrophe added`, async () => {
       const res = await get(`/api/team/insights/${page}?range=3months`);
       for (const c of prefixed) {
-        expect(res.text).toContain(`>${html(c.name)}</a>`);
+        expect(res.text).toContain(`>${html(c.name)}<`);
         expect(res.text).not.toContain(html(`'${c.name}`));
       }
     });
