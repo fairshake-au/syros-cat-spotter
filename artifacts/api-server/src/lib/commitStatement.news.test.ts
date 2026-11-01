@@ -453,3 +453,26 @@ describe("T12a-9 deceased_cat_skipped", () => {
     expect(await pushesFor(cat.id, 0)).toBe(0);
   });
 });
+
+describe("SYC-221 the sterilised push is worded per phone", () => {
+  it("a phone registered with el gets Greek, fr French, and no language English", async () => {
+    const cat = await followedCat(); // follower with no language: English
+    const el = `vt-news-follower-${RUN}-el`;
+    const fr = `vt-news-follower-${RUN}-fr`;
+    for (const [deviceId, language] of [[el, "el"], [fr, "fr"]] as const) {
+      await db.insert(catSubscriptionsTable).values({ deviceId, catId: cat.id });
+      await db.insert(pushTokensTable).values({ deviceId, token: `ExponentPushToken[vt-${deviceId}]`, language });
+    }
+    await teamSays(team, cat.id, true);
+    expect(await pushesFor(cat.id, 3)).toBe(3);
+    const wordsFor = (deviceId: string) =>
+      sendPushNotificationMock.mock.calls
+        .filter((c) => (c as unknown[])[0] === `ExponentPushToken[vt-${deviceId}]`)
+        .map((c) => [(c as unknown[])[1], (c as unknown[])[2]]);
+    expect(wordsFor(cat.device)).toEqual([[cat.name, `${cat.name} has been sterilised!`]]);
+    expect(wordsFor(el)).toEqual([[cat.name, `Η γάτα ${cat.name} στειρώθηκε!`]]);
+    expect(wordsFor(fr)).toEqual([[cat.name, `${cat.name} : stérilisation faite !`]]);
+    // The stored words, which the bell shows, stay English.
+    expect((await updatesOf(cat.id))[0]!.message).toBe(sterilisedNewsMessage(cat.name));
+  });
+});
