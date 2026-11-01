@@ -25,6 +25,31 @@ function parseSmokeTimeoutMs(raw: string | undefined): number {
   return n;
 }
 
+/**
+ * SYC-769: the pre-launch key only ever goes to the app. db-ops.yml passes a
+ * manual run's `base_url` straight here, so check it before any request:
+ * never a user-info part ("https://apptest.catspotters.com:pw@evil.example"
+ * would send the key to evil.example), and with the key set, only a
+ * catspotters.com address over https or this machine.
+ */
+function checkBaseUrl(baseUrl: string, sendsKey: boolean): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new MigrationError(`smoke: ${JSON.stringify(baseUrl)} is not a URL`);
+  }
+  if (baseUrl.includes("@") || url.username || url.password) {
+    throw new MigrationError("smoke: the base URL must not contain '@'");
+  }
+  if (!sendsKey) return;
+  const local = (url.protocol === "http:" || url.protocol === "https:") && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  const ours = url.protocol === "https:" && (url.hostname === "catspotters.com" || url.hostname.endsWith(".catspotters.com"));
+  if (!local && !ours) {
+    throw new MigrationError("smoke: with PRELAUNCH_KEY set, the base URL must be https://….catspotters.com or localhost");
+  }
+}
+
 export async function smoke(
   baseUrl: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
@@ -34,6 +59,7 @@ export async function smoke(
       "usage: smoke <base-url>, e.g. https://api.catspotters.com",
     );
   const timeoutMs = parseSmokeTimeoutMs(env.SMOKE_TIMEOUT_MS);
+  checkBaseUrl(baseUrl, Boolean(env.PRELAUNCH_KEY));
   const base = baseUrl.replace(/\/$/, "");
   const headers: Record<string, string> = {};
   if (env.PRELAUNCH_KEY) headers["X-Prelaunch-Key"] = env.PRELAUNCH_KEY;

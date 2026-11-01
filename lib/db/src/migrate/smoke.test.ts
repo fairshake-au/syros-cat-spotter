@@ -114,6 +114,39 @@ describe("smoke through the pre-launch gate", () => {
   });
 });
 
+describe("smoke sends the pre-launch key only to the app (SYC-769)", () => {
+  it("refuses a base URL with '@' in it, key or no key, before any request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      for (const base of [
+        "https://apptest.catspotters.com:pw@evil.example.com",
+        "https://apptest.catspotters.com@evil.example.com",
+        "http://127.0.0.1:80@evil.example.com",
+        "https://user@apptest.catspotters.com",
+      ]) {
+        for (const env of [{ PRELAUNCH_KEY: "tester-key-123" }, {}]) {
+          await expect(smoke(base, env)).rejects.toThrow(/must not contain '@'/);
+        }
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("with the key set, refuses another host or plain http to the app, before any request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      for (const base of ["https://evil.example.com", "https://apptest.catspotters.com.evil.com", "http://apptest.catspotters.com", "not a url"]) {
+        await expect(smoke(base, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow(/^smoke: /);
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
 describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
   // The old code called `.endsWith("/0")` on every cat's photoUrl to skip
   // the primaryPhotoId: 0 sentinel; photoUrl is now null for that sentinel
