@@ -49,6 +49,9 @@ import { toPublicDay } from "../lib/catHelpers";
 // Regenerated again, on purpose, by SYC-624 B6: `"spottersCount":2,
 // "followersCount":0` right after `"fansCount"` on the cat's page (never
 // `isFollowing`: no proven phone asked). No other byte changed.
+// Regenerated again, on purpose, by SYC-221 PR 3: `"wording":null,
+// "wordingDay":null` after `message` on the cat-news bell entry (a row with no
+// label keeps its stored words). No other byte changed.
 //
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other
