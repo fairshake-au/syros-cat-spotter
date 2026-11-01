@@ -98,9 +98,10 @@ describe("the Launch measures page", () => {
 
   it("greys a week of fewer than 20 sightings: the count, no percentage, Too few to compare", () => {
     expect(FEW).toBe(20);
+    // The last row: the baseline (outside these weeks) leads the table (FR5).
     const t = launchTables(report({ weeks: [week(monday(9), "after", { sightings: 19, groups: groups({ suggested: 10, hand_pick: 9 }) })] }), false);
-    expect(t.matched.rows[0]!["suggested"]).toBe("10 of 19 · Too few to compare");
-    expect(t.matched.rows[0]!["suggested"]).not.toContain("%");
+    expect(t.matched.rows.at(-1)!["suggested"]).toBe("10 of 19 · Too few to compare");
+    expect(t.matched.rows.at(-1)!["suggested"]).not.toContain("%");
   });
 
   it("labels the current week's Not finished and follow-up as Still open", () => {
@@ -263,6 +264,56 @@ describe("the Launch measures page", () => {
     expect(t.weeks.rows[0]!["vs_sightings"]).not.toBe("Baseline");
   });
 
+  it("FR3: every measure's section says spotters are counted, never named or ranked", () => {
+    for (const html of [renderLaunchPage(report(), o()), renderLaunchPage(report({ sightings: 0, weeks: [] }), o())]) {
+      const sections = [...html.matchAll(/<section id="([a-z]+)">([\s\S]*?)<\/section>/g)];
+      expect(sections.map((m) => m[1])).toEqual(["use", "matched", "accuracy", "wait", "follow"]);
+      for (const m of sections) expect(m[2]).toContain("Spotters are counted, never named or ranked.");
+    }
+  });
+
+  it("FR4: Launch days and before-launch weeks get no difference on baseline; the baseline and later weeks do", () => {
+    const before = week(athensMidnight(2026, 10, 19), "before_launch", { sightings: 70 });
+    const t = launchTables(report({ weeks: [before, ...report().weeks] }), false);
+    for (const i of [0, 1]) {
+      expect(t.weeks.rows[i]).toMatchObject({ vs_sightings: "", vs_spotters: "" });
+      expect(t.matched.rows[i]!["vs_matched"]).toBe("");
+      expect(t.accuracy.rows[i]!["vs_right"]).toBe("");
+      expect(t.followUp.rows[i]!["vs_follow"]).toBe("");
+    }
+    expect(t.weeks.rows[2]!["vs_sightings"]).toBe("Baseline");
+    expect(t.weeks.rows[3]!["vs_sightings"]).toBe("+12 on baseline");
+  });
+
+  // The range is after the baseline week: the report carries it, the range doesn't show it.
+  const laterOnly = () => report({ weeks: [week(monday(9), "after", { sightings: 62 }), week(monday(16), "after", { sightings: 19 })] });
+
+  it("FR5: a baseline outside the range gets its own first row in every table, with its figures", () => {
+    const t = launchTables(laterOnly(), false);
+    for (const spec of [t.weeks, t.matched, t.accuracy, t.wait, t.followUp]) {
+      expect(spec.rows).toHaveLength(3);
+      expect(spec.rows[0]).toMatchObject({ week: "2 Nov 2026", period: "Baseline (first full week after launch)" });
+    }
+    expect(t.weeks.rows[0]).toMatchObject({ sightings: 50, spotters: 12, vs_sightings: "Baseline", vs_spotters: "Baseline" });
+    expect(t.matched.rows[0]!["vs_matched"]).toBe("Baseline");
+    expect(t.accuracy.rows[0]!["right_first"]).toBe(20);
+    expect(t.wait.rows[0]!["phone_p50"]).toBe("4.2");
+    expect(t.followUp.rows[0]).toMatchObject({ eligible: 40, came_back: 10, vs_follow: "Baseline" });
+    expect(t.weeks.rows[1]!["vs_sightings"]).toBe("+12 on baseline");
+  });
+
+  it("FR5: no extra row when the baseline week is in the range, or there is no baseline", () => {
+    expect(launchTables(report(), false).weeks.rows).toHaveLength(4);
+    expect(launchTables({ ...laterOnly(), baseline: null }, false).weeks.rows).toHaveLength(2);
+  });
+
+  it("FR5: the baseline outside the range isn't drawn on the charts", () => {
+    const charts = svgs(renderLaunchPage(laterOnly(), o()));
+    expect(charts).toHaveLength(3);
+    for (const c of charts) expect(labelled(c, "Baseline")).toBe(false);
+    expect(renderLaunchPage(laterOnly(), o())).toContain('data-label="Part of launch">Baseline (first full week after launch)</td>');
+  });
+
   it("matches its snapshot", () => {
     expect(renderLaunchPage(report(), o())).toMatchSnapshot();
   });
@@ -278,6 +329,17 @@ describe("the spreadsheet tables", () => {
       expect(csv).not.toContain("Nov 2026");
     }
     expect(t.weeks.rows.map((r) => r["baseline"])).toEqual(["", "yes", "", ""]);
+  });
+  it("FR5: a baseline outside the range is the first row, flagged baseline=yes; later weeks keep theirs", () => {
+    const later = launchTables(
+      { ...report(), weeks: [week(monday(9), "after", { sightings: 62 }), week(monday(16), "after", { sightings: 19 })] },
+      true,
+    );
+    for (const spec of [later.weeks, later.matched, later.accuracy, later.wait, later.followUp]) {
+      expect(spec.rows.map((r) => r["baseline"])).toEqual(["yes", "", ""]);
+      expect(spec.rows[0]).toMatchObject({ week: "2026-11-02", period: "Baseline (first full week after launch)" });
+    }
+    expect(later.weeks.rows[0]!["sightings"]).toBe(50);
   });
   it("keeps the six accuracy counts apart from the team-corrected share", () => {
     expect(t.accuracy.rows[1]!["corrected"]).toBe(5);

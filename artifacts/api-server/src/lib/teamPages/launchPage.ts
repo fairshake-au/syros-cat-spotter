@@ -101,6 +101,8 @@ const TOO_FEW = "Too few to compare";
 const STILL_OPEN = "Still open";
 const NOT_ENOUGH = "Not enough checked yet";
 const NOT_RECORDED = "not recorded yet";
+/** §2: every section repeats the dashboard's promise. */
+const PROMISE = '<p class="hint">Spotters are counted, never named or ranked.</p>';
 
 // ─── Small figures ──────────────────────────────────────────────────────
 
@@ -122,18 +124,22 @@ const comparable = (whole: number, open = false): boolean => !open && whole >= F
 
 const signedNumber = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 
-/** "+12 on baseline"; "Baseline" on the baseline week itself; "" when there is no baseline. */
+/** Only the baseline and the weeks after it are set against the baseline (§2): Launch days and testing weeks aren't. */
+const setAgainstBaseline = (w: LaunchWeek): boolean => w.label === "baseline" || w.label === "after";
+
+/** "+12 on baseline"; "Baseline" on the baseline week itself; "" with no baseline, or for Launch days and testing weeks. */
 function countDiff(w: LaunchWeek, b: LaunchWeek | null, pick: (x: LaunchWeek) => number): string {
-  if (b === null) return "";
+  if (b === null || !setAgainstBaseline(w)) return "";
   if (w.label === "baseline") return "Baseline";
   const d = pick(w) - pick(b);
   return d === 0 ? "Same as baseline" : `${signedNumber(d)} on baseline`;
 }
 
-/** "−3 points on baseline", when both shares have enough behind them. */
-function pointsDiff(mine: { pct: number | null; ok: boolean }, base: { pct: number | null; ok: boolean } | null, isBaseline: boolean): string {
-  if (base !== null && isBaseline) return "Baseline";
-  if (base === null || !mine.ok || !base.ok || mine.pct === null || base.pct === null) return "";
+/** "−3 points on baseline", when both shares have enough behind them; "" for Launch days and testing weeks. */
+function pointsDiff(mine: { pct: number | null; ok: boolean }, base: { pct: number | null; ok: boolean } | null, w: LaunchWeek): string {
+  if (base === null || !setAgainstBaseline(w)) return "";
+  if (w.label === "baseline") return "Baseline";
+  if (!mine.ok || !base.ok || mine.pct === null || base.pct === null) return "";
   const d = mine.pct - base.pct;
   return d === 0 ? "Same as baseline" : `${signedNumber(d)} ${Math.abs(d) === 1 ? "point" : "points"} on baseline`;
 }
@@ -175,6 +181,10 @@ function phoneCell(ms: number | null, w: LaunchWeek, r: LaunchMeasures, forCsv: 
 /**
  * The five tables. `forCsv`: numbers stay numbers, dates are YYYY-MM-DD, there
  * is a Baseline column (yes or empty), and no difference columns.
+ *
+ * When the baseline week isn't in the range, its own figures still lead every
+ * table (and spreadsheet, flagged baseline=yes), so the differences can be read
+ * against them. The charts show only the range's weeks.
  */
 export function launchTables(
   r: LaunchMeasures,
@@ -192,6 +202,7 @@ export function launchTables(
     ...(forCsv ? { baseline: w.label === "baseline" ? "yes" : "" } : {}),
   });
   const diffCols = (cols: TableColumn[]): TableColumn[] => (forCsv ? [] : cols);
+  const shown: LaunchWeek[] = b !== null && !r.weeks.some((w) => w.label === "baseline") ? [b, ...r.weeks] : r.weeks;
 
   const weeks: TableSpec = {
     caption: "Sightings and spotters per week",
@@ -202,7 +213,7 @@ export function launchTables(
       col("returning", "Returning spotters", true),
       ...diffCols([col("vs_sightings", "Sightings against baseline"), col("vs_spotters", "Spotters against baseline")]),
     ],
-    rows: r.weeks.map((w) => ({
+    rows: shown.map((w) => ({
       ...lead(w),
       sightings: w.sightings,
       spotters: w.spotters,
@@ -222,7 +233,7 @@ export function launchTables(
       col("matcher_down", "Of which the matcher was down", true),
       ...(forCsv ? [col("still_open", "Not finished still open")] : []),
     ],
-    rows: r.weeks.map((w) => {
+    rows: shown.map((w) => {
       const m = matchedParts(w);
       return {
         ...lead(w),
@@ -236,7 +247,7 @@ export function launchTables(
         matched: forCsv ? csvShare(m.part, m.whole) : share(m.part, m.whole),
         ...(forCsv
           ? { still_open: w.stillOpen.notFinished ? "yes" : "" }
-          : { vs_matched: pointsDiff(point(m), b ? point(matchedParts(b)) : null, w.label === "baseline") }),
+          : { vs_matched: pointsDiff(point(m), b ? point(matchedParts(b)) : null, w) }),
         matcher_down: w.matcherDownInHandOrNew,
       };
     }),
@@ -252,14 +263,14 @@ export function launchTables(
       col("checked", "Checked: share right", true),
       col("team_corrected", "Corrected by the team (share of suggestions taken)", true),
     ],
-    rows: r.weeks.map((w) => {
+    rows: shown.map((w) => {
       const a = accuracyParts(w);
       const checkedWhole = w.checked.total;
       return {
         ...lead(w),
         ...Object.fromEntries(ACCURACY.map((k) => [k, w.accuracy[k]])),
         right_share: forCsv ? csvShare(a.part, a.whole) : share(a.part, a.whole),
-        ...(forCsv ? {} : { vs_right: pointsDiff(point(a), b ? point(accuracyParts(b)) : null, w.label === "baseline") }),
+        ...(forCsv ? {} : { vs_right: pointsDiff(point(a), b ? point(accuracyParts(b)) : null, w) }),
         checked: forCsv
           ? csvShare(w.checked.right, checkedWhole)
           : checkedWhole < FEW
@@ -280,7 +291,7 @@ export function launchTables(
       col("matcher_down", "Matcher down or timed out", true),
       col("no_phone_wait", "Sightings with no phone wait", true),
     ],
-    rows: r.weeks.map((w) => ({
+    rows: shown.map((w) => ({
       ...lead(w),
       phone_p50: phoneCell(w.wait.phoneP50, w, r, forCsv),
       phone_p90: phoneCell(w.wait.phoneP90, w, r, forCsv),
@@ -301,7 +312,7 @@ export function launchTables(
       ...diffCols([col("vs_follow", "Against baseline")]),
       ...(forCsv ? [col("still_open", "Still open")] : []),
     ],
-    rows: r.weeks.map((w) => {
+    rows: shown.map((w) => {
       const f = followShare(w);
       return {
         ...lead(w),
@@ -310,7 +321,7 @@ export function launchTables(
         share: forCsv ? csvShare(f.part, f.whole, w.stillOpen.followUp) : share(f.part, f.whole, w.stillOpen.followUp),
         ...(forCsv
           ? { still_open: w.stillOpen.followUp ? "yes" : "" }
-          : { vs_follow: pointsDiff(point(f, w.stillOpen.followUp), b ? point(followShare(b), b.stillOpen.followUp) : null, w.label === "baseline") }),
+          : { vs_follow: pointsDiff(point(f, w.stillOpen.followUp), b ? point(followShare(b), b.stillOpen.followUp) : null, w) }),
       };
     }),
   };
@@ -401,7 +412,8 @@ export function renderLaunchPage(
     '<section id="use"><h2>Sightings and spotters</h2>' +
     `<p class="hbig"><strong>${r.sightings}</strong> ${r.sightings === 1 ? "sighting" : "sightings"}, from ` +
     `<strong>${r.spotters}</strong> ${r.spotters === 1 ? "spotter" : "spotters"}</p>` +
-    '<p class="hint">Spotters are counted, never named or ranked. A spotter here is a phone or browser. One person on two devices counts twice.</p>' +
+    PROMISE +
+    '<p class="hint">A spotter here is a phone or browser. One person on two devices counts twice.</p>' +
     '<p class="hint">November is the quiet season on Syros. A drop may be the season, not the app.</p>' +
     (draw
       ? '<div class="chartbox">' +
@@ -421,6 +433,7 @@ export function renderLaunchPage(
 
   const matchedSection =
     '<section id="matched"><h2>Share matched</h2>' +
+    PROMISE +
     headline("Matched to a known cat", headShare(matched.part, matched.whole), isFigure(matched.whole)) +
     '<p class="hint">A suggested cat or one the spotter found, as a share of sightings that were finished.</p>' +
     (draw
@@ -443,6 +456,7 @@ export function renderLaunchPage(
     checked.total < FEW ? esc(NOT_ENOUGH) : `${wholePct(checked.right, checked.total)}% right · ${checked.right} of ${checked.total}`;
   const accuracySection =
     '<section id="accuracy"><h2>Matching accuracy</h2>' +
+    PROMISE +
     headline("Right first time", headShare(acc.part, acc.whole), isFigure(acc.whole)) +
     headline("Checked", checkedHead, checked.total >= FEW) +
     headline("Corrected by the team", headShare(corrected.part, corrected.whole), isFigure(corrected.whole)) +
@@ -467,6 +481,7 @@ export function renderLaunchPage(
   const headSightings = sum(head, (w) => w.sightings);
   const waitSection =
     '<section id="wait"><h2>Match wait</h2>' +
+    PROMISE +
     (lastWait
       ? `<p class="hbig">Latest week with waits (starting ${esc(dayWords(lastWait.at))}): ` +
         `phone ${lastWait.wait.phoneP50 === null ? esc(NOT_RECORDED) : `<strong>${secondsText(lastWait.wait.phoneP50)} s</strong> typical`}` +
@@ -487,6 +502,7 @@ export function renderLaunchPage(
 
   const followSection =
     '<section id="follow"><h2>Follow-card effect</h2>' +
+    PROMISE +
     headline(
       "Sent another sighting within 7 days",
       followOpen ? esc(STILL_OPEN) : headShare(follow.part, follow.whole),
