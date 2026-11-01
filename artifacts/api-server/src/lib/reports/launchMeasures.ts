@@ -1,0 +1,379 @@
+import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { db, sightingMatchesTable, sightingMovesTable, sightingsTable } from "@workspace/db";
+import { getAppSettings } from "../appSettings";
+import { sightingsIn } from "../dashboard/coverageCells";
+import { bucketWeeks } from "./coverage";
+import { athensMidnight, weeksIn, type Range } from "./range";
+
+// Launch measures (SYC-795; launch measures spec §3–§4.5). How the app is
+// used since launch, week by week: the counting rules behind the team report.
+//
+// - Weeks are Athens weeks, and each sighting counts in the week it was
+//   spotted (created_at), exactly as Coverage counts it (§4.1): the same
+//   range rule as sightingsIn, and the same bucketWeeks.
+// - The launch date is a team setting (§3). The baseline is the first full
+//   week starting on or after it; the part-week before is "Launch days".
+//   With no date, or one after now, every week is before launch.
+// - Each sighting falls in exactly one §4.2 group, first rule wins. Accuracy
+//   (§4.3) reads what was recorded when the spotter chose, never cat numbers
+//   afterwards, so a merge can't make a right answer look wrong: a correction
+//   is a sighting_moves row whose reason isn't merged or merge_undone.
+// - Waits (§4.4) count a sighting once it has a first successful match
+//   (server_wait_ms set). A later failed resend can flip matcher_failed on
+//   such a row, so "matcher down" is failed with no first wait (Ruling 4).
+// - Follow-up (§4.5): the loader fetches up to 7 days past the range, and
+//   the earliest sighting since launch of each device seen before it, so
+//   "came back" and "returning" can be judged. Neither is ever counted as a
+//   week's sightings.
+//
+// Spotters are counts, never a list: no device id, name or position leaves
+// LaunchMeasures, only counts and the dates of weeks. The pure part never
+// reads a clock; `now` is always passed in.
+//
+// Team-only: registered in guardianView.source.test.ts ISLAND_ONLY_MODULES
+// with the page (Task 5).
+
+const DAY = 86_400_000;
+const ZONE = "Europe/Athens";
+
+/** Below this many sightings a percentage is greyed, "Too few to compare" (§2); the page draws it. */
+export const FEW = 20;
+/** "Not finished" is only fair this long after a week ends (§4.2). */
+export const STILL_OPEN_MS = 48 * 3_600_000;
+/** A phone wait over 10 minutes means the app was put away (§4.4). The database refuses more; this guards old rows. */
+export const MAX_PHONE_WAIT_MS = 600_000;
+const FOLLOW_UP_MS = 7 * DAY;
+const MERGE_REASONS = ["merged", "merge_undone"] as const;
+
+export type WeekLabel = "before_launch" | "launch_days" | "baseline" | "after";
+
+/** One sighting, built by the loader. */
+export interface LaunchRow {
+  at: Date;
+  deviceId: string | null;
+  resolved: boolean;
+  match: null | {
+    choice: "suggested" | "hand_pick" | "new_cat" | "unlabelled" | null;
+    suggestedRank: number | null;
+    missKind: "matcher_miss" | "distance_miss" | null;
+    comparedCount: number;
+    matcherFailed: boolean;
+    noCatInAnyPhoto: boolean | null;
+    teamAction: string | null;
+    serverWaitMs: number | null;
+    phoneWaitMs: number | null;
+  };
+  /** A sighting_moves row with a reason other than merged or merge_undone. */
+  correctedByMove: boolean;
+}
+
+export type MatchGroup = "not_finished" | "no_cat" | "suggested" | "hand_pick" | "new_cat" | "other";
+export type AccuracyRow = "right_first" | "right_lower" | "corrected" | "missed_compared" | "missed_far" | "missed_nothing";
+
+const GROUPS: readonly MatchGroup[] = ["not_finished", "no_cat", "suggested", "hand_pick", "new_cat", "other"];
+const ACCURACY: readonly AccuracyRow[] = ["right_first", "right_lower", "corrected", "missed_compared", "missed_far", "missed_nothing"];
+
+export interface LaunchWeek {
+  at: Date;
+  label: WeekLabel;
+  stillOpen: { notFinished: boolean; followUp: boolean };
+  sightings: number;
+  spotters: number;
+  /** Of the week's spotters, those with a sighting since launch in an earlier week. */
+  returning: number;
+  groups: Record<MatchGroup, number>;
+  /** Hand picks and new cats made while the matcher was down: no suggestions to take. */
+  matcherDownInHandOrNew: number;
+  accuracy: Record<AccuracyRow, number>;
+  /** Suggestions checked: "looks right" or corrected; right is "looks right" and never moved since. */
+  checked: { right: number; total: number };
+  corrected: number;
+  suggestionsTaken: number;
+  /** Milliseconds; nearest rank. */
+  wait: { phoneP50: number | null; phoneP90: number | null; serverP50: number | null; matcherDown: number; noPhoneWait: number; overTen: number };
+  followUp: { eligible: number; cameBack: number };
+}
+
+export interface LaunchMeasures {
+  weeks: LaunchWeek[];
+  sightings: number;
+  spotters: number;
+  /** Sightings whose spotter has since been deleted (no device). */
+  withoutSpotter: number;
+  launchDate: string | null;
+  /** The earliest sighting with a phone wait, or null. */
+  phoneWaitFrom: Date | null;
+  workedOutAt: Date;
+  ms: number;
+}
+
+/** The Syros calendar date of an instant. */
+function athensYmd(at: Date): [number, number, number] {
+  const [y, m, d] = at.toLocaleDateString("en-CA", { timeZone: ZONE }).split("-").map(Number);
+  return [y!, m!, d!];
+}
+
+/** Midnight on Syros a week after a week's start (a Monday midnight), whatever the clocks did. */
+function weekEnd(start: Date): Date {
+  const [y, m, d] = athensYmd(start);
+  return athensMidnight(y, m, d + 7);
+}
+
+/** Syros midnight at the start of a YYYY-MM-DD date, or null. */
+function launchMidnight(launchDate: string | null): Date | null {
+  const m = launchDate === null ? null : /^(\d{4})-(\d{2})-(\d{2})$/.exec(launchDate);
+  return m ? athensMidnight(Number(m[1]), Number(m[2]), Number(m[3])) : null;
+}
+
+/** Each week's place relative to launch (§3). The baseline is fixed by the date, not by the range. */
+export function weekLabels(starts: readonly Date[], launchDate: string | null): { at: Date; label: WeekLabel }[] {
+  const launch = launchMidnight(launchDate);
+  if (launch === null) return starts.map((at) => ({ at, label: "before_launch" }));
+  const [y, m, d] = athensYmd(launch);
+  // getUTCDay of the calendar date: 1 is Monday.
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const baseline = athensMidnight(y, m, d + ((8 - dow) % 7)).getTime();
+  return starts.map((at) => {
+    const t = at.getTime();
+    const label: WeekLabel =
+      weekEnd(at).getTime() <= launch.getTime() ? "before_launch"
+      : t < launch.getTime() ? "launch_days"
+      : t === baseline ? "baseline"
+      : t > baseline ? "after"
+      : "launch_days";
+    return { at, label };
+  });
+}
+
+/** §4.2's group, in the spec's order: the first rule that applies wins. */
+export function matchGroup(r: LaunchRow): MatchGroup {
+  if (!r.resolved) return "not_finished";
+  if (r.match?.noCatInAnyPhoto === true) return "no_cat";
+  const choice = r.match?.choice;
+  if (choice === "suggested" || choice === "hand_pick" || choice === "new_cat") return choice;
+  return "other";
+}
+
+/** §4.3's row, or null when the sighting isn't counted (matcher failed, or not a suggestion or hand pick). */
+export function accuracyRow(r: LaunchRow): AccuracyRow | null {
+  const m = r.match;
+  if (m === null || m.matcherFailed) return null;
+  if (m.choice === "suggested") {
+    if (r.correctedByMove) return "corrected";
+    return m.suggestedRank === 1 ? "right_first" : "right_lower";
+  }
+  if (m.choice !== "hand_pick") return null;
+  if (m.missKind === "matcher_miss") return "missed_compared";
+  if (m.missKind === "distance_miss" && m.comparedCount > 0) return "missed_far";
+  return "missed_nothing";
+}
+
+/** Nearest rank on ascending values; null when there are none. */
+function percentile(sorted: readonly number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  return sorted[Math.ceil((p / 100) * sorted.length) - 1]!;
+}
+
+/** The week index of a moment: the last start at or before it (as bucketWeeks), or -1. */
+function weekOf(starts: readonly Date[], t: number): number {
+  let i = starts.length - 1;
+  while (i >= 0 && starts[i]!.getTime() > t) i--;
+  return i;
+}
+
+function waitOf(rows: readonly LaunchRow[]): LaunchWeek["wait"] {
+  const phone: number[] = [];
+  const server: number[] = [];
+  let matcherDown = 0;
+  let noPhoneWait = 0;
+  let overTen = 0;
+  for (const { match: m } of rows) {
+    if (m === null) continue;
+    // Ruling 4: timed once a first match worked, whatever a later resend did.
+    if (m.serverWaitMs === null) {
+      if (m.matcherFailed) matcherDown++;
+      continue;
+    }
+    server.push(m.serverWaitMs);
+    if (m.phoneWaitMs === null) noPhoneWait++;
+    else if (m.phoneWaitMs > MAX_PHONE_WAIT_MS) overTen++;
+    else phone.push(m.phoneWaitMs);
+  }
+  phone.sort((a, b) => a - b);
+  server.sort((a, b) => a - b);
+  return { phoneP50: percentile(phone, 50), phoneP90: percentile(phone, 90), serverP50: percentile(server, 50), matcherDown, noPhoneWait, overTen };
+}
+
+/**
+ * The report from its rows. Pure. `rows` may hold sightings before the range
+ * (since launch, for returning spotters) and up to 7 days after it (for the
+ * follow-up): only those inside the range are counted.
+ */
+export function launchMeasuresFrom(rows: readonly LaunchRow[], range: Range, launchDate: string | null, now: Date): LaunchMeasures {
+  const from = range.from?.getTime() ?? -Infinity;
+  const to = range.to.getTime();
+  const counted = rows.filter((r) => r.at.getTime() >= from && r.at.getTime() <= to);
+  const first = counted.reduce<Date | null>((a, r) => (a === null || r.at < a ? r.at : a), null);
+  const starts = weeksIn(range, range.from ?? first ?? range.to);
+
+  // A launch after now hasn't happened: no baseline yet.
+  const launch = launchMidnight(launchDate);
+  const launched = launch !== null && launch.getTime() <= now.getTime();
+  const labels = weekLabels(starts, launched ? launchDate : null);
+
+  // Each device's sightings, for coming back, and its first since launch, for returning.
+  const byDevice = new Map<string, number[]>();
+  const firstSinceLaunch = new Map<string, number>();
+  for (const r of rows) {
+    if (r.deviceId === null) continue;
+    const t = r.at.getTime();
+    const list = byDevice.get(r.deviceId) ?? [];
+    list.push(t);
+    byDevice.set(r.deviceId, list);
+    if (launched && t >= launch.getTime() && t < (firstSinceLaunch.get(r.deviceId) ?? Infinity)) firstSinceLaunch.set(r.deviceId, t);
+  }
+  for (const list of byDevice.values()) list.sort((a, b) => a - b);
+  const cameBack = (r: LaunchRow): boolean => {
+    const t = r.at.getTime();
+    return (byDevice.get(r.deviceId!) ?? []).some((u) => u > t && u <= t + FOLLOW_UP_MS);
+  };
+
+  const perWeek = starts.map((): LaunchRow[] => []);
+  for (const r of counted) {
+    const i = weekOf(starts, r.at.getTime());
+    if (i >= 0) perWeek[i]!.push(r);
+  }
+  // Coverage's own bucketing, so the two agree week by week (§4.1).
+  const sightings = bucketWeeks(starts, counted, (r) => r.at);
+
+  const weeks = starts.map((at, i): LaunchWeek => {
+    const ws = perWeek[i]!;
+    const end = weekEnd(at).getTime();
+    const devices = new Set(ws.flatMap((r) => (r.deviceId === null ? [] : [r.deviceId])));
+    const sinceLaunch = labels[i]!.label === "baseline" || labels[i]!.label === "after";
+    const groups = Object.fromEntries(GROUPS.map((g) => [g, 0])) as Record<MatchGroup, number>;
+    const accuracy = Object.fromEntries(ACCURACY.map((a) => [a, 0])) as Record<AccuracyRow, number>;
+    let matcherDownInHandOrNew = 0;
+    const checked = { right: 0, total: 0 };
+    let corrected = 0;
+    let suggestionsTaken = 0;
+    const followUp = { eligible: 0, cameBack: 0 };
+    for (const r of ws) {
+      const g = matchGroup(r);
+      groups[g]++;
+      if ((g === "hand_pick" || g === "new_cat") && r.match?.matcherFailed) matcherDownInHandOrNew++;
+      const a = accuracyRow(r);
+      if (a !== null) accuracy[a]++;
+      if (r.match?.choice === "suggested") {
+        suggestionsTaken++;
+        if (r.correctedByMove) corrected++;
+        // Ruling 2: a correction anywhere is a verdict; the later word wins.
+        const looksRight = r.match.teamAction === "looks_right";
+        if (looksRight || r.correctedByMove) checked.total++;
+        if (looksRight && !r.correctedByMove) checked.right++;
+      }
+      if (r.resolved && r.deviceId !== null) {
+        followUp.eligible++;
+        if (cameBack(r)) followUp.cameBack++;
+      }
+    }
+    return {
+      at,
+      label: labels[i]!.label,
+      stillOpen: { notFinished: end + STILL_OPEN_MS > now.getTime(), followUp: end > now.getTime() - FOLLOW_UP_MS },
+      sightings: sightings[i]!,
+      spotters: devices.size,
+      returning: sinceLaunch ? [...devices].filter((d) => (firstSinceLaunch.get(d) ?? Infinity) < at.getTime()).length : 0,
+      groups,
+      matcherDownInHandOrNew,
+      accuracy,
+      checked,
+      corrected,
+      suggestionsTaken,
+      wait: waitOf(ws),
+      followUp,
+    };
+  });
+
+  const phoneWaitFrom = rows.reduce<Date | null>((a, r) => (r.match?.phoneWaitMs != null && (a === null || r.at < a) ? r.at : a), null);
+  return {
+    weeks,
+    sightings: counted.length,
+    spotters: new Set(counted.flatMap((r) => (r.deviceId === null ? [] : [r.deviceId]))).size,
+    withoutSpotter: counted.filter((r) => r.deviceId === null).length,
+    launchDate,
+    phoneWaitFrom,
+    workedOutAt: now,
+    ms: 0,
+  };
+}
+
+/** One row per sighting spotted in [from, to], with its match record and whether the team corrected it. */
+async function launchRowsIn(from: Date | null, to: Date): Promise<LaunchRow[]> {
+  const s = sightingsTable;
+  const m = sightingMatchesTable;
+  const mv = sightingMovesTable;
+  const rows = await db
+    .select({
+      at: s.createdAt,
+      deviceId: s.deviceId,
+      status: s.status,
+      hasMatch: sql<boolean>`${m.sightingId} is not null`,
+      choice: m.choice,
+      suggestedRank: m.suggestedRank,
+      missKind: m.missKind,
+      comparedCount: sql<number>`coalesce(cardinality(${m.comparedCatIds}), 0)::int`,
+      matcherFailed: m.matcherFailed,
+      noCatInAnyPhoto: m.noCatInAnyPhoto,
+      teamAction: m.teamAction,
+      serverWaitMs: m.serverWaitMs,
+      phoneWaitMs: m.phoneWaitMs,
+      // A merge (or its undo) moves sightings of one cat between its records: not a correction (§4.3).
+      correctedByMove: sql<boolean>`exists (select 1 from ${mv} where ${mv.sightingId} = ${s.id} and ${mv.reason} not in (${sql.join(
+        MERGE_REASONS.map((r) => sql`${r}`),
+        sql`, `,
+      )}))`,
+    })
+    .from(s)
+    .leftJoin(m, eq(m.sightingId, s.id))
+    // sightingsIn's range rule, so Coverage and this report count the same sightings.
+    .where(and(lte(s.createdAt, to), from === null ? undefined : gte(s.createdAt, from)))
+    .orderBy(s.createdAt, s.id);
+  return rows.map((r) => ({
+    at: r.at,
+    deviceId: r.deviceId,
+    resolved: r.status === "resolved",
+    match: r.hasMatch
+      ? {
+          choice: r.choice as NonNullable<LaunchRow["match"]>["choice"],
+          suggestedRank: r.suggestedRank,
+          missKind: r.missKind as NonNullable<LaunchRow["match"]>["missKind"],
+          comparedCount: Number(r.comparedCount),
+          matcherFailed: r.matcherFailed === true,
+          noCatInAnyPhoto: r.noCatInAnyPhoto,
+          teamAction: r.teamAction,
+          serverWaitMs: r.serverWaitMs,
+          phoneWaitMs: r.phoneWaitMs,
+        }
+      : null,
+    correctedByMove: r.correctedByMove === true,
+  }));
+}
+
+export async function launchMeasuresReport(range: Range, now: Date): Promise<LaunchMeasures> {
+  const started = Date.now();
+  const { launchDate } = await getAppSettings();
+  const launch = launchMidnight(launchDate);
+  // Up to 7 days past the range for "came back", never past now; counted only for the follow-up.
+  const until = new Date(Math.min(range.to.getTime() + FOLLOW_UP_MS, now.getTime()));
+  const before =
+    launch !== null && launch.getTime() <= now.getTime() && range.from !== null && launch.getTime() < range.from.getTime()
+      ? sightingsIn({ from: launch, to: new Date(range.from.getTime() - 1) })
+      : Promise.resolve([]);
+  const [rows, earlier] = await Promise.all([launchRowsIn(range.from, until), before]);
+  // Each device's first sighting since launch before the range: enough to tell who is returning.
+  const seeds = new Map<string, Date>();
+  for (const p of earlier) if (p.deviceId !== null && !seeds.has(p.deviceId)) seeds.set(p.deviceId, p.at);
+  const seedRows: LaunchRow[] = [...seeds].map(([deviceId, at]) => ({ at, deviceId, resolved: false, match: null, correctedByMove: false }));
+  return { ...launchMeasuresFrom([...seedRows, ...rows], range, launchDate, now), ms: Date.now() - started };
+}
