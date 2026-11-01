@@ -570,6 +570,16 @@ describe("SYC-520: Withdraw and Sign out everywhere ask first", () => {
     expect(await withdrawn()).toBe(1);
   });
 
+  it("withdraw asks nothing when there is no invitation to withdraw: yourself, or someone who joined (SYC-674)", async () => {
+    const t = await joined("ask-withdraw-joined", ["staff"]);
+    for (const id of [susan.id, t.id]) {
+      const res = await post(`/api/team/people/${id}/withdraw`, susan);
+      expect(res.status, id).toBe(303);
+      expect(res.text, id).not.toContain("Withdraw the invitation to");
+      expect(res.headers["location"], id).toContain("done=nothing");
+    }
+  });
+
   it("sign-out: the form post shows the confirm page and the session version does not rise", async () => {
     const t = await joined("ask-signout", ["staff"]);
     const before = (await pool.query(`select session_version from people where id = $1`, [t.id])).rows[0].session_version;
