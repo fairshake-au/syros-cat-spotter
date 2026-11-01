@@ -97,14 +97,14 @@ Greek and French words often change with a cat's sex. Every line avoids guessing
 | `seen_date` | {name} was seen on {date} | Η γάτα {name} εντοπίστηκε στις {date} | {name} : vu le {date} |
 | `new_cat` | {name} was just discovered on Syros! | Νέα γάτα στη Σύρο: {name}! | Nouveau chat à Syros : {name} ! |
 | home (push) | {name} has a home! | Η γάτα {name} βρήκε σπίτι! | {name} a trouvé un foyer ! |
-| rename (push) | {old} is now {new}! | Η γάτα {old} λέγεται πλέον {new}! | {old} s’appelle maintenant {new} ! |
+| rename (push) | {old} is now {new}! / {new}'s owner renamed their cat. | Η γάτα {old} λέγεται πλέον {new}! / Ο ιδιοκτήτης της έδωσε στη γάτα {new} νέο όνομα. | {old} s’appelle maintenant {new} ! / Son propriétaire a rebaptisé ce chat {new}. |
 | home details (push) | {name} has an update / {name}'s home details were updated by their owner. | Νέα για τη γάτα {name} / Τα στοιχεία σπιτιού της γάτας {name} ενημερώθηκαν. | Du nouveau pour {name} / Les infos du foyer de {name} ont été mises à jour. |
 | round-up title | Cats you follow | Γάτες που ακολουθείς | Les chats que tu suis |
 | round-up, 1 cat | {a} was spotted again. | Η γάτα {a} εντοπίστηκε ξανά. | {a} : vu à nouveau. |
 | round-up, 2 cats | {a} and {b} were spotted again. | Οι γάτες {a} και {b} εντοπίστηκαν ξανά. | {a} et {b} ont été revus. |
 | round-up, 3+ cats | {a} and {n} other cats you follow were spotted again. | Η γάτα {a} και {n} ακόμα γάτες που ακολουθείς εντοπίστηκαν ξανά. | {a} et {n} autres chats que tu suis ont été revus. |
 
-The French "vu" and "revus" use the generic masculine, as French does for "le chat". All Greek and French lines are drafts for native review (SYC-4), and the build PR carries the final table.
+The French "vu" and "revus" use the generic masculine, as French does for "le chat". French puts a no-break space before ":" and "!" so the mark never wraps onto its own line (PR 1 review). All Greek and French lines are drafts for native review (SYC-4), and the build PR carries the final table.
 
 ### What doesn't change
 

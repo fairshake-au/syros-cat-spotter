@@ -106,12 +106,12 @@ const CAT_NEWS: Record<NewsLanguage, (n: NewsPush) => Words> = {
   fr: (n) => {
     switch (n.kind) {
       case "sterilised": return { title: n.name, body: `${n.name} : stérilisation faite !` };
-      case "spotted_again": return { title: n.name, body: `${n.name} : vu à nouveau !` };
-      case "seen_weekday": return { title: n.name, body: `${n.name} : vu ${weekdayWord(n.day, "fr")}` };
-      case "seen_date": return { title: n.name, body: `${n.name} : vu le ${dateWord(n.day, "fr")}` };
-      case "new_cat": return { title: n.name, body: `Nouveau chat à Syros : ${n.name} !` };
-      case "home": return { title: `${n.name} a trouvé un foyer !`, body: `${n.name} a maintenant un foyer.` };
-      case "rename": return { title: `${n.oldName} s’appelle maintenant ${n.newName} !`, body: `Son propriétaire a rebaptisé ce chat ${n.newName}.` };
+      case "spotted_again": return { title: n.name, body: `${n.name} : vu à nouveau !` };
+      case "seen_weekday": return { title: n.name, body: `${n.name} : vu ${weekdayWord(n.day, "fr")}` };
+      case "seen_date": return { title: n.name, body: `${n.name} : vu le ${dateWord(n.day, "fr")}` };
+      case "new_cat": return { title: n.name, body: `Nouveau chat à Syros : ${n.name} !` };
+      case "home": return { title: `${n.name} a trouvé un foyer !`, body: `${n.name} a maintenant un foyer.` };
+      case "rename": return { title: `${n.oldName} s’appelle maintenant ${n.newName} !`, body: `Son propriétaire a rebaptisé ce chat ${n.newName}.` };
       case "home_details": return { title: `Du nouveau pour ${n.name}`, body: `Les infos du foyer de ${n.name} ont été mises à jour.` };
     }
   },
