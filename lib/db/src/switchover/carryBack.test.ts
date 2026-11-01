@@ -261,6 +261,8 @@ describe("carry-back, end to end (test 4)", () => {
         table: "sightings",
         columns: ["redacted_at", "redaction_reason", "area_key", "on_island"],
       },
+      // SYC-221's news kind and day (0056): Neon only too.
+      { table: "cat_updates", columns: ["wording", "wording_day"] },
       // SYC-706's weekly-result bell entries (0047) and their place and
       // points (0048), and the two cats of a merge line (0055): Neon only too.
       { table: "notifications", columns: ["kind", "message", "place", "week_points", "survivor_cat_id", "merged_cat_id"] },

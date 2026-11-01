@@ -12,7 +12,25 @@ import { sendPushNotification } from "./push";
 import type { DbOrTx } from "./observations";
 import { isResolvedDeceased } from "./catHelpers";
 import { logger } from "./logger";
-import { languageOf, newsText, type NewsPush } from "./newsWords";
+import { languageOf, newsText, type NewsPush, type NewsWording } from "./newsWords";
+
+/** The `cat_updates` columns for a piece of news; both null when the bell doesn't word it. */
+function storedWording(push: NewsPush | undefined): {
+  wording: NewsWording | null;
+  wordingDay: string | null;
+} {
+  switch (push?.kind) {
+    case "sterilised":
+    case "spotted_again":
+    case "new_cat":
+      return { wording: push.kind, wordingDay: null };
+    case "seen_weekday":
+    case "seen_date":
+      return { wording: push.kind, wordingDay: push.day };
+    default:
+      return { wording: null, wordingDay: null };
+  }
+}
 
 /**
  * Insert a cat_updates row. Takes `tx` so a caller that also needs to write
@@ -42,9 +60,10 @@ export async function insertCatUpdate(
      */
     createdAt?: Date;
     /**
-     * What the news is, for the push (SYC-221). In memory only in this PR:
-     * not stored, so it is accepted here to keep one options shape for
-     * `createUpdateAndFanOut` and is not read.
+     * What the news is (SYC-221). The kinds the bell words itself
+     * (sterilised, spotted_again, new_cat, seen_weekday, seen_date) are stored
+     * as `wording`, with the Syros day for the two "seen on..." kinds as
+     * `wording_day`. Any other kind, or none (staff-typed text), stores null.
      */
     push?: NewsPush;
   },
@@ -56,6 +75,7 @@ export async function insertCatUpdate(
       updateType: opts.updateType,
       message: opts.message,
       triggerSightingId: opts.triggerSightingId ?? null,
+      ...storedWording(opts.push),
       ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
     })
     .returning();
