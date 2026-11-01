@@ -118,7 +118,7 @@ function Tab({
             aria-hidden
             accessibilityElementsHidden
             importantForAccessibility="no"
-            style={[styles.badge, { backgroundColor: colors.primary }]}
+            style={[styles.badge, { backgroundColor: colors.primaryFill }]}
           >
             <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>{item.badge}</Text>
           </View>

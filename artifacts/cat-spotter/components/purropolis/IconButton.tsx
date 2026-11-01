@@ -41,7 +41,7 @@ export function IconButton({
       case 'soft':
         return { backgroundColor: colors.secondary };
       case 'solid':
-        return { backgroundColor: colors.primary };
+        return { backgroundColor: colors.primaryFill };
       case 'ghost':
         return { backgroundColor: 'transparent' };
       case 'accent':

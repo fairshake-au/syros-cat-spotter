@@ -24,7 +24,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 vi.mock('@/hooks/useColors', () => ({
   useColors: () =>
-    new Proxy({}, { get: (_t, k) => (k === 'primary' ? 'rgb(1, 2, 3)' : '#123456') }),
+    new Proxy({}, { get: (_t, k) => (k === 'primaryFill' ? 'rgb(1, 2, 3)' : '#123456') }),
 }));
 vi.mock('expo-router', () => ({ useRouter: () => ({ push: h.push }) }));
 vi.mock('@/context/LanguageContext', () => ({
@@ -95,7 +95,7 @@ const cardIds = () =>
     .map((el) => el.getAttribute('data-testid')!.replace('card-', ''));
 
 const selected = (label: string) =>
-  // An active Chip's pill (inside its tap area, SYC-644) is painted with the primary colour.
+  // An active Chip's pill (inside its tap area, SYC-644) is painted with the primary fill (SYC-766).
   (screen.getByText(label).closest('[role="button"]')!.firstElementChild as HTMLElement).style
     .backgroundColor === 'rgb(1, 2, 3)';
 

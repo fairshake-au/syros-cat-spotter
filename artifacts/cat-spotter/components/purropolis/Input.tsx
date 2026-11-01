@@ -16,7 +16,7 @@ export function Input({ label, helper, error, iconLeft, style, onFocus, onBlur, 
   const colors = useColors();
   const [focused, setFocused] = useState(false);
 
-  const borderColor = error ? colors.danger : focused ? colors.primary : colors.border;
+  const borderColor = error ? colors.danger : focused ? colors.primary : colors.controlBorder;
 
   return (
     <View style={styles.wrap}>

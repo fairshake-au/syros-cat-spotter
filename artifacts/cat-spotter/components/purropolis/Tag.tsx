@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { isTextChildren } from './textChildren';
-import { palette } from '@/constants/colors';
+import { toneColors } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, tracking } from '@/constants/theme';
 
 export type TagTone = 'neutral' | 'aegean' | 'bougain' | 'sun' | 'terra' | 'olive';
@@ -19,11 +19,7 @@ export function Tag({ tone = 'neutral', children, style }: TagProps) {
 
   const tones: Record<TagTone, { bg: string; fg: string }> = {
     neutral: { bg: colors.muted, fg: colors.foreground },
-    aegean: { bg: palette.aegean100, fg: palette.aegean800 },
-    bougain: { bg: palette.bougain100, fg: palette.bougain700 },
-    sun: { bg: palette.sun100, fg: palette.sun700 },
-    terra: { bg: palette.terra100, fg: palette.terra700 },
-    olive: { bg: palette.olive100, fg: palette.olive700 },
+    ...toneColors,
   };
   const t = tones[tone];
 

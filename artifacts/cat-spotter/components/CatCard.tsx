@@ -71,7 +71,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
           transition={200}
         />
         {cat.hasHome && (
-          <View style={[styles.homeBadge, { backgroundColor: colors.primary }]}>
+          <View style={[styles.homeBadge, { backgroundColor: colors.primaryFill }]}>
             <Feather name="home" size={12} color={colors.primaryForeground} />
             <Text
               style={[styles.homeBadgeText, { color: colors.primaryForeground }]}

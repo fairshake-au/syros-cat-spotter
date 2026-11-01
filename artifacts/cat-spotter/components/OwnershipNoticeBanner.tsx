@@ -116,7 +116,7 @@ export function OwnershipNoticeBanner() {
       style={[
         styles.banner,
         {
-          backgroundColor: colors.primary,
+          backgroundColor: colors.primaryFill,
           shadowColor: '#000',
         },
       ]}
