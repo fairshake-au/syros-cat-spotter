@@ -32,7 +32,7 @@ const MATCH: Match = {
 /** A resolved sighting taken from the first suggestion, unless told otherwise. */
 function row(
   at: string,
-  o: { deviceId?: string | null; resolved?: boolean; correctedByMove?: boolean; match?: Partial<Match> | null } = {},
+  o: { deviceId?: string | null; resolved?: boolean; correctedByMove?: boolean; checkedByMove?: boolean; match?: Partial<Match> | null } = {},
 ): LaunchRow {
   return {
     at: new Date(at),
@@ -40,6 +40,7 @@ function row(
     resolved: o.resolved ?? true,
     match: o.match === null ? null : { ...MATCH, ...o.match },
     correctedByMove: o.correctedByMove ?? false,
+    checkedByMove: o.checkedByMove ?? false,
   };
 }
 
@@ -176,13 +177,13 @@ describe("accuracyRow (§4.3)", () => {
     expect(s({ match: null })).toBeNull();
   });
 
-  it("the week's rows, the checked figure and the corrections (Ruling 2)", () => {
+  it("the week's rows, the checked figure and the corrections (§4.3: checked means through Matches to check)", () => {
     const rows = [
-      // Checked as right, then moved: corrected, checked but not right.
+      // Checked as right, then moved: corrected, checked but not right (the later word wins).
       row("2026-11-17T10:00:00Z", { correctedByMove: true, match: { teamAction: "looks_right" } }),
       // Checked as right.
       row("2026-11-17T11:00:00Z", { match: { teamAction: "looks_right" } }),
-      // Moved without a check: still checked (a correction is a verdict), not right.
+      // Moved from somewhere else (a cat page) without a check: corrected, never checked.
       row("2026-11-17T12:00:00Z", { correctedByMove: true }),
       // Nobody checked.
       row("2026-11-17T13:00:00Z", { match: { suggestedRank: 2 } }),
@@ -191,9 +192,23 @@ describe("accuracyRow (§4.3)", () => {
     ];
     const w = weekAt(launchMeasuresFrom(rows, RANGE, null, LATE), MON(16));
     expect(w.accuracy).toEqual({ right_first: 1, right_lower: 1, corrected: 2, missed_compared: 1, missed_far: 0, missed_nothing: 0 });
-    expect(w.checked).toEqual({ right: 1, total: 3 });
+    expect(w.checked).toEqual({ right: 1, total: 2 });
     expect(w.corrected).toBe(2);
     expect(w.suggestionsTaken).toBe(4);
+  });
+
+  it("a correction from another source raises Corrected by the team, never the checked figure", () => {
+    const rows = [row("2026-11-17T10:00:00Z", { correctedByMove: true, checkedByMove: false })];
+    const w = weekAt(launchMeasuresFrom(rows, RANGE, null, LATE), MON(16));
+    expect(w.corrected).toBe(1);
+    expect(w.checked).toEqual({ right: 0, total: 0 });
+  });
+
+  it("a Different cat move from Matches to check is checked, and not right", () => {
+    const rows = [row("2026-11-17T10:00:00Z", { correctedByMove: true, checkedByMove: true })];
+    const w = weekAt(launchMeasuresFrom(rows, RANGE, null, LATE), MON(16));
+    expect(w.checked).toEqual({ right: 0, total: 1 });
+    expect(w.corrected).toBe(1);
   });
 });
 
@@ -282,6 +297,20 @@ describe("follow-up (§4.5)", () => {
     ];
     const w = weekAt(launchMeasuresFrom(rows, RANGE, null, LATE), MON(9));
     expect(w.followUp).toEqual({ eligible: 3, cameBack: 2 });
+  });
+
+  it("one spotter with hundreds of sightings, out of order and in same-moment pairs, gives the same counts", () => {
+    const at = (base: string, minutes: number) => new Date(new Date(base).getTime() + minutes * 60_000).toISOString();
+    const many: LaunchRow[] = [];
+    // Week of 9 Nov: 100 moments, two sightings at each; the last pair has nothing later within 7 days.
+    for (let i = 0; i < 200; i++) many.push(row(at("2026-11-10T10:00:00Z", Math.floor(i / 2)), { deviceId: "dev-many" }));
+    many.push(row("2026-11-18T11:00:00Z", { deviceId: "dev-many", resolved: false })); // over 7 days after the last pair
+    // Week of 30 Nov: 200 sightings, each followed within 7 days (the last by 8 Dec).
+    for (let i = 0; i < 200; i++) many.push(row(at("2026-12-01T10:00:00Z", i), { deviceId: "dev-many" }));
+    many.push(row("2026-12-08T10:00:00Z", { deviceId: "dev-many", resolved: false }));
+    const r = launchMeasuresFrom([...many].reverse(), RANGE, null, LATE);
+    expect(weekAt(r, MON(9)).followUp).toEqual({ eligible: 200, cameBack: 198 });
+    expect(weekAt(r, MON(30)).followUp).toEqual({ eligible: 200, cameBack: 200 });
   });
 
   it("a second sighting at the same moment isn't coming back", () => {

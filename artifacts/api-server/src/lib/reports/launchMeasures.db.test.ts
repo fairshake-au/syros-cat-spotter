@@ -127,14 +127,15 @@ describe("the loader's match record and corrections (§4.3)", () => {
     return id;
   }
 
-  async function move(sightingId: number, reason: string, mergeId: number | null) {
+  // Written once in its final state: sighting_moves is append-only (a trigger refuses updates).
+  async function move(sightingId: number, reason: string, mergeId: number | null, source = mergeId === null ? "cat_page" : "merge") {
     await db.insert(sightingMovesTable).values({
       sightingId,
       fromCatId: 1,
       toCatId: 2,
       batchId: randomUUID(),
       reason,
-      source: mergeId === null ? "cat_page" : "merge",
+      source,
       mergeId,
       movedByAccountId: "vitest-launch-mover",
       roleAtTime: "staff",
@@ -155,6 +156,32 @@ describe("the loader's match record and corrections (§4.3)", () => {
     expect(w.accuracy).toMatchObject({ right_first: 2, corrected: 1 });
     expect(w.corrected).toBe(1);
     expect(w.checked).toEqual({ right: 0, total: 1 });
+  });
+
+  it("the checked figure counts only Matches to check: a match_check move is checked, a cat_page move isn't (§4.3, §4.6)", async () => {
+    settings.launchDate = null;
+    const range = parseRange({ range: "custom", from: "2005-09-05", to: "2005-09-11" }, NOW);
+    const fromList = await matched(at("2005-09-06T10:00:00Z"));
+    await move(fromList, "wrong_pick", null, "match_check");
+    const fromCatPage = await matched(at("2005-09-06T11:00:00Z"));
+    await move(fromCatPage, "wrong_pick", null, "cat_page");
+    await matched(at("2005-09-06T12:00:00Z"), { teamAction: "looks_right", teamAt: at("2005-09-07T10:00:00Z"), teamByAccountId: "vitest-launch-checker" });
+    await matched(at("2005-09-06T13:00:00Z"));
+    const w = (await launchMeasuresReport(range, NOW)).weeks[0]!;
+    expect(w.corrected).toBe(2);
+    expect(w.accuracy).toMatchObject({ right_first: 2, corrected: 2 });
+    expect(w.checked).toEqual({ right: 1, total: 2 });
+  });
+
+  it("a ticked sighting moved by undoing a merge (reason other, source undo) isn't a correction (§4.3)", async () => {
+    settings.launchDate = null;
+    const range = parseRange({ range: "custom", from: "2005-10-03", to: "2005-10-09" }, NOW);
+    const ticked = await matched(at("2005-10-04T10:00:00Z"));
+    await move(ticked, "other", null, "undo");
+    const w = (await launchMeasuresReport(range, NOW)).weeks[0]!;
+    expect(w.corrected).toBe(0);
+    expect(w.accuracy).toMatchObject({ right_first: 1, corrected: 0 });
+    expect(w.checked).toEqual({ right: 0, total: 0 });
   });
 
   it("reads compared counts, waits, a missing match record and an unfinished sighting", async () => {

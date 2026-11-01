@@ -19,7 +19,14 @@ import { athensMidnight, weeksIn, type Range } from "./range";
 // - Each sighting falls in exactly one §4.2 group, first rule wins. Accuracy
 //   (§4.3) reads what was recorded when the spotter chose, never cat numbers
 //   afterwards, so a merge can't make a right answer look wrong: a correction
-//   is a sighting_moves row whose reason isn't merged or merge_undone.
+//   is a sighting_moves row that no merge or undo made (reason not merged or
+//   merge_undone, and source not merge or undo: undoing a merge moves the
+//   ticked sightings with reason "other", source "undo").
+// - The checked figure (§4.3, §4.6) is only what Samuel checked through
+//   Matches to check: "looks right" there, or a Different cat move from it
+//   (source match_check). A correction made anywhere else counts only in
+//   "Corrected by the team". The later word wins: checked right, then moved
+//   anywhere, is corrected, not right.
 // - Waits (§4.4) count a sighting once it has a first successful match
 //   (server_wait_ms set). A later failed resend can flip matcher_failed on
 //   such a row, so "matcher down" is failed with no first wait (Ruling 4).
@@ -46,6 +53,7 @@ export const STILL_OPEN_MS = 48 * 3_600_000;
 export const MAX_PHONE_WAIT_MS = 600_000;
 const FOLLOW_UP_MS = 7 * DAY;
 const MERGE_REASONS = ["merged", "merge_undone"] as const;
+const MERGE_SOURCES = ["merge", "undo"] as const;
 
 export type WeekLabel = "before_launch" | "launch_days" | "baseline" | "after";
 
@@ -65,8 +73,10 @@ export interface LaunchRow {
     serverWaitMs: number | null;
     phoneWaitMs: number | null;
   };
-  /** A sighting_moves row with a reason other than merged or merge_undone. */
+  /** A sighting_moves row no merge or undo made: reason not merged or merge_undone, source not merge or undo. */
   correctedByMove: boolean;
+  /** Such a row made from Matches to check (source match_check): Samuel checked it, and it was wrong. */
+  checkedByMove: boolean;
 }
 
 export type MatchGroup = "not_finished" | "no_cat" | "suggested" | "hand_pick" | "new_cat" | "other";
@@ -87,7 +97,7 @@ export interface LaunchWeek {
   /** Hand picks and new cats made while the matcher was down: no suggestions to take. */
   matcherDownInHandOrNew: number;
   accuracy: Record<AccuracyRow, number>;
-  /** Suggestions checked: "looks right" or corrected; right is "looks right" and never moved since. */
+  /** Suggestions Samuel checked in Matches to check: "looks right" or moved from it; right is "looks right" and never moved since. */
   checked: { right: number; total: number };
   corrected: number;
   suggestionsTaken: number;
@@ -215,6 +225,7 @@ function waitOf(rows: readonly LaunchRow[]): LaunchWeek["wait"] {
 
 /** What every week is worked out against: each device's sightings, and its first since launch. */
 interface Context {
+  /** Each device's sighting times, ascending. */
   byDevice: Map<string, number[]>;
   firstSinceLaunch: Map<string, number>;
   /** Launch midnight, when launch has happened. */
@@ -233,7 +244,26 @@ function contextOf(rows: readonly LaunchRow[], launch: number | null, now: numbe
     byDevice.set(r.deviceId, list);
     if (launch !== null && t >= launch && t < (firstSinceLaunch.get(r.deviceId) ?? Infinity)) firstSinceLaunch.set(r.deviceId, t);
   }
+  for (const list of byDevice.values()) list.sort((a, b) => a - b);
   return { byDevice, firstSinceLaunch, launch, now };
+}
+
+/** The first index in ascending `times` holding a value after `t`, or times.length. */
+function firstAfter(times: readonly number[], t: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (times[mid]! > t) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/** The device sent another sighting after `t` and within 7 days of it (§4.5). */
+function cameBack(times: readonly number[], t: number): boolean {
+  const i = firstAfter(times, t);
+  return i < times.length && times[i]! <= t + FOLLOW_UP_MS;
 }
 
 /** One week's figures from the sightings spotted in it. The same for every week, the baseline included. */
@@ -259,15 +289,15 @@ function weekFrom(at: Date, label: WeekLabel, rows: readonly LaunchRow[], c: Con
     if (r.match?.choice === "suggested") {
       suggestionsTaken++;
       if (r.correctedByMove) corrected++;
-      // Ruling 2: a correction anywhere is a verdict; the later word wins.
+      // §4.3: checked only through Matches to check; the later word wins.
       const looksRight = r.match.teamAction === "looks_right";
-      if (looksRight || r.correctedByMove) checked.total++;
+      if (looksRight || r.checkedByMove) checked.total++;
       if (looksRight && !r.correctedByMove) checked.right++;
     }
     if (r.resolved && r.deviceId !== null) {
       followUp.eligible++;
       const t = r.at.getTime();
-      if (c.byDevice.get(r.deviceId)!.some((u) => u > t && u <= t + FOLLOW_UP_MS)) followUp.cameBack++;
+      if (cameBack(c.byDevice.get(r.deviceId)!, t)) followUp.cameBack++;
     }
   }
   return {
@@ -340,11 +370,13 @@ export function launchMeasuresFrom(rows: readonly LaunchRow[], range: Range, lau
   };
 }
 
-/** One row per sighting spotted in [from, to], with its match record and whether the team corrected it. */
+/** One row per sighting spotted in [from, to], with its match record, whether the team corrected it, and whether Samuel checked it. */
 async function launchRowsIn(from: Date | null, to: Date): Promise<LaunchRow[]> {
   const s = sightingsTable;
   const m = sightingMatchesTable;
   const mv = sightingMovesTable;
+  const list = (xs: readonly string[]) => sql.join(xs.map((x) => sql`${x}`), sql`, `);
+  const notByMerge = sql`${mv.reason} not in (${list(MERGE_REASONS)}) and ${mv.source} not in (${list(MERGE_SOURCES)})`;
   const rows = await db
     .select({
       at: s.createdAt,
@@ -360,11 +392,10 @@ async function launchRowsIn(from: Date | null, to: Date): Promise<LaunchRow[]> {
       teamAction: m.teamAction,
       serverWaitMs: m.serverWaitMs,
       phoneWaitMs: m.phoneWaitMs,
-      // A merge (or its undo) moves sightings of one cat between its records: not a correction (§4.3).
-      correctedByMove: sql<boolean>`exists (select 1 from ${mv} where ${mv.sightingId} = ${s.id} and ${mv.reason} not in (${sql.join(
-        MERGE_REASONS.map((r) => sql`${r}`),
-        sql`, `,
-      )}))`,
+      // A merge (or its undo, ticked sightings included) moves sightings between records: not a correction (§4.3).
+      correctedByMove: sql<boolean>`exists (select 1 from ${mv} where ${mv.sightingId} = ${s.id} and ${notByMerge})`,
+      // A Different cat move from Matches to check: Samuel checked it (§4.6).
+      checkedByMove: sql<boolean>`exists (select 1 from ${mv} where ${mv.sightingId} = ${s.id} and ${mv.source} = 'match_check' and ${notByMerge})`,
     })
     .from(s)
     .leftJoin(m, eq(m.sightingId, s.id))
@@ -389,6 +420,7 @@ async function launchRowsIn(from: Date | null, to: Date): Promise<LaunchRow[]> {
         }
       : null,
     correctedByMove: r.correctedByMove === true,
+    checkedByMove: r.checkedByMove === true,
   }));
 }
 
