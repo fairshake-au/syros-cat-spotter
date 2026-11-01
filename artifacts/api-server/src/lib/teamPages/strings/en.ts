@@ -515,7 +515,7 @@ export const en = {
   "sites.changed": "Last changed",
   "sites.legend": "Filled marker: public. Outlined: private. Grey: retired. Tap a marker to open the site.",
   "map.teamOnly": "This map is only for the team.",
-  "map.whyTitle": "Why does the map work like this?",
+  "map.whyTitle": "Why the map is private",
   "map.whyBody":
     "Your browser downloads the whole Syros map from our own server, so no map company and no request ever learns which part of the island you are looking at.",
 
