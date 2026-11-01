@@ -16,6 +16,9 @@ export const palette = {
   // SYC-766: control outlines in dark mode (3.6:1 on cards, 4.7:1 on the page).
   aegean450: '#6a8aa6',
   aegean400: '#66b2e8',
+  // SYC-766: dark-mode text and icons (6.6:1 on cards, 4.8:1 on the sunk
+  // surface), the dashboard's dark --accent-text.
+  aegean350: '#7cc0ef',
   aegean300: '#a3d1f2',
   aegean200: '#cfe7f9',
   aegean100: '#e8f4fc',
@@ -132,7 +135,7 @@ const colors = {
   dark: {
     // Legacy aliases (kept for backward compatibility)
     text: palette.stone000,
-    tint: palette.aegean400,
+    tint: palette.aegean350,
 
     // Core surfaces — deep Aegean night navy with whitewash text
     background: palette.aegean950, // surface-page
@@ -143,8 +146,8 @@ const colors = {
     cardForeground: palette.stone000,
 
     // Primary colour for text, icons and outlines (brighter aegean for navy).
-    // SYC-766: aegean500 was 3.9:1 on cards; aegean400 is 5.7:1.
-    primary: palette.aegean400,
+    // SYC-766: aegean500 was 3.9:1 on cards; aegean350 is 6.6:1 (4.8:1 sunk).
+    primary: palette.aegean350,
     // Fills stay on aegean600 in dark mode too, as the dashboard does:
     // white on aegean500 was 3.3:1 (SYC-702).
     primaryFill: palette.aegean600,
@@ -173,14 +176,15 @@ const colors = {
     destructiveForeground: palette.stone000,
 
     // Status colors (soft tints become deep night washes)
-    success: palette.olive500,
+    // SYC-766: olive500 and aegean400 were 4.0:1 on the sunk surface.
+    success: palette.olive300,
     successSoft: '#20290f',
     warning: palette.sun500,
     warningText: palette.sun500,
     warningSoft: '#33270c',
     danger: '#f2a487',
     dangerSoft: '#3a1d10',
-    info: palette.aegean400,
+    info: palette.aegean350,
     infoSoft: '#0c3b5d',
 
     // Borders and input outlines
