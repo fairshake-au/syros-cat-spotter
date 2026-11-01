@@ -103,6 +103,14 @@ export const sightingMatchesTable = pgTable(
     // Deleting the account that took the team step clears teamByAccountId
     // and stamps this.
     redactedAt: timestamp("redacted_at", { withTimezone: true }),
+    // SYC-795: how long the first successful match took, written once on that
+    // first success (a dedupe-hit re-run doesn't overwrite it). The server's
+    // own wait, in milliseconds.
+    serverWaitMs: integer("server_wait_ms"),
+    // SYC-795: the same wait as the phone saw it, reported by the phone, in
+    // milliseconds. First successful match only, written once. Capped at ten
+    // minutes so one stuck phone can't skew the report.
+    phoneWaitMs: integer("phone_wait_ms"),
   },
   (t) => [
     check(
@@ -142,6 +150,15 @@ export const sightingMatchesTable = pgTable(
     check(
       "sighting_matches_team_cat_ck",
       sql`(${t.teamCatId} IS NOT NULL) = coalesce(${t.teamAction} IN ('matched', 'made_new_cat', 'different_cat', 'new_cat'), false)`,
+    ),
+    // SYC-795: waits are never negative; the phone's is capped at ten minutes.
+    check(
+      "sighting_matches_server_wait_ck",
+      sql`${t.serverWaitMs} IS NULL OR ${t.serverWaitMs} >= 0`,
+    ),
+    check(
+      "sighting_matches_phone_wait_ck",
+      sql`${t.phoneWaitMs} IS NULL OR ${t.phoneWaitMs} BETWEEN 0 AND 600000`,
     ),
   ],
 );
