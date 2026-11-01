@@ -83,4 +83,7 @@ A photo-first, island-scale cat register run with a real charity. A spotter's ph
 - The app must be fully usable in Greek, English and French, and layouts must hold up with the longer Greek and French strings.
 - Spotting must work outdoors in bright light, one-handed, on low-end phones and weak connections.
 - Children and families use the app, so copy stays simple and nothing should frighten them (for example, welfare and death wording).
-- A formal standard (such as a WCAG level) has not been set. The team dashboard spec has its own accessibility section (`docs/specs/team-dashboard-redesign.md` §12.5).
+- **Standard: WCAG 2.2 level AA** for the spotter app (web and native) and the team dashboard (Samuel, 1 Nov 2026). Every new or reworked screen meets it. Older screens are brought up to it when they're next worked on.
+  - This includes the 2.2 rules that matter most for one-handed use in the street: tap targets of at least 24×24 px (aim for 44×44), and focus never hidden behind sticky bars or sheets.
+  - The team dashboard's own rules (`docs/specs/team-dashboard-redesign.md` §12.5) are part of this standard and still apply: a skip link, a labelled menu, a visible focus outline, text contrast of at least 4.5:1, shapes and chart marks of at least 3:1, a short description on every photo, and full keyboard use.
+  - Native builds meet the same bar through VoiceOver and TalkBack labels, Dynamic Type and font scaling, and the OS's reduce-motion setting.
