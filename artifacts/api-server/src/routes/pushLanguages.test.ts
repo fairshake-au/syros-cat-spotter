@@ -252,6 +252,19 @@ describe("the owner's live push for a sighting", () => {
           `Η γάτα ${cat.name} εντοπίστηκε ${weekdayWord(athensDate(threeDaysAgo), "el")}`,
         );
       }
+      // SYC-221 PR 2: each piece of news stores its kind, and the Syros day for "seen on...".
+      const labels = await db
+        .select({ wording: catUpdatesTable.wording, day: catUpdatesTable.wordingDay })
+        .from(catUpdatesTable)
+        .where(eq(catUpdatesTable.catId, cat.id));
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          { wording: "spotted_again", day: null },
+          { wording: "seen_weekday", day: athensDate(threeDaysAgo) },
+          { wording: "seen_date", day: athensDate(tenDaysAgo) },
+        ]),
+      );
+      expect(labels).toHaveLength(3);
       // The words stored for the bell stay English whatever the phone speaks.
       const stored = await db.select({ message: catUpdatesTable.message }).from(catUpdatesTable).where(eq(catUpdatesTable.catId, cat.id));
       expect(stored.map((s) => s.message)).toContain(`${cat.name} was spotted again!`);
