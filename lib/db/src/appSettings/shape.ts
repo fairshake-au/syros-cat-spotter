@@ -61,6 +61,10 @@ export const SETTING_KEYS = [
   // euros. The trapping planner's estimate and the vet-visit form's cost read
   // it; the Vet settings page (PR 3.1b) changes it, with its history.
   "standard_sterilisation_price_eur",
+  // SYC-795 (launch measures report): the day the app went live, as YYYY-MM-DD.
+  // The report counts its weeks from it; with no row the report says it is not
+  // set. Team-only.
+  "launch_date",
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
 
@@ -104,7 +108,18 @@ export function settingShapeProblem(key: SettingKey, value: unknown): string | n
       return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 500
         ? null
         : "must be a whole number of euros from 1 to 500";
+    case "launch_date":
+      return typeof value === "string" && isRealDate(value) && Number(value.slice(0, 4)) >= 2026
+        ? null
+        : "must be a real date written YYYY-MM-DD";
   }
+}
+
+/** A string of the form YYYY-MM-DD that is a real calendar date. */
+function isRealDate(raw: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const d = new Date(`${raw}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === raw;
 }
 
 /** db-ops is stricter than the reader: it also refuses fact ids it doesn't

@@ -161,6 +161,17 @@ describe("shapes", () => {
     expect(settingWriteProblem("extra_photos_on", "yes")).toBe("must be true or false");
   });
 
+  it("launch_date (SYC-795) takes a real calendar date written YYYY-MM-DD, from 2026", () => {
+    const msg = "must be a real date written YYYY-MM-DD";
+    expect(settingShapeProblem("launch_date", "2026-11-14")).toBeNull();
+    expect(settingShapeProblem("launch_date", "2026-02-30")).toBe(msg);
+    expect(settingShapeProblem("launch_date", "2025-12-31")).toBe(msg);
+    expect(settingShapeProblem("launch_date", "14/11/2026")).toBe(msg);
+    expect(settingShapeProblem("launch_date", 20261114)).toBe(msg);
+    expect(settingShapeProblem("launch_date", "")).toBe(msg);
+    expect(settingWriteProblem("launch_date", "2026-02-30")).toBe(msg);
+  });
+
   it("the reader accepts an unknown fact id; db-ops doesn't", () => {
     expect(settingShapeProblem("starter_facts_hidden", ["fact.nope"])).toBeNull();
     expect(settingWriteProblem("starter_facts_hidden", ["fact.nope"])).toMatch(/unknown fact ids/);

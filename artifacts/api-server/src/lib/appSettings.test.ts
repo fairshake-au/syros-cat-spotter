@@ -20,7 +20,15 @@ describe("settingsFromRows", () => {
       extraPhotosOn: false,
       duplicateSweepOn: false,
       sterilisationPriceEur: 60,
+      launchDate: null,
     });
+  });
+
+  it("launch_date (SYC-795) is null with no row, the date when real, null when the stored value is bad", () => {
+    expect(settingsFromRows([]).launchDate).toBeNull();
+    expect(settingsFromRows([{ key: "launch_date", value: "2026-11-14" }]).launchDate).toBe("2026-11-14");
+    expect(settingsFromRows([{ key: "launch_date", value: "2026-02-30" }]).launchDate).toBeNull();
+    expect(settingsFromRows([{ key: "launch_date", value: 20261114 }]).launchDate).toBeNull();
   });
 
   it("duplicate_sweep (SYC-59 PR 5.3) is off with no row, on only for true; a wrong shape keeps it off", () => {

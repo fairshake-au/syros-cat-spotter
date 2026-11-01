@@ -24,7 +24,8 @@ export { SIGN_OFF_FACT_IDS, STARTER_FACT_IDS, settingShapeProblem };
  *  - taps counted;
  *  - the extra-photo boxes hidden (SYC-415 plan Decision P1);
  *  - the nightly look-alike sweep off (SYC-59 PR 5.3, which-cat-is-which.md D11);
- *  - a standard sterilisation price of €60 (SYC-396 PR 2.3; Syros Cats' €50–60).
+ *  - a standard sterilisation price of €60 (SYC-396 PR 2.3; Syros Cats' €50–60);
+ *  - no launch date (SYC-795): the launch measures report says it is not set.
  */
 
 export interface AppSettings {
@@ -44,6 +45,10 @@ export interface AppSettings {
    * trapping planner's estimate and the vet-visit form. Team-only: never sent
    * to the app. */
   sterilisationPriceEur: number;
+  /** SYC-795: the day the app went live (YYYY-MM-DD), or null when not set or
+   * the stored value is bad. The launch measures report counts weeks from it.
+   * Team-only: never sent to the app. */
+  launchDate: string | null;
 }
 
 const KNOWN_FACTS = new Set<string>(STARTER_FACT_IDS);
@@ -94,7 +99,17 @@ export function settingsFromRows(
     (v) => v as number,
   );
 
-  return { donateUrl, hiddenFacts, countTaps, extraPhotosOn, duplicateSweepOn, sterilisationPriceEur };
+  const launchDate = read<string | null>("launch_date", null, (v) => v as string);
+
+  return {
+    donateUrl,
+    hiddenFacts,
+    countTaps,
+    extraPhotosOn,
+    duplicateSweepOn,
+    sterilisationPriceEur,
+    launchDate,
+  };
 }
 
 /** One answer per server for this long. A change reaches every server within
