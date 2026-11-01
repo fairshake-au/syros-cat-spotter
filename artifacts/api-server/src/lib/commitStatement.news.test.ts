@@ -471,7 +471,7 @@ describe("SYC-221 the sterilised push is worded per phone", () => {
         .map((c) => [(c as unknown[])[1], (c as unknown[])[2]]);
     expect(wordsFor(cat.device)).toEqual([[cat.name, `${cat.name} has been sterilised!`]]);
     expect(wordsFor(el)).toEqual([[cat.name, `Η γάτα ${cat.name} στειρώθηκε!`]]);
-    expect(wordsFor(fr)).toEqual([[cat.name, `${cat.name} : stérilisation faite !`]]);
+    expect(wordsFor(fr)).toEqual([[cat.name, `${cat.name}\u00a0: stérilisation faite\u202f!`]]);
     // The stored words, which the bell shows, stay English.
     expect((await updatesOf(cat.id))[0]!.message).toBe(sterilisedNewsMessage(cat.name));
   });

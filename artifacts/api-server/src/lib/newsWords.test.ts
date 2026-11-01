@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SEED_AREAS } from "./areas/seedAreas";
+import { sterilisedNewsMessage } from "./commitStatement";
 import {
   NEWS_LANGUAGES,
   dateWord,
@@ -63,6 +64,18 @@ describe("every push in every language", () => {
     });
   });
 
+  it("the stored sterilised sentence is the table's English (the bell and the push can't drift)", () => {
+    expect(sterilisedNewsMessage("Agatha")).toBe(newsText({ kind: "sterilised", name: "Agatha" }, "en").body);
+  });
+
+  it("French marks never sit after an ordinary space", () => {
+    for (const n of KINDS) {
+      const words = Object.values(newsText(n, "fr")).join(" ");
+      expect(words).not.toMatch(/ [:!?]/);
+    }
+    for (const names of [["Agatha"], ["Agatha", "Milo"]]) expect(roundUpWords(names, "fr").body).not.toMatch(/ [:!?]/);
+  });
+
   it("names the cat and never a place on the island or a time", () => {
     const places = SEED_AREAS.map((a) => a.name.toLowerCase());
     for (const n of KINDS) {
@@ -103,8 +116,8 @@ describe("days and dates (Syros days, already calendar days)", () => {
   it("the pushes put the day in the sentence", () => {
     expect(newsText(KINDS[2]!, "el").body).toBe("Η γάτα Agatha εντοπίστηκε την Τρίτη");
     expect(newsText(KINDS[3]!, "el").body).toBe("Η γάτα Agatha εντοπίστηκε στις 3 Οκτωβρίου");
-    expect(newsText(KINDS[2]!, "fr").body).toBe("Agatha : vu mardi");
-    expect(newsText(KINDS[3]!, "fr").body).toBe("Agatha : vu le 3 octobre");
+    expect(newsText(KINDS[2]!, "fr").body).toBe("Agatha\u00a0: vu mardi");
+    expect(newsText(KINDS[3]!, "fr").body).toBe("Agatha\u00a0: vu le 3 octobre");
   });
 });
 
@@ -121,7 +134,7 @@ describe("the evening round-up in each language", () => {
     expect(roundUpWords(cases[0]!, "el")).toEqual({ title: "Γάτες που ακολουθείς", body: "Η γάτα Agatha εντοπίστηκε ξανά." });
     expect(roundUpWords(cases[1]!, "el").body).toBe("Οι γάτες Agatha και Milo εντοπίστηκαν ξανά.");
     expect(roundUpWords(cases[2]!, "el").body).toBe("Η γάτα Agatha και 2 ακόμα γάτες που ακολουθείς εντοπίστηκαν ξανά.");
-    expect(roundUpWords(cases[0]!, "fr")).toEqual({ title: "Les chats que tu suis", body: "Agatha : vu à nouveau." });
+    expect(roundUpWords(cases[0]!, "fr")).toEqual({ title: "Les chats que tu suis", body: "Agatha\u00a0: vu à nouveau." });
     expect(roundUpWords(cases[1]!, "fr").body).toBe("Agatha et Milo ont été revus.");
     expect(roundUpWords(cases[2]!, "fr").body).toBe("Agatha et 2 autres chats que tu suis ont été revus.");
   });

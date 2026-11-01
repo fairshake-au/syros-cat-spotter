@@ -9,7 +9,9 @@
  *
  * Greek and French often change with a cat's sex, which we usually don't
  * know, so every line uses the generic "η γάτα" or a colon and never guesses.
- * French "vu" and "revus" are the generic masculine, as for "le chat". Greek
+ * French "vu" and "revus" are the generic masculine, as for "le chat"; French
+ * puts a no-break space before ":" and a narrow one before "!", so the mark
+ * never wraps onto its own line on a lock screen. Greek
  * and French are drafts for native review (SYC-4).
  *
  * Never a place on the island, never a time: a lock screen is public.
@@ -97,19 +99,19 @@ const CAT_NEWS: Record<NewsLanguage, (n: NewsPush) => Words> = {
       case "seen_date": return { title: n.name, body: `Η γάτα ${n.name} εντοπίστηκε στις ${dateWord(n.day, "el")}` };
       case "new_cat": return { title: n.name, body: `Νέα γάτα στη Σύρο: ${n.name}!` };
       case "home": return { title: `Η γάτα ${n.name} βρήκε σπίτι!`, body: `Η γάτα ${n.name} έχει πλέον σπίτι.` };
-      case "rename": return { title: `Η γάτα ${n.oldName} λέγεται πλέον ${n.newName}!`, body: `Νέο όνομα για τη γάτα: ${n.newName}.` };
+      case "rename": return { title: `Η γάτα ${n.oldName} λέγεται πλέον ${n.newName}!`, body: `Ο ιδιοκτήτης της έδωσε στη γάτα ${n.newName} νέο όνομα.` };
       case "home_details": return { title: `Νέα για τη γάτα ${n.name}`, body: `Τα στοιχεία σπιτιού της γάτας ${n.name} ενημερώθηκαν.` };
     }
   },
   fr: (n) => {
     switch (n.kind) {
-      case "sterilised": return { title: n.name, body: `${n.name} : stérilisation faite !` };
+      case "sterilised": return { title: n.name, body: `${n.name} : stérilisation faite !` };
       case "spotted_again": return { title: n.name, body: `${n.name} : vu à nouveau !` };
       case "seen_weekday": return { title: n.name, body: `${n.name} : vu ${weekdayWord(n.day, "fr")}` };
       case "seen_date": return { title: n.name, body: `${n.name} : vu le ${dateWord(n.day, "fr")}` };
       case "new_cat": return { title: n.name, body: `Nouveau chat à Syros : ${n.name} !` };
       case "home": return { title: `${n.name} a trouvé un foyer !`, body: `${n.name} a maintenant un foyer.` };
-      case "rename": return { title: `${n.oldName} s’appelle maintenant ${n.newName} !`, body: `Nouveau nom pour ${n.newName}, donné par son foyer.` };
+      case "rename": return { title: `${n.oldName} s’appelle maintenant ${n.newName} !`, body: `Son propriétaire a rebaptisé ce chat ${n.newName}.` };
       case "home_details": return { title: `Du nouveau pour ${n.name}`, body: `Les infos du foyer de ${n.name} ont été mises à jour.` };
     }
   },
@@ -139,7 +141,7 @@ const ROUND_UP: Record<NewsLanguage, { title: string; one: (a: string) => string
   },
   fr: {
     title: "Les chats que tu suis",
-    one: (a) => `${a} : vu à nouveau.`,
+    one: (a) => `${a} : vu à nouveau.`,
     two: (a, b) => `${a} et ${b} ont été revus.`,
     many: (a, n) => `${a} et ${n} autres chats que tu suis ont été revus.`,
   },

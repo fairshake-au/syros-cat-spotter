@@ -224,21 +224,27 @@ describe("the owner's live push for a sighting", () => {
     expect(res.status).toBe(200);
   }
 
-  it("spotted again (a fresh photo) and seen on a weekday (an older one), per language", async () => {
+  it("spotted again (a fresh photo), seen on a weekday and seen on a date (older ones), per language", async () => {
+    // A fixed "now" (Date only, so timers and the database stay real): no wall clock.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T12:00:00Z") });
+    try {
     const spotter = device("spotter");
     for (const p of PHONES) {
       const owner = device(`own-${p.suffix}`);
       const cat = await seedCat(owner);
       await follower(owner, cat.id, p.language);
       const threeDaysAgo = new Date(Date.now() - 72 * HOUR);
+      const tenDaysAgo = new Date(Date.now() - 240 * HOUR);
 
       await resolveFor(spotter, new Date(Date.now() - 1 * HOUR), cat.id);
       await resolveFor(spotter, threeDaysAgo, cat.id);
+      await resolveFor(spotter, tenDaysAgo, cat.id);
 
-      await vi.waitFor(() => expect(pushesTo(owner)).toHaveLength(2));
+      await vi.waitFor(() => expect(pushesTo(owner)).toHaveLength(3));
       const expected = [
         newsText({ kind: "spotted_again", name: cat.name }, p.words),
         newsText({ kind: "seen_weekday", name: cat.name, day: athensDate(threeDaysAgo) }, p.words),
+        newsText({ kind: "seen_date", name: cat.name, day: athensDate(tenDaysAgo) }, p.words),
       ];
       expect(wordsSentTo(owner)).toEqual(expect.arrayContaining(expected));
       if (p.words === "el") {
@@ -249,6 +255,9 @@ describe("the owner's live push for a sighting", () => {
       // The words stored for the bell stay English whatever the phone speaks.
       const stored = await db.select({ message: catUpdatesTable.message }).from(catUpdatesTable).where(eq(catUpdatesTable.catId, cat.id));
       expect(stored.map((s) => s.message)).toContain(`${cat.name} was spotted again!`);
+    }
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

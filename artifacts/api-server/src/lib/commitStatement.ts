@@ -10,7 +10,7 @@ import {
 import { catsFeeding } from "./catIdentity";
 import { fanOutNotifications, insertCatUpdate } from "./notificationFanout";
 import { logger } from "./logger";
-import type { NewsPush } from "./newsWords";
+import { newsText, type NewsPush } from "./newsWords";
 import {
   loadCatRecords,
   writeObservation,
@@ -54,7 +54,7 @@ export interface PendingNews {
 
 /** The words of the news, as the app shows them (in-app list and push body). */
 export function sterilisedNewsMessage(catName: string): string {
-  return `${catName} has been sterilised!`;
+  return newsText({ kind: "sterilised", name: catName }, "en").body;
 }
 
 function confirmedSterilised(r: Resolved<boolean>): boolean {
