@@ -1,7 +1,7 @@
 # Plan: cat news in your language (SYC-221)
 
 **Spec:** `docs/specs/news-in-your-language.md`, approved by Samuel on 1 Nov 2026 ("Approve, all A")
-**Status:** draft plan, waiting for Samuel's approval
+**Status:** approved by Samuel, 1 Nov 2026 ("Approve the plan")
 **Owner:** the Notifications lane (SYC-612). It owns the translation files and migrations for this wave.
 
 ## Shape: three stacked PRs
