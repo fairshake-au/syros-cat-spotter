@@ -197,6 +197,26 @@ describe("the Launch measures page", () => {
     expect(renderLaunchPage(report(), o())).not.toContain("<script");
   });
 
+  it("F1: the follow-up headline reads Still open when every headline week is still open", () => {
+    const open = week(monday(16), "baseline", { stillOpen: { notFinished: true, followUp: true } });
+    const html = renderLaunchPage(report({ weeks: [open], baseline: open }), o());
+    expect(html).toMatch(/Sent another sighting within 7 days: <strong>Still open<\/strong>/);
+  });
+
+  it("F2: once launched, headlines never include before-launch weeks; launch days alone if nothing later", () => {
+    const before = week(athensMidnight(2026, 10, 19), "before_launch", { sightings: 500, groups: groups({ suggested: 500 }) });
+    const days = week(athensMidnight(2026, 10, 26), "launch_days", { sightings: 40, groups: groups({ suggested: 10, hand_pick: 10, no_cat: 20 }) });
+    const html = renderLaunchPage(report({ weeks: [before, days], baseline: null }), o());
+    // Launch days only: (10+10) of (20+10+10) groups 2-6 = 50% . 20 of 40.
+    expect(html).toContain("Matched to a known cat: <strong>50% · 20 of 40</strong>");
+  });
+
+  it("F2: with no launch date every week is testing and the headline uses them all", () => {
+    const a = week(monday(2), "before_launch", { groups: groups({ suggested: 10, hand_pick: 10 }) });
+    const html = renderLaunchPage(report({ launchDate: null, baseline: null, weeks: [a] }), o({ range: launchRange({}, NOW, null) }));
+    expect(html).toContain("Matched to a known cat: <strong>100% · 20 of 20</strong>");
+  });
+
   it("matches its snapshot", () => {
     expect(renderLaunchPage(report(), o())).toMatchSnapshot();
   });

@@ -363,12 +363,18 @@ export function renderLaunchPage(
 
   // Headlines: the weeks since the baseline, or every week shown when launch hasn't happened.
   const since = r.weeks.filter((w) => w.label === "baseline" || w.label === "after");
-  const head = since.length > 0 ? since : r.weeks;
+  // Ruling 10: once launched, testing weeks never count; Launch days alone until a baseline week exists.
+  const launched = launch !== null && !future;
+  const head =
+    since.length > 0 ? since
+    : launched ? r.weeks.filter((w) => w.label === "launch_days")
+    : r.weeks;
   const matched = { part: sum(head, (w) => matchedParts(w).part), whole: sum(head, (w) => matchedParts(w).whole) };
   const acc = { part: sum(head, (w) => accuracyParts(w).part), whole: sum(head, (w) => accuracyParts(w).whole) };
   const checked = { right: sum(head, (w) => w.checked.right), total: sum(head, (w) => w.checked.total) };
   const corrected = { part: sum(head, (w) => w.corrected), whole: sum(head, (w) => w.suggestionsTaken) };
   const closed = head.filter((w) => !w.stillOpen.followUp);
+  const followOpen = head.length > 0 && head.every((w) => w.stillOpen.followUp);
   const follow = { part: sum(closed, (w) => followShare(w).part), whole: sum(closed, (w) => followShare(w).whole) };
   const lastWait = [...r.weeks].reverse().find((w) => w.wait.phoneP50 !== null || w.wait.serverP50 !== null);
   const draw = r.sightings > 0;
@@ -461,7 +467,7 @@ export function renderLaunchPage(
 
   const followSection =
     '<section id="follow"><h2>Follow-card effect</h2>' +
-    `<p class="hbig">Sent another sighting within 7 days: <strong>${headShare(follow.part, follow.whole)}</strong></p>` +
+    `<p class="hbig">Sent another sighting within 7 days: <strong>${followOpen ? esc(STILL_OPEN) : headShare(follow.part, follow.whole)}</strong></p>` +
     `<p class="hint">${esc("The follow card isn't switched on yet. This is the 'before' figure it will be compared against.")}</p>` +
     `<p class="hint">${esc("A spotter's phone already follows a cat it matches, with no email (SYC-624).")}</p>` +
     `<p class="hint">${esc("Onboarding already offers \u201Ckeep my spots safe\u201D by email (SYC-524). What is measured is the effect of the reward-screen card on top of those.")}</p>` +
