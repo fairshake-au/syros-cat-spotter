@@ -2,10 +2,12 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { refuseSignedIn, requireTeam, teamPerson } from "../middlewares/requireTeam";
 import { setTeamHeaders } from "../lib/teamAuth/refuse";
 import { can } from "../lib/capabilities";
+import { getAppSettings } from "../lib/appSettings";
 import { visibleColonyIds } from "../lib/guardianView";
 import { colonyHealthReport } from "../lib/reports/colonyHealth";
 import { coverageReport } from "../lib/reports/coverage";
 import { recordDownload } from "../lib/reports/downloads";
+import { launchMeasuresReport } from "../lib/reports/launchMeasures";
 import { progressReport } from "../lib/reports/progress";
 import { parseRange, rangeQuery } from "../lib/reports/range";
 import { vetCostsReport } from "../lib/reports/vetCosts";
@@ -29,6 +31,7 @@ import {
   welfareTables,
   type CsvReport,
 } from "../lib/teamPages/reportPages";
+import { launchRange, launchRangeQuery, launchTables, renderLaunchPage } from "../lib/teamPages/launchPage";
 
 // The Reports area (SYC-396 PR 3.3a; spec §9.3). At /insights, because
 // /api/team/reports is already the welfare queue's JSON and report pages
@@ -48,6 +51,8 @@ import {
 // or recorded.
 
 const router: IRouter = Router();
+
+const LAUNCH_CSV_REPORTS: readonly string[] = ["launch-use", "launch-matched", "launch-accuracy", "launch-wait", "launch-follow"];
 
 const UNAVAILABLE =
   "This download isn't available right now, because it couldn't be recorded. Nothing was downloaded. Please try again in a minute.";
@@ -70,9 +75,20 @@ router.get("/team/insights/:report.csv", requireTeam("export_report"), async (re
   const vet = VET_CSV_REPORTS.includes(report as CsvReport);
   if (vet && !can(person, "view_vet_costs")) return refuseSignedIn(req, res);
   const now = new Date();
-  const range = parseRange(req.query, now);
+  // Launch measures has a range of its own, "Since launch", which opens on the launch date.
+  const launchFile = LAUNCH_CSV_REPORTS.includes(report as CsvReport);
+  const range = launchFile ? launchRange(req.query, now, (await getAppSettings()).launchDate) : parseRange(req.query, now);
   let csv: string;
-  if (report === "health") {
+  if (launchFile) {
+    const tables = launchTables(await launchMeasuresReport(range, now), true);
+    csv = csvOf(
+      report === "launch-use" ? tables.weeks
+      : report === "launch-matched" ? tables.matched
+      : report === "launch-accuracy" ? tables.accuracy
+      : report === "launch-wait" ? tables.wait
+      : tables.followUp,
+    );
+  } else if (report === "health") {
     const { sort, dir } = parseHealthSort(req.query);
     csv = csvOf(healthTable(await colonyHealthReport(visibleColonyIds(person), range, now), sort, dir, true));
   } else if (report === "coverage-weeks" || report === "coverage-areas") {
@@ -89,7 +105,7 @@ router.get("/team/insights/:report.csv", requireTeam("export_report"), async (re
     csv = csvOf(report === "progress-over" ? tables.over : tables.colonies);
   }
   try {
-    await recordDownload(person.id, report, rangeQuery(range));
+    await recordDownload(person.id, report, launchFile ? launchRangeQuery(range as ReturnType<typeof launchRange>) : rangeQuery(range));
   } catch (err) {
     req.log.error({ err, report }, "report download not recorded; nothing sent");
     return void res.status(503).type("text/plain").send(UNAVAILABLE);
@@ -105,9 +121,15 @@ router.get("/team/insights/:report", requireTeam("view_reports"), async (req: Re
   const person = teamPerson(res);
   const report = String(req.params["report"]);
   const now = new Date();
-  const range = parseRange(req.query, now);
   const canExport = can(person, "export_report");
   const started = Date.now();
+  if (report === "launch") {
+    const range = launchRange(req.query, now, (await getAppSettings()).launchDate);
+    const data = await launchMeasuresReport(range, now);
+    req.log.info({ ms: Date.now() - started, report }, "report worked out");
+    return void res.type("html").send(renderLaunchPage(data, { personName: person.name, range, canExport, now }));
+  }
+  const range = parseRange(req.query, now);
   if (report === "progress") {
     const data = await progressReport(range, now);
     req.log.info({ ms: Date.now() - started, report }, "report worked out");

@@ -38,6 +38,7 @@ export const REPORTS: readonly { key: string; title: string; about: string; buil
   { key: "coverage", title: "Coverage and spotting", about: "Where spotters have looked, and where to send them next.", built: true },
   { key: "welfare", title: "Welfare patterns", about: "Welfare reports per week, by kind.", built: true },
   { key: "vet", title: "Vet visits and costs", about: "Visits and Syros Cats' spend per month.", built: true },
+  { key: "launch", title: "Launch measures", about: "How the app is being used since launch, week by week.", built: true },
   { key: "impact", title: "Impact report for funders", about: "What the work has achieved, to share with funders.", built: false },
   { key: "donations", title: "Donations", about: "Money received, and what it paid for.", built: false, pending: "Coming once donations are set up" },
 ];
@@ -60,7 +61,7 @@ function stamp(at: Date): string {
 }
 
 /** YYYY-MM-DD on Syros, for a spreadsheet. */
-const isoDay = (at: Date) => athensToday(at);
+export const isoDay = (at: Date) => athensToday(at);
 
 // ─── The list ───────────────────────────────────────────────────────────
 
@@ -100,19 +101,34 @@ const QUICK: { key: Exclude<RangeKey, "custom">; label: string }[] = [
   { key: "all", label: "All time" },
 ];
 
-/** The time range at the top: four links and a form for dates you choose (dates only in the address). */
-function rangeBar(path: string, range: Range, extra = "", keep: Record<string, string> = {}): string {
+/**
+ * The time range at the top: four links and a form for dates you choose (dates only in the address).
+ * `lead` is one more link before them, for a report with a range of its own (Launch measures'
+ * "Since launch"); while it's the active one, no other link is and the dates form stays shut.
+ */
+export function rangeBar(
+  path: string,
+  range: Range,
+  extra = "",
+  keep: Record<string, string> = {},
+  lead?: { key: string; label: string; active: boolean },
+): string {
   const links = QUICK.map((q) =>
-    q.key === range.key
+    q.key === range.key && !lead?.active
       ? `<a class="tap here" href="${path}?range=${q.key}${extra}" aria-current="true">${esc(q.label)}</a>`
       : `<a class="tap" href="${path}?range=${q.key}${extra}">${esc(q.label)}</a>`,
   ).join("");
+  const first = lead
+    ? lead.active
+      ? `<a class="tap here" href="${path}?range=${lead.key}${extra}" aria-current="true">${esc(lead.label)}</a>`
+      : `<a class="tap" href="${path}?range=${lead.key}${extra}">${esc(lead.label)}</a>`
+    : "";
   const today = athensToday(range.to);
   const from = range.dates?.from ?? "";
   const to = range.dates?.to ?? "";
   return (
-    `<nav class="rangebar" aria-label="Time range">${links}</nav>` +
-    `<details class="astable"${range.key === "custom" ? " open" : ""}><summary>Dates you choose</summary>` +
+    `<nav class="rangebar" aria-label="Time range">${first}${links}</nav>` +
+    `<details class="astable"${range.key === "custom" && !lead?.active ? " open" : ""}><summary>Dates you choose</summary>` +
     `<form method="get" action="${path}" class="rangeform">` +
     '<input type="hidden" name="range" value="custom">' +
     Object.entries(keep)
@@ -129,7 +145,7 @@ function rangeBar(path: string, range: Range, extra = "", keep: Record<string, s
  * worked out and for what period, then the rules in the "How this is worked
  * out" fold, with the areas' version last (null: the report names no places).
  */
-function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null, lines: string[]): string {
+export function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null, lines: string[]): string {
   const areas =
     areasVersion === null ? [] : [foldLine("areas-version", `Place names from the named areas, version ${areasVersion}.`)];
   return (
@@ -142,7 +158,7 @@ function methodNote(range: Range, workedOutAt: Date, areasVersion: number | null
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 /** The empty line. `all` (see all time) is only offered when it would help. */
-function nothing(path: string): string {
+export function nothing(path: string): string {
   return `<p class="empty" id="nothing">${esc(NOTHING_IN_PERIOD)}. <a href="${path}?range=all">See all time</a></p>`;
 }
 
@@ -150,8 +166,8 @@ function download(key: string, range: Range, words: string, extra = ""): string 
   return `<p><a class="tap" href="${INSIGHTS}/${key}.csv?${rangeQuery(range)}${extra}" download>${esc(words)}</a></p>`;
 }
 
-const back = backLink(INSIGHTS, "Reports");
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+export const back = backLink(INSIGHTS, "Reports");
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 // ─── Sterilisation progress ─────────────────────────────────────────────
 
@@ -620,6 +636,11 @@ export const CSV_REPORTS = [
   "vet-months",
   "vet-purposes",
   "vet-visits",
+  "launch-use",
+  "launch-matched",
+  "launch-accuracy",
+  "launch-wait",
+  "launch-follow",
 ] as const;
 
 /** The vet report's files need view_vet_costs too (§8.4). */
@@ -642,6 +663,11 @@ export function csvFilename(report: CsvReport, now: Date): string {
     "vet-months": "vet-spend-per-month",
     "vet-purposes": "vet-spend-by-what-was-done",
     "vet-visits": "vet-visits",
+    "launch-use": "launch-sightings-and-spotters",
+    "launch-matched": "launch-share-matched",
+    "launch-accuracy": "launch-matching-accuracy",
+    "launch-wait": "launch-match-wait",
+    "launch-follow": "launch-follow-up",
   }[report];
   return `${name}-${isoDay(now)}.csv`;
 }

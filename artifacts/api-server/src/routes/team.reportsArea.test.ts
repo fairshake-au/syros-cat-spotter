@@ -58,11 +58,11 @@ const downloadsSince = async (personId: string, after: number) =>
   ).rows;
 
 describe("the Reports list", () => {
-  it("lists the seven reports; the five built ones are linked, Donations says it's coming once donations are set up", async () => {
+  it("lists the eight reports; the six built ones are linked, Donations says it's coming once donations are set up", async () => {
     const res = await get("/api/team/insights", team.cookie);
     expect(res.status).toBe(200);
     const cards = [...res.text.matchAll(/<li class="card reportcard" id="report-(\w+)">([\s\S]*?)<\/li>/g)];
-    expect(cards.map((m) => m[1])).toEqual(["progress", "health", "coverage", "welfare", "vet", "impact", "donations"]);
+    expect(cards.map((m) => m[1])).toEqual(["progress", "health", "coverage", "welfare", "vet", "launch", "impact", "donations"]);
     const card = (key: string) => cards.find((m) => m[1] === key)![2]!;
     expect(card("progress")).toContain('<a href="/api/team/insights/progress">Sterilisation progress</a>');
     expect(card("health")).toContain('<a href="/api/team/insights/health">Colony health</a>');

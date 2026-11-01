@@ -1,0 +1,751 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the Launch measures page > matches its snapshot 1`] = `
+"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Launch measures</title><style>@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url(/api/team/assets/inter-latin.3100e775e861.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url(/api/team/assets/inter-latin-ext.34b9c504cab7.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url(/api/team/assets/inter-greek.1be3448e292f.woff2) format("woff2");unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}:root{--page:#f4f2ec;--card:#fefcf7;--card-quiet:#f9f7f2;--sunk:#e9edf0;--ink:#1b2a38;--ink-2:#2c3e4f;--muted:#5a6b7c;--line:#d7dee4;--line-strong:#75838f;--accent:#1c77c3;--accent-hover:#135f92;--accent-text:#135f92;--accent-strong:#0f4a72;--accent-soft:#e8f4fc;--on-accent:#fefcf7;--danger:#a3401f;--danger-fill:#b8552f;--danger-soft:#fbe8de;--warn-line:#d99413;--warn-soft:#fff5df;--warn-ink:#6b4a00;--ok:#5f6f36;--ok-soft:#eef1e0;--ok-ink:#3f4a22;--issue:#2c3e4f;--issue-soft:#e9edf0;--trail:#1a56a6;--mark-sterilised:#0f4a72;--mark-probably:#1c77c3;--mark-not_known:#2f92dc;--mark-not_sterilised:#b8552f;color-scheme:light}@media screen and (prefers-color-scheme:dark){:root{--page:#071e30;--card:#0a3350;--card-quiet:#0c2c45;--sunk:#0f4a72;--ink:#fefcf7;--ink-2:#e9edf0;--muted:#b6c2cc;--line:#1c5a85;--line-strong:#8c9caa;--accent:#1c77c3;--accent-hover:#135f92;--accent-text:#7cc0ef;--accent-strong:#a3d1f2;--accent-soft:#0c3b5d;--on-accent:#fefcf7;--danger:#f2a487;--danger-fill:#b8552f;--danger-soft:#3a1d10;--warn-line:#ffc94d;--warn-soft:#33270c;--warn-ink:#ffe0a0;--ok:#b5c47f;--ok-soft:#20290f;--ok-ink:#cbd6a8;--issue:#5a6b7c;--issue-soft:#13283a;--trail:#1a56a6;--mark-sterilised:#e8f4fc;--mark-probably:#66b2e8;--mark-not_known:#2f92dc;--mark-not_sterilised:#ee9070;color-scheme:dark}.chartbox,.map,.mapwrap,.catmap,.planmap{--page:#f4f2ec;--card:#fefcf7;--card-quiet:#f9f7f2;--sunk:#e9edf0;--ink:#1b2a38;--ink-2:#2c3e4f;--muted:#5a6b7c;--line:#d7dee4;--line-strong:#75838f;--accent:#1c77c3;--accent-hover:#135f92;--accent-text:#135f92;--accent-strong:#0f4a72;--accent-soft:#e8f4fc;--on-accent:#fefcf7;--danger:#a3401f;--danger-fill:#b8552f;--danger-soft:#fbe8de;--warn-line:#d99413;--warn-soft:#fff5df;--warn-ink:#6b4a00;--ok:#5f6f36;--ok-soft:#eef1e0;--ok-ink:#3f4a22;--issue:#2c3e4f;--issue-soft:#e9edf0;--trail:#1a56a6;--mark-sterilised:#0f4a72;--mark-probably:#1c77c3;--mark-not_known:#2f92dc;--mark-not_sterilised:#b8552f;color-scheme:light;color:var(--ink)}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:16px/1.45 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent-text)}
+/* Form fields take the theme's card and ink, so the dark theme never shows the browser's grey boxes (SYC-579). */
+input,select,textarea{background-color:var(--card);color:var(--ink)}
+/* Skip to the page (SYC-366): off screen until a keyboard reaches it. */
+.skip{position:absolute;left:8px;top:-80px;z-index:10;display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;background:var(--card);color:var(--accent-text);border:2px solid var(--accent);border-radius:10px;font-weight:700}
+.skip:focus{top:8px}
+/* A clear focus outline: the browser's own is faint on the beige (SYC-366). */
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+main:focus{outline:none}
+/* A desktop bar is one row (53px). The person's name and Sign out sit at its
+   end (SYC-396 spec §3.2). When there's more to scroll to, a soft shadow shows
+   at that edge; the white "covers" scroll with the row and hide the shadow once
+   you reach the end, so no text is ever dimmed (SYC-374). On a phone the menu is
+   the .phonebar below (SYC-619 §2.1): the page's name and a "Menu" fold. */
+.bar{border-bottom:1px solid var(--line);padding:4px 12px;display:flex;flex-wrap:nowrap;gap:0 14px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none;
+background:linear-gradient(to right,var(--card) 40%,rgba(255,255,255,0)) left/28px 100% no-repeat local,linear-gradient(to left,var(--card) 40%,rgba(255,255,255,0)) right/28px 100% no-repeat local,radial-gradient(farthest-side at 0 50%,rgba(27,42,56,.22),rgba(27,42,56,0)) left/12px 100% no-repeat scroll,radial-gradient(farthest-side at 100% 50%,rgba(27,42,56,.22),rgba(27,42,56,0)) right/12px 100% no-repeat scroll;background-color:var(--card)}
+.bar :focus-visible{outline-offset:-3px}
+.bar::-webkit-scrollbar{display:none}
+/* One width on every page, so the menu never jumps sideways (SYC-577). */
+.bar,.bar.wide{padding-inline:max(12px,calc((100% - 1120px) / 2 + 12px))}
+.bar>a,.bar>span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
+.bar .here{font-weight:700;color:var(--ink);border-bottom:3px solid var(--accent);text-decoration:none}
+.bar .off{color:var(--muted)}
+.bar .short{display:none}
+/* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
+/* A very long name may still shorten with "…" on a desktop; the whole name is in its title. */
+.bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:var(--muted);font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
+.bar>form{margin:0;flex:none}
+.bar button{font:inherit;font-size:15px;min-height:44px;min-width:44px;padding:8px 2px;background:none;border:0;color:var(--accent-text);text-decoration:underline;cursor:pointer}
+/* On a desktop Sign out stays at the screen's right edge and never scrolls
+   away: if the menu is too long for the screen (768–1000px), it slides
+   under Sign out (adversarial review of PR 1.6). */
+@media (min-width:600px){.bar,.bar.wide{padding-right:0}.bar>form{position:sticky;right:0;z-index:1;background:var(--card);padding:0 16px 0 10px;box-shadow:-8px 0 8px -6px rgba(27,42,56,.22)}.bar>.who{min-width:0}}
+/* On a phone (SYC-619 §2.1) the bar is one row: the current page's name at the
+   left and a "Menu" fold at the right. The fold holds every link as a full-width
+   row, then the name and Sign out. One copy shows at a time; display:none also
+   hides the other from screen readers. Needs no script. */
+.phonebar{display:none}
+/* A page with no links keeps its plain div bar on a phone: the name wraps, Sign out stays 44px. */
+@media (max-width:599px){div.bar,div.bar.wide{gap:0 10px;padding-inline:10px;flex-wrap:wrap;overflow:visible;white-space:normal;background:var(--card)}div.bar>.who{max-width:none;flex:1 1 150px;min-width:0;margin-left:0;padding:8px 2px 8px 0;white-space:normal;overflow-wrap:anywhere}div.bar>form{margin-left:auto}}
+@media (max-width:599px){nav.bar{display:none}.phonebar{display:grid;grid-template-columns:1fr;padding:4px 10px;background:var(--card);border-bottom:1px solid var(--line)}
+.phonebar>*{grid-area:1/1}
+.phonehere{align-self:start;z-index:1;display:flex;align-items:center;min-height:44px;max-width:calc(100% - 110px);padding-right:8px;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.menufold>summary{display:flex;align-items:center;justify-content:center;width:fit-content;margin-left:auto;min-height:44px;min-width:44px;box-sizing:border-box;padding:0 14px;border:1px solid var(--accent);border-radius:10px;background:var(--card);color:var(--accent-strong);font-weight:700;font-size:16px;cursor:pointer;list-style:none}
+.menufold>summary::-webkit-details-marker{display:none}
+.menulinks a,.menulinks button{display:flex;align-items:center;min-height:44px;width:100%;box-sizing:border-box;padding:8px 2px;font:inherit;font-size:16px;background:none;border:0;text-align:left;cursor:pointer}
+.menulinks button{color:var(--accent-text);text-decoration:underline}
+.menulinks .here{font-weight:700;color:var(--ink);text-decoration:underline;text-decoration-thickness:3px;text-decoration-color:var(--accent-text)}
+.menulinks .off{display:flex;align-items:center;min-height:44px;color:var(--muted)}
+.menulinks form{margin:0}
+.phonebar .who{display:block;padding:8px 2px;color:var(--muted);font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}}
+main{max-width:1120px;margin:0 auto;padding:12px 12px 48px}
+.readcol{max-width:736px}
+h1{font-size:22px;margin:12px 0 4px}
+h2{font-size:18px;margin:28px 0 8px}
+.banner{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;margin:12px 0}
+.empty{color:var(--muted);margin:8px 0}
+.report{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--warn-line);border-radius:10px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+.report.urgent{border-left-color:var(--danger)}
+.report.closed{border-left-color:var(--line-strong);background:var(--card-quiet)}
+.head{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 8px}
+.tag{display:inline-block;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--sunk);color:var(--ink-2)}
+.tag.urgent{background:var(--danger-fill);color:var(--on-accent)}
+.tag.attention{background:var(--warn-soft);color:var(--warn-ink)}
+.tag.kittens{background:var(--accent-soft);color:var(--accent-strong)}
+.tag.unchecked{background:var(--card);border:1px dashed var(--warn-line);color:var(--warn-ink)}
+.tag.state{background:var(--card);border:1px solid var(--line-strong)}
+/* SYC-44 PR 7.1: the Issues section, in its own colour band, every row also labelled "Issue". */
+.openreports{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:6px;padding:0;margin:12px 0 0;font-weight:700}
+.openreports a{display:block;padding:12px;color:var(--warn-ink);min-height:44px;box-sizing:border-box}
+.issues{background:var(--issue-soft);border-top:6px solid var(--issue);border-radius:10px;padding:2px 12px 12px;margin:28px 0 12px}
+.issues h3{margin-top:20px}
+.report.issue{border-left-color:var(--issue)}
+.tag.issue{background:var(--issue);color:var(--on-accent)}
+.tag.hiddennow{background:var(--danger-fill);color:var(--on-accent)}
+.issuelinks{display:flex;flex-wrap:wrap;gap:4px 16px;margin:8px 0}
+.issueacts form{margin:0}
+.issueacts button{width:100%}
+.ago{color:var(--muted);font-size:14px}
+.said1{display:block;margin:0;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report>details>summary.rowline{cursor:pointer;min-height:56px;display:flex;gap:10px;align-items:center;list-style:none}
+.report>details>summary.rowline::-webkit-details-marker{display:none}
+.report>details[open]>summary.rowline{margin-bottom:8px}
+.rtext{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.rwhere{font-size:15px}
+.rtags{flex:none}
+.rwhere time{white-space:nowrap}
+.rwhere .tag{margin-left:2px;padding:0 8px;font-size:12px}
+.rbody .photolink{display:inline-block}
+.rbody .photo{max-width:240px}
+details.notebox{margin:10px 0 0}
+details.notebox>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong)}
+.more{margin:8px 0 0}
+.photo{display:block;width:100%;max-width:100%;height:auto;max-height:420px;object-fit:contain;background:var(--sunk);border-radius:6px;margin:0 0 8px}
+.nophoto{background:var(--sunk);border-radius:6px;padding:14px 10px;margin:0 0 8px;color:var(--muted);font-size:14px}
+dl{margin:8px 0 0;display:grid;grid-template-columns:minmax(88px,30%) 1fr;gap:6px 10px}
+dt{font-size:13px;color:var(--muted);padding-top:2px}
+dd{margin:0}
+.note{white-space:pre-wrap}
+.bad{color:var(--danger);font-weight:700}
+.notice{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:6px;padding:8px 10px;margin:0 0 8px;font-weight:700}
+.notice.down{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+.notice form.undo{display:block;margin:6px 0 0}
+.notice form.undo button{font:inherit;font-weight:700;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+.gallery .notice form.undo button{width:100%}
+.actions{margin-top:12px;border-top:1px solid var(--line);padding-top:4px}
+.actions form{margin:10px 0 0}
+.label{display:block;font-size:14px;font-weight:700;margin:0 0 6px}
+.hint{font-weight:400;color:var(--muted)}
+.states{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.actions button{font:inherit;font-size:15px;min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+.actions button:hover{background:var(--accent-soft)}
+.actions button.here{background:var(--sunk);border-color:var(--line);color:var(--ink-2);font-weight:700;cursor:default}
+/* SYC-619 §6: Queue cards only */
+article.report .actions button.go{background:var(--accent);color:var(--on-accent)}
+article.report .actions button.go:hover{background:var(--accent-hover)}
+article.report .now{margin:0 0 6px;font-weight:700}
+article.report .said1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+article.report details[open] .said1{display:none}
+article.report:not(.urgent):not(.issue):not(.closed):not(.likely){border-left-color:var(--line)}
+/* end SYC-619 §6 */
+.actions button.save{margin-top:8px;background:var(--accent);color:var(--on-accent)}
+.actions button.save:hover{background:var(--accent-hover)}
+textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;resize:vertical;min-height:84px}
+h3{font-size:16px;margin:16px 0 4px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 8px}
+.search{margin:8px 0 16px}
+.searchrow{display:flex;gap:8px}
+.searchrow input{flex:1;min-width:0;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px}
+button.primary{margin-top:8px}
+button.primary,.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+ul.cats,ul.sightings,ol.history,ul.history.coatchanges{list-style:none;margin:0;padding:0}
+.catrow{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;overflow-wrap:anywhere}
+.catrow:hover{border-color:var(--accent)}
+form.takeout{margin:-4px 0 8px}
+form.takeout button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+.catrow input[type=checkbox]{width:24px;height:24px;margin:0;flex:none}
+.catrow input[type=checkbox]:disabled+.thumb{opacity:.6}
+.catrow strong{color:var(--accent-text);text-decoration:underline}
+/* A colony's cat row (SYC-619 §7.2): the <li> is the card, its link fills it, the "⋯" sits at the right. */
+li.colonycat{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0}
+li.colonycat:hover{border-color:var(--accent)}
+li.colonycat>a.catrow{border:0;margin:0;background:transparent;padding-right:56px}
+.catinfo{display:block;flex:1;min-width:0}
+.syr{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.status{display:block;font-size:14px;color:var(--ink-2);margin-top:2px}
+.thumb{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.compare{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.compare figure{margin:0;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+.compare img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.muted{color:var(--muted);font-size:14px;margin:0}
+.report .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;margin:4px 0}
+.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center}
+.public{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0;font-weight:700}
+form.sightact{margin:6px 0 0}
+form.sightact button{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+/* The cat page's header card (SYC-655 spec §2): the facts grid; the card itself is further down. */
+.catfacts{display:grid;grid-template-columns:minmax(0,1fr);gap:12px 18px;margin:12px 0 0}
+.catfacts .fact{min-width:0}
+.catfacts dt{margin:0 0 1px;font-size:14px;font-weight:600;color:var(--muted)}
+.catfacts dd{margin:0;font-size:16px;overflow-wrap:anywhere;min-width:0}
+.catfacts .wide{grid-column:1/-1;background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+@media (min-width:700px){.catfacts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.catfacts .mark{font-weight:400;align-items:flex-start}
+.catfacts .mark-icon{margin-top:3px}
+.catfacts .how{display:block;font-size:14px;color:var(--muted)}
+.catfacts .why summary{font-size:14px;color:var(--accent-strong);cursor:pointer;min-height:44px;display:flex;align-items:center}
+.catfacts .why dl{margin:4px 0 8px;font-size:14px}
+.catfacts .why dt{font-weight:700;margin-top:6px}
+.catfacts .why dd{margin:0}
+.colourchip{display:inline-block;font-size:14px;border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;margin:0 2px 2px 0;color:var(--ink);background:var(--card)}
+.catfacts a:has(.colourchip){text-decoration:none}
+.publicline{font-size:14px;color:var(--ink-2);margin:8px 0 16px}
+.publicline .public{display:inline;background:none;border:0;padding:0;font-weight:400}
+/* The cat page's header card (SYC-655 spec §2). Scoped to div.catcard: the Cats grid cards are li.catcard. One column on a phone, in the page's order; three areas from 1000px. */
+div.catcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:12px 0 0}
+div.catcard>*{min-width:0}
+div.catcard .openreports{margin:0}
+.cardphoto a.photo{position:relative;display:block;max-height:none;margin:0;background:none;text-decoration:none;color:inherit}
+.cardphoto img.photo.catmain{display:block;width:100%;max-width:none;max-height:none;aspect-ratio:4/3;object-fit:cover;margin:0;border-radius:10px}
+.cardphoto .nophoto{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;margin:0;border-radius:10px}
+.cardphoto .ishidden{opacity:.45}
+.photocount{position:absolute;right:8px;bottom:8px;display:inline-flex;align-items:center;min-height:44px;box-sizing:border-box;padding:0 14px;border-radius:999px;background:rgba(27,42,56,.88);color:var(--on-accent);font-size:14px;font-weight:600}
+.nameline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nameline h1{margin:0}
+.nameline .mark-icon{width:20px;height:20px}
+.cardcat .syrline{margin:4px 0 0}
+.cardcat .publicline{margin:8px 0 0}
+/* The folds this page adds show which way they open. */
+li.statement.routine>details>summary::before,.hownote>summary::before{content:"▸";flex:none;width:1.2em;color:var(--accent-strong)}
+li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
+li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
+/* Folds look like folds (SYC-619 §2.6): the same marker, with empty alternative text so a screen reader does not read the triangle. */
+.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before,details.planfold>summary::before{content:"▸" / "";flex:none;width:1.2em;color:var(--accent-strong)}
+.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before,details.planfold[open]>summary::before{content:"▾" / ""}
+.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary,details.planfold>summary{display:flex;align-items:center;list-style:none}
+.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker,details.planfold>summary::-webkit-details-marker{display:none}
+/* Buttons with their own look keep no marker (SYC-619 §2.6). */
+.fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
+details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:var(--accent-strong)}
+details.invitefold>summary{display:inline-flex;width:fit-content}
+.cattabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);border-bottom:1px solid var(--line);margin:24px -12px 0;padding:8px 12px;display:flex;gap:8px;overflow-x:auto;white-space:nowrap}
+.cattabs a{display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 16px;border-radius:999px;background:var(--card);border:1px solid var(--line);text-decoration:none;font-weight:600;font-size:15px;color:var(--ink)}
+.catpanel>h2{margin-top:20px}
+#history,#photos,#appearance,#issue-strip,#map,#vet-visits,.catpanel,[id^="s-"],[id^="sg-"],[id^="p-"],[id^="vv-"],[id^="a-"]{scroll-margin-top:72px}
+@supports selector(:has(a)){
+.catpanel{display:none}
+.catpanel:target,.catpanel:has(:target){display:block}
+main:not(:has(.catpanel:target,.catpanel :target)) #tab-history{display:block}
+main:has(#tab-history:target,#tab-history :target) .cattabs a[href="#tab-history"],main:not(:has(.catpanel:target,.catpanel :target)) .cattabs a[href="#tab-history"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
+main:has(#tab-history:target,#tab-history :target) .cattabs a[href="#tab-history"]::after,main:not(:has(.catpanel:target,.catpanel :target)) .cattabs a[href="#tab-history"]::after{content:"" / ", open"}
+main:has(#tab-photos:target,#tab-photos :target) .cattabs a[href="#tab-photos"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
+main:has(#tab-photos:target,#tab-photos :target) .cattabs a[href="#tab-photos"]::after{content:"" / ", open"}
+main:has(#tab-map:target,#tab-map :target) .cattabs a[href="#tab-map"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
+main:has(#tab-map:target,#tab-map :target) .cattabs a[href="#tab-map"]::after{content:"" / ", open"}
+main:has(#tab-coat:target,#tab-coat :target) .cattabs a[href="#tab-coat"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
+main:has(#tab-coat:target,#tab-coat :target) .cattabs a[href="#tab-coat"]::after{content:"" / ", open"}
+main:has(#tab-reports:target,#tab-reports :target) .cattabs a[href="#tab-reports"]{background:var(--accent-hover);border-color:var(--accent-strong);color:var(--on-accent)}
+main:has(#tab-reports:target,#tab-reports :target) .cattabs a[href="#tab-reports"]::after{content:"" / ", open"}
+}
+.catmap{margin:8px 0}
+.catmap .hint{margin:4px 0 0}
+.catmap .mapcap{display:flex;justify-content:space-between;gap:8px;margin:4px 0 0;font-size:14px}
+.hownote{margin:8px 0}
+.hownote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--accent-strong)}
+/* The cat page's Coat and markings section (SYC-602 PR 3, spec §3.7). */
+details.changecoat{margin:12px 0 0}
+details.changecoat>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong)}
+.changepart{margin:0 0 16px}
+/* The cat page's History (SYC-602 PR 2, spec §3.5): filters, then one list; a date column, the words, a ⋯ menu. */
+.hfilters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.hfilters a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink);font-size:14px}
+.hfilters a[aria-current]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-strong);font-weight:700}
+ol.tl{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:10px}
+ol.tl>li{border-top:1px solid var(--line)}
+ol.tl>li:first-child{border-top:0}
+ol.tl [id],#vet-visits{scroll-margin-top:72px}
+li.hrow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;padding:12px;align-items:start;overflow-wrap:anywhere}
+li.hrow .when,li.hgroup .when{font-size:14px;color:var(--muted);line-height:1.25}
+li.hrow .when b,li.hgroup .when b{display:block;color:var(--ink);font-size:15px}
+li.hrow .what{min-width:0}
+li.hrow .what p{margin:4px 0 0}
+li.hrow .what .notice{margin:0 0 6px}
+li.hrow .who{display:block;font-size:14px;color:var(--muted)}
+li.hrow label.tick{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:4px;font-size:14px;color:var(--muted)}
+li.hrow label.tick input{width:22px;height:22px;margin:0}
+li.hrow.moved{background:var(--card-quiet)}
+li.hrow .moveline{font-size:14px}
+ul.movelist,ul.moveresults{list-style:none;margin:0 0 12px;padding:0}
+ul.movelist li{margin:0 0 8px}
+ul.moveresults li{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+ul.moveresults li:first-child{border-top:0}
+ul.moveresults img{width:56px;height:56px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+ul.moveresults .rname{min-width:0;overflow-wrap:anywhere}
+ul.moveresults .rname .meta{display:block}
+ul.moveresults a.choose{display:inline-flex;align-items:center;min-height:44px;padding:0 12px}
+form.movesearch{margin:0 0 12px}
+form.movesearch button{margin-top:0}
+form.moveform fieldset.why,form.moveform fieldset.mainphoto{margin:0 0 12px}
+form.moveform .pickgrid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+form.moveform label.pick{display:flex;flex-direction:column;align-items:center;gap:4px}
+form.moveform label.pick img{width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+form.moveform .whatmoves{background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin:0 0 12px}
+form.moveform .whatmoves h2{font-size:16px;margin:8px 0 4px}
+form.movebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+form.movebar .hint{flex:1 0 100%;margin:0}
+form.movebar button,form.movesearch button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+form.moveform .whatmoves p,form.moveform .warn,.notice,ul.movelist .meta,p.chosen,a.catlink{overflow-wrap:anywhere}
+.mergecols{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:0 0 12px}
+@media(min-width:720px){.mergecols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mergecol{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0;overflow-wrap:anywhere}
+.mergecol.stays{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.mergecol h3{margin:0 0 2px;font-size:18px}
+.mergecol .photos{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.mergecol .photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.mergecol dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;margin:6px 0 0;font-size:15px}
+.mergecol dt{color:var(--muted)}
+.mergecol dd{margin:0}
+/* SYC-59 PR 5.1: the Possible duplicates list and New cats to check. */
+.dupcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.dupcat{min-width:0;overflow-wrap:anywhere}
+.dupcat h3{margin:0 0 4px;font-size:16px}
+.dupcat .photos{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.dupcat .photos img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.dupcat .photos img.main{width:72px;height:72px}
+@media(min-width:720px){.dupcat .photos img{width:72px;height:72px}.dupcat .photos img.main{width:96px;height:96px}}
+ul.dupwhy{margin:4px 0 8px;padding-left:20px}
+ul.dupwho{list-style:none;margin:0 0 8px;padding:0;font-size:14px;color:var(--muted)}
+.dupactions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:8px}
+.dupactions form{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dupactions a.go,.dupactions button{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;box-sizing:border-box;font:inherit;font-size:15px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer;text-decoration:none}
+.dupactions a.go{background:var(--accent);color:var(--on-accent)}
+.dupactions input.text{min-height:44px;flex:1 1 180px}
+.nearby{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.nearby figure{margin:0;width:88px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.nearby img{width:88px;height:88px;object-fit:cover;border-radius:6px;background:var(--sunk);display:block}
+ul.happens{margin:0 0 12px;padding-left:20px}
+ul.happens li{margin:6px 0;overflow-wrap:anywhere}
+form.mergeform .whatmoves{background:var(--card-quiet);border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin:0 0 12px}
+form.mergeform .whatmoves h2{font-size:16px;margin:8px 0 4px}
+ul.undolist{list-style:none;margin:0 0 12px;padding:0}
+ul.undolist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+ul.undolist li:first-child{border-top:0}
+ul.undolist label.tick{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:15px}
+ul.undolist label.tick input{width:22px;height:22px;margin:0}
+ul.undolist .compare{margin:4px 0 0}
+.tag.from{background:var(--accent-soft);color:var(--accent-strong)}
+li.hrow .vet-photos{display:flex;flex-wrap:wrap;gap:8px}
+li.hrow .vet-photos a{display:block;width:64px;height:64px;min-height:64px;padding:0;margin:0}
+li.hrow .vet-photos img{display:block;width:64px;height:64px;object-fit:cover;border-radius:6px}
+li.hrow.vet{box-shadow:inset 4px 0 0 var(--accent)}
+li.hrow.replaced{background:var(--card-quiet)}
+li.hrow del{color:var(--muted)}
+li.hrow .tag{font-size:12px;padding:1px 8px;margin-left:4px;vertical-align:1px}
+.tag.vet{background:var(--accent-soft);color:var(--accent-strong)}
+.tag.note{background:var(--sunk);color:var(--warn-ink)}
+.tag.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.hthumbs{display:flex;gap:4px;margin-top:6px}
+li.hrow a.hthumbs{padding:0;width:max-content}
+li.hgroup>details>summary{display:grid;grid-template-columns:62px minmax(0,1fr);gap:12px;padding:12px;cursor:pointer;list-style:none;min-height:44px}
+li.hgroup>details>summary::-webkit-details-marker{display:none}
+li.hgroup .runwords{color:var(--accent-strong);font-weight:700}
+li.hgroup .runwords::before{content:"▸ "}
+li.hgroup>details[open] .runwords::before{content:"▾ "}
+li.hgroup .hthumb{width:44px;height:44px}
+li.hgroup ol.tl{border:0;border-top:1px solid var(--line);border-radius:0;background:var(--card-quiet);margin:0 0 0 12px}
+.rowmenu.dots{position:relative;margin:0}
+.rowmenu.dots>summary{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:10px;justify-content:center;font-size:22px;line-height:1;color:var(--muted);background:transparent;list-style:none}
+.rowmenu.dots>summary::-webkit-details-marker{display:none}
+.rowmenu.dots[open]>summary{background:var(--sunk)}
+.rowmenu.dots>.rowmenuitems{position:absolute;right:0;top:46px;z-index:3;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px 12px 10px;width:min(320px,calc(100vw - 48px));box-sizing:border-box}
+.rowmenu.dots .meta a{display:flex;align-items:center;min-height:44px;padding:0}
+.rowmenu.dots form.sightact{margin:6px 0}
+.rowmenu.dots form.sightact button{width:100%;text-align:left}
+.rowmenu.dots .rowmenuitems>a.tap{display:flex}
+.rowmenu.dots details{border-top:1px dashed var(--line);margin-top:6px}
+.rowmenu.dots details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong);font-size:15px}
+.rowmenu.dots details>summary.risky{color:var(--danger)}
+.rowmenu.dots details form{margin:4px 0 0}
+.rowmenu.dots details button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+.rowmenu.dots details button.risky{background:var(--card);color:var(--danger);border:2px solid var(--danger)}
+/* One "More" menu per row: a sighting's actions, or taking a cat out of a colony. */
+.rowmenu{margin:4px 0 0}
+.rowmenu>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--accent);border-radius:10px;color:var(--accent-strong);font-weight:700;background:var(--card)}
+.rowmenuitems{padding:6px 0 0}
+.rowmenuitems .meta{margin:0 0 4px}
+.rowmenu.compact{margin:0}
+.rowmenu.compact>summary{position:absolute;top:8px;right:4px;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:10px;justify-content:center;font-size:22px;line-height:1;color:var(--muted);background:transparent;list-style:none}
+.rowmenu.compact>summary::-webkit-details-marker{display:none}
+.rowmenu.compact[open]>summary{background:var(--sunk)}
+.rowmenu.compact>.rowmenuitems{margin:0 8px;padding:4px 0 8px;border-top:1px dashed var(--line)}
+.rowmenu.compact form.takeout{margin:4px 0 0}
+li.statement.routine>details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong)}
+li.statement.routine ol.history{margin:4px 0 0}
+ul.sightings li{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;margin:8px 0;font-size:15px;overflow-wrap:anywhere}
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px}
+.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px}
+.gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.gallery figure.ishidden img{opacity:.55;outline:3px solid var(--danger);outline-offset:-3px}
+.gallery .notice{margin:0;font-size:14px}
+.gallery form{margin:0}
+.gallery figcaption{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:14px;min-height:44px}
+.gallery .capt{min-width:0;overflow-wrap:anywhere}
+.gallery figure{position:relative}
+.gallery .rowmenu.dots{position:static}
+.gallery .rowmenu.dots>.rowmenuitems{top:calc(100% + 2px);left:0;right:auto}
+.gallery figure:nth-child(even) .rowmenu.dots>.rowmenuitems{left:auto;right:0}
+.gallery button{font:inherit;font-size:15px;width:100%;min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+.gallery button.restore{background:var(--accent);color:var(--on-accent)}
+.gallery .role{margin:0;font-size:14px;font-weight:700;color:var(--ink-2)}
+.mixed{display:inline-block;margin-top:4px;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--warn-soft);color:var(--warn-ink)}
+.hiddenby{margin:0;font-size:14px;color:var(--danger);font-weight:700;overflow-wrap:anywhere}
+.hiddenby .why{font-weight:400;color:var(--ink-2)}
+.statement{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;overflow-wrap:anywhere}
+.statement p{margin:2px 0}
+.join input{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--card)}
+.join button{width:100%}
+.statement.replaced{border-left-color:var(--line-strong);background:var(--card-quiet)}
+.statement del{color:var(--muted)}
+.said{font-weight:700}
+.sid{font-weight:400;color:var(--muted);font-size:13px}
+.meta{color:var(--muted);font-size:14px}
+.why{font-size:15px}
+.replacement{border-top:1px dashed var(--line);margin-top:6px!important;padding-top:6px}
+.back{margin:12px 0 0}
+/* Links inside text keep their look but get a 44px-tall tap area: padding
+   on an inline link doesn't move the text around it. Zero specificity, so
+   any class rule below wins. */
+:where(dd,li,p,span)>a{padding:12px 0}
+.back a,a.tap{display:inline-flex;align-items:center;min-height:44px;padding:0}
+ul.sightings li>a{padding:0}
+.refs a{padding:8px 0}
+a.catlink.tap,a.sublink.tap{display:flex}
+.syrline{margin:0 0 4px;color:var(--muted);font-size:15px;font-variant-numeric:tabular-nums}
+.desc{font-size:15px;margin:8px 0}
+.photo.catmain{width:auto;max-width:100%;max-height:240px}
+.refs{margin:0;padding:0;list-style:none}
+.refs li{margin:0 0 6px}
+.hintlist{margin:0 0 8px;padding-left:20px}
+.hintlist li{margin:4px 0}
+div.evidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 4px;max-width:520px}
+div.evidence figure{margin:0}
+div.evidence img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--sunk)}
+div.evidence figcaption{font-size:13px;color:var(--muted);margin-top:2px}
+.likelyactions form{margin:12px 0 0}
+.likelyactions .save{width:100%}
+input.text,input[type=date],select.text{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;margin:0 0 8px;background:var(--card)}
+input[type=date]{max-width:220px}
+.fixes details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;padding:0 12px}
+.fixes summary,.statement summary,.typedfold summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong)}
+.fixes details[open]{padding-bottom:12px}
+.fixes form,.statement form{margin:4px 0 0}
+.fixes details.update>summary{border:2px solid var(--accent);border-radius:10px;justify-content:center;margin:8px 0}
+.fixes details.update{padding:0;border:0;background:none}
+.fixes details.addnote{padding:0;border:0;background:none}
+.fixes details.addnote>summary{border:2px solid var(--accent);border-radius:10px;justify-content:center;margin:8px 0}
+.fixes details.addnote[open]>summary{margin-bottom:4px}
+.fixes summary.risky{color:var(--danger)}
+.fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:var(--accent-strong)}
+.fixes form.samecat{margin:8px 0 4px}
+.fixes form.samecat button{width:100%;background:var(--card);color:var(--accent-strong);border:2px solid var(--accent)}
+.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform button{width:100%;background:var(--card);color:var(--danger);border:2px solid var(--danger)}
+.fixes form.diedform button:hover{background:var(--danger-soft)}
+.photo.catmain.diedphoto{max-height:140px}
+fieldset{border:0;margin:0 0 8px;padding:0}
+legend{padding:0}
+.choice{display:flex;align-items:center;gap:10px;min-height:44px;font-size:16px}
+.choice input{width:22px;height:22px;margin:0;flex:none}
+.batchcat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0;overflow-wrap:anywhere}
+.batchcat h3{margin:0 0 4px}
+.batchstate{font-weight:700;margin:0 0 8px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.batchcat form{margin:0 0 10px}
+.batchcat .batchremove{margin:12px 0 0}
+.batchsuggest{list-style:none;margin:0 0 8px;padding:0}
+.batchsuggest .catrow{flex-wrap:wrap}
+.batchsuggest .catrow form{margin:0 0 0 auto}
+.batchshared,#cats,#add,#save{margin:0 0 16px}
+.batchabandon{margin-top:12px}
+.batchundo button,.batchremove button,.batchabandon button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;cursor:pointer}
+.batchundo button{border:1px solid var(--line-strong);background:var(--card);color:var(--ink)}
+.warn{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:6px;padding:8px 10px;margin:8px 0}
+.statement details{margin-top:6px;border-top:1px dashed var(--line)}
+.statement summary{font-size:15px}
+.fixes button,.statement button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+.likelyactions button:not(.save){width:100%}
+a.catlink{display:block;font-weight:700}
+.muted a.catlink{display:inline}
+a.sublink{display:block;font-size:14px;padding-top:0}
+.tiecard{margin:8px 0}
+.tiecard .catrow{margin:0}
+.tiecard form{margin:6px 0 0}
+.tiecard .hint{margin:6px 0 0}
+.tiecard button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;width:100%}
+.map{margin:0;line-height:0}
+/* SYC-705: the MapLibre map (lib/teamPages/map.ts, assets/map-core.js). The box holds the no-map line until the script replaces it. */
+.map[data-map]{position:relative;height:min(60vh,420px);min-height:260px;line-height:normal;border:1px solid var(--line);border-radius:10px;background:var(--sunk);overflow:hidden}
+.catmap .map[data-map],.planmap .map[data-map]{height:260px;min-height:0}
+.map[data-map] .mapcanvas{position:absolute;inset:0}
+.mapnojs{margin:0;padding:12px;font-size:14px;line-height:1.4;color:var(--muted)}
+.mapctl{position:absolute;top:8px;right:8px;z-index:2;display:flex;flex-direction:column;gap:6px}
+.mapctl button{width:44px;height:44px;padding:0;font:inherit;font-size:20px;font-weight:700;line-height:1;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.mapctl button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+/* MapLibre places a marker by its centre itself: no negative margins. */
+.maplibregl-marker.pin{margin:0}
+.mapfallback.maplive{display:none}
+/* SYC-705 Task 2b.7: a place map's fixed pin, its tip on the middle of the box; the person drags the map under it. */
+.map[data-map] .placepin{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-34px 0 0 -14px;z-index:2;pointer-events:none;box-sizing:border-box;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--accent);border:3px solid var(--on-accent);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+[data-mapon][hidden]{display:none}
+.pickform .actions{margin:8px 0}
+.areapick select{margin-bottom:8px}
+.pin{position:absolute;display:block;width:22px;height:22px;margin:-11px 0 0 -11px;border:3px solid var(--danger);border-radius:50%;background:rgba(255,255,255,.45);box-shadow:0 0 0 2px var(--card)}
+span.pin{pointer-events:none}
+.pin.site-public{background:var(--danger-fill)}
+.pin.site-private{background:rgba(255,255,255,.55)}
+.pin.site-retired{border-color:var(--line-strong);background:var(--sunk)}
+/* A cat's own sightings on its page (SYC-396 PR 1.4): numbered dark-ink circles with a light ring. */
+.pin.seen{width:24px;height:24px;margin:-12px 0 0 -12px;border:1px solid var(--ink);background:var(--ink);box-shadow:0 0 0 2px var(--card);display:flex;align-items:center;justify-content:center;text-decoration:none}
+/* A 44px tap area round each 24px marker (spec §12.4). */
+.pin.seen::after{content:"";position:absolute;inset:-10px}
+.pin.seen.multi{width:auto;min-width:24px;margin:0;padding:0 6px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%)}
+.pinnum{color:var(--on-accent);font-size:12px;font-weight:700;line-height:1}
+.pin.sighting{border:3px dashed var(--trail);border-radius:4px;background:transparent}
+/* A colony's trapping planner (SYC-396 PR 2.3; spec §9.2, §12): feeding sites are squares on its small map. */
+.planmap .pin.site-public,.planmap .pin.site-private{border-radius:3px}
+.estimate{font-size:18px;margin:16px 0 4px}
+details.planfold{margin:12px 0}
+details.planfold>summary{min-height:44px;cursor:pointer;font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.attrib{margin:4px 0 8px;font-size:12px;color:var(--muted)}
+.mapmove{margin:8px 0 0}
+.mapmove .arearow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.mapmove button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+.mapmove button:disabled{background:transparent;border-style:dashed;color:var(--muted);cursor:not-allowed}
+.mapmove .label{margin:8px 0 6px}
+.mapmove>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-weight:700}
+form.addsite{margin:12px 0 0}
+form.addsite button,form.typedpos button,form.areapick button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
+/* "Move on the map" looks like the other actions' cards (.fixes summary). */
+form.movesite{margin:8px 0}
+.actions form.movesite button{display:flex;align-items:center;width:100%;text-align:left;font:inherit;font-weight:700;color:var(--accent-strong);background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:46px;padding:0 12px;cursor:pointer}
+form.typedpos{margin:0 0 8px}
+.tapped{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--danger);border-radius:10px;padding:10px 12px;margin:8px 0;font-variant-numeric:tabular-nums}
+/* Hard-to-undo actions look different from Save (design review, 15 Oct 2026). */
+button.risky,.actions button.risky,.fixes button.risky,.statement button.risky,.gallery button.risky,form.takeout button.risky{background:var(--card);color:var(--danger);border:2px solid var(--danger)}
+button.risky:hover{background:var(--danger-soft)}
+/* "Are you sure?" (SYC-362): what will happen, then Yes or Cancel. */
+ul.sure{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--danger);border-radius:10px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.sure li{margin:4px 0}
+ul.happens{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:12px 0 16px;padding:12px 12px 12px 32px}
+ul.happens li{margin:4px 0}
+button.primary.wide{width:100%}
+form.sureform{margin:0 0 4px}
+form.sureform button{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:10px 18px;border-radius:10px;cursor:pointer}
+/* A link that opens another page of actions looks like the action cards. */
+a.cardlink{display:flex;align-items:center;min-height:46px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 12px;font-weight:700;color:var(--accent-strong);text-decoration:none}
+a.cardlink:hover{border-color:var(--accent)}
+/* SYC-2 PR 3.1: the Appearance section's chip pickers and the Colour check list. */
+.chips{display:grid;grid-template-columns:1fr;gap:0 12px}
+.appfix form{margin:8px 0 0}
+.appfix>form>.hint{margin:4px 0 0}
+li.colourcheck{list-style:none}
+li.colourcheck .catrow{border:0;padding:0;margin:0 0 6px}
+details.notdescribed>summary{cursor:pointer;font-weight:700;padding:10px 0;color:var(--accent-strong)}
+/* Home (SYC-396 PR 2.1; spec §4). */
+ul.hlist,ul.hplain,ul.hfigs{list-style:none;margin:8px 0;padding:0}
+ul.hplain li,ul.hfigs li{margin:4px 0}
+a.hrow{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;margin:8px 0;color:inherit;text-decoration:none;min-height:44px;overflow-wrap:anywhere}
+a.hrow:hover{border-color:var(--accent)}
+.hthumb{flex:none;width:56px;height:56px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.hthumb.nothumb{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);text-align:center}
+.htext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hwhere{font-size:15px}
+.hwhere strong{color:var(--accent-text);text-decoration:underline}
+.hnote{font-size:14px;color:var(--ink-2)}
+a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-weight:700}
+a.hrow.urgent{border-left:6px solid var(--danger)}
+.hgrid{display:grid;gap:0 32px}
+.hgrid>*{min-width:0}
+@media (min-width:1000px){.hgrid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
+ul.htiles{list-style:none;margin:12px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:560px){ul.htiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+ul.htiles li.hwide{grid-column:1/-1}
+ul.htiles li{display:flex;flex-direction:column;gap:4px;min-width:0}
+ul.htiles li>a.htile{width:100%;box-sizing:border-box}
+ul.htiles li .hint{margin:0;font-size:13px;line-height:1.3;color:var(--muted)}
+li.trow .cflag{align-self:flex-start}
+a.htile{display:flex;flex-direction:column;gap:2px;min-height:44px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--accent-text);font-size:14px;overflow-wrap:anywhere}
+a.htile:hover{border-color:var(--accent)}
+a.htile .hn{font-size:24px;font-weight:700;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+ul.trap{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+li.trow{display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+li.trow .ttop{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;align-items:baseline}
+li.trow .ttop a{display:inline-flex;align-items:center;min-height:44px;overflow-wrap:anywhere}
+li.trow .tcost{font-weight:700;font-variant-numeric:tabular-nums}
+li.trow .hint{margin:0}
+.hbig{font-size:18px;margin:16px 0 8px}
+.hbig strong{font-size:40px;line-height:1;margin-right:4px;font-variant-numeric:tabular-nums}
+.hfig{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-right:2px}
+/* The Cats grid (SYC-396 PR 1.3). */
+.mark{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:var(--ink)}.mark-icon{flex:none}.mark-sterilised .mark-icon{color:var(--mark-sterilised)}.mark-probably .mark-icon{color:var(--mark-probably)}.mark-not_known .mark-icon{color:var(--mark-not_known)}.mark-not_sterilised .mark-icon{color:var(--mark-not_sterilised)}.markbar{margin:8px 0}.markbar-track{display:flex;gap:2px;height:16px;border-radius:10px;overflow:hidden}.markbar-seg{display:block;min-width:2px}.markbar-empty{border:2px solid var(--line-strong);box-sizing:border-box}.markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:var(--ink)}.markbar-sep{color:var(--muted)}
+.catfilters{margin:8px 0 8px}
+details.filters{margin:8px 0}
+details.filters>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--card);color:var(--accent-strong);font-weight:700;font-size:16px}
+.fpanel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:8px}
+.fpanel fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
+.fpanel legend{font-weight:700;font-size:14px;padding:0 0 4px}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.choicechip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 12px;border:1px solid var(--line-strong);border-radius:999px;background:var(--card);font-size:15px;cursor:pointer}
+.choicechip input{width:20px;height:20px;margin:0}
+.flabel{display:block;font-size:14px;font-weight:700;margin:6px 0 4px}
+.fchips{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+a.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border:1px solid var(--accent);border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);text-decoration:none;font-size:15px}
+.count{margin:8px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px}
+.count .meta{font-weight:400}
+#catresults[aria-busy="true"]{opacity:.6;transition:opacity .2s}
+.catgrid{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.catcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0;display:flex;flex-direction:column;gap:6px}
+a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;font-weight:400;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
+.cardimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.cardimg.nothumb{display:flex;align-items:center;justify-content:center}
+.cardname strong{color:var(--accent-text);text-decoration:underline;font-size:16px}
+.cardfact{display:block;font-size:14px;font-weight:400;text-align:left;color:var(--ink-2)}
+li.catcard .tag{align-self:flex-start;font-size:13px}
+li.catcard form{margin:0}
+li.catcard .hint{margin:0}
+li.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;width:100%}
+.paging{margin:8px 0}
+/* The Colonies list's progress and flags (SYC-396 PR 2.2). */
+.colonylist .catrow>span{display:block;flex:1;min-width:0}
+.colonylist .markbar{max-width:480px}
+.cpct{font-weight:700;color:var(--ink)}
+.cflags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cflag{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border:1px solid var(--line-strong);border-radius:999px;background:var(--page);color:var(--ink);font-size:14px}
+.cflag svg{flex:none}
+.sortbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;font-size:15px}
+.sortbar a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--accent);border-radius:999px;background:var(--card);color:var(--accent-strong);text-decoration:none}
+.sortbar a[aria-current="true"]{background:var(--accent);color:var(--on-accent)}
+.figat{font-size:14px;color:var(--muted);margin:4px 0}
+/* Find from a photo (SYC-396 PR 2.5; spec §5.2). */
+.findwhere fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
+.findwhere legend{font-weight:700;font-size:14px;padding:0 0 4px}
+button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+.viewrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 12px}
+.viewrow .findentrylink{margin:8px 0}
+a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:var(--card);border:1px solid var(--accent);border-radius:10px;padding:0 16px;font-weight:700;color:var(--accent-strong);text-decoration:none}
+a.findentrylink:hover{background:var(--accent-soft)}
+.findstep{margin:16px 0 0;padding-top:8px;border-top:1px solid var(--line)}
+#find-photo{scroll-margin-top:6em}
+input.filein{display:block;width:100%;font:inherit;font-size:16px;min-height:44px;padding:8px 0;margin:0 0 8px}
+/* SYC-492: the report's own photo, above its "Use the report's photo" button. */
+img.reportphoto{display:block;max-width:100%;height:auto;border-radius:8px;margin:0 0 8px}
+ul.findlist{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:1fr;gap:12px}
+.findcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:start;overflow-wrap:anywhere}
+.findimg{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.findfacts p{margin:0 0 4px}
+.findfacts form{margin:8px 0 0}
+.findfacts .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer;width:100%}
+.findband{font-size:16px}
+.findband.very_likely strong{color:var(--accent-text)}
+.findfacts .why{font-size:13px;color:var(--muted)}
+details.unlikely>summary{cursor:pointer;display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--accent-strong)}
+.findagain{display:flex;flex-wrap:wrap;gap:0 16px;margin:12px 0}
+/* Your photo stays in view while the matches scroll (SYC-491). */
+.findmine{position:sticky;top:0;z-index:2;background:var(--page);padding:4px 0;border-bottom:1px solid var(--line)}
+figure.yourphoto{display:flex;align-items:center;gap:10px;margin:0}
+figure.yourphoto img{display:block;width:96px;height:96px;object-fit:cover;border-radius:6px;border:3px solid var(--accent);background:var(--sunk)}
+figure.yourphoto figcaption{font-size:14px;font-weight:700;color:var(--accent-strong)}
+@media (min-width:700px){ul.findlist{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}}
+@media (min-width:1000px){
+.findcompare{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0 24px;align-items:start}
+.findmine{top:12px;border-bottom:0;padding:0}
+figure.yourphoto{flex-direction:column;align-items:stretch}
+figure.yourphoto img{width:300px;height:auto;aspect-ratio:1/1}
+ul.findlist{grid-template-columns:1fr}
+.findcard{grid-template-columns:300px minmax(0,1fr);gap:16px}
+}
+/* The island map (SYC-396 PR 1.5; spec §6, §12.4). */
+.catdot{display:block;box-sizing:border-box;width:16px;height:16px;border-radius:50%;border:2px solid;background:var(--card);box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--ink)}.catdot.mark-sterilised{border-color:#0f4a72;background:#0f4a72}.catdot.mark-probably{border-color:#1c77c3;background:linear-gradient(90deg,#1c77c3 50%,#fff 50%)}.catdot.mark-not_known{border-color:#2f92dc}.catdot.mark-not_sterilised{border-color:#b8552f;background:linear-gradient(135deg,var(--card) 42%,#b8552f 42%,#b8552f 58%,#fff 58%)}.catcluster{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px;height:36px;border-radius:50%;padding:5px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--ink)}.catcluster>span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--card);color:var(--ink);font:700 13px/1 Inter,system-ui,sans-serif}.sitesq{display:block;box-sizing:border-box;width:14px;height:14px;border:2px solid var(--ink);background:var(--ink);box-shadow:0 0 0 2px var(--card)}.sitesq.site-private{background:var(--card)}.sitesq.site-retired{border:2px dashed var(--line-strong);background:var(--sunk)}
+.chart{display:block;width:100%;max-width:560px;height:auto;margin:8px 0}.chartbox{max-width:588px;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 13px;margin:12px 0}.chartlegend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;padding:0;list-style:none;font-size:14px}.chartlegend li{display:inline-flex;align-items:center;gap:6px}.swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #1b2a38}svg.swatch{border:0;flex:none}details.astable{margin:6px 0 12px}details.astable>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--accent-strong)}details.astable>summary::before{content:"▸";flex:none;width:1.2em}details.astable[open]>summary::before{content:"▾"}details.astable>summary::-webkit-details-marker{display:none}.tablewrap{overflow-x:auto}table.rtable{border-collapse:collapse;width:100%;font-size:14px;background:var(--card)}table.rtable caption{text-align:left;font-weight:700;padding:4px 0}table.rtable th,table.rtable td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}table.rtable .num{text-align:right;font-variant-numeric:tabular-nums}@media (max-width:599px){table.rtable,table.rtable thead,table.rtable tbody,table.rtable caption{display:block}table.rtable thead tr{display:flex;flex-wrap:wrap;gap:0 14px}table.rtable th{border:0;padding:0;min-height:44px;display:flex;align-items:center}table.rtable tbody tr{display:block;border-bottom:1px solid var(--line);padding:6px 8px}table.rtable td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0;text-align:right}table.rtable td::before{content:attr(data-label);font-weight:700;text-align:left}table.rtable td:first-child{font-weight:700;font-size:16px}table.rtable td:first-child::before{content:none}}ol.sbars{list-style:none;margin:8px 0;padding:0}ol.sbars>li{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 8px}.sbname{font-weight:700}ul.reportlist{list-style:none;margin:12px 0;padding:0;display:grid;gap:10px}ul.reportlist>li{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}ul.reportlist>li h2{margin:0 0 4px;font-size:18px}ul.reportlist>li p{margin:4px 0}nav.rangebar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}nav.rangebar a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid var(--accent);border-radius:22px;background:var(--card);text-decoration:none}nav.rangebar a.here{background:var(--accent);color:var(--on-accent);font-weight:700}form.rangeform{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:end;margin:4px 0 8px}form.rangeform label{display:flex;flex-direction:column;font-size:14px}form.rangeform input{min-height:44px}.method{margin:20px 0 0;border-top:1px solid var(--line);padding-top:8px}p#worked-out{margin:20px 0 0;border-top:1px solid var(--line);padding-top:8px}p#worked-out+details.method{margin-top:0;border-top:0;padding-top:0}.muted{color:var(--muted)}ul.reportlist h2.muted{font-weight:600}.chip{display:inline-block;font-size:14px;border:1px solid var(--line-strong);border-radius:999px;padding:1px 10px;color:var(--muted);background:var(--sunk)}.method p{margin:2px 0}@media print{nav.rangebar,details.astable>summary,form.rangeform,.bar,a.skip{display:none}details.astable{display:block}.chartbox,ol.sbars>li{break-inside:avoid}}
+.intro{max-width:65ch;margin:4px 0 14px;color:var(--ink)}.howpage{margin:0 0 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 12px}.howpage>summary{font-weight:700}.howpage>p.hint{max-width:65ch;margin:0 0 8px 1.2em}.howpage>p.hint:last-child{margin-bottom:12px}.what{max-width:65ch;margin:8px 0;padding:8px 12px;border-radius:10px;background:var(--accent-soft);color:var(--ink);font-size:14px}.what.warn{background:var(--warn-soft);border:1px solid var(--warn-line);font-weight:600}dl.words{display:block;max-width:65ch;margin:0}dl.words dt{font-weight:700;font-size:16px;color:var(--ink);margin:14px 0 2px;padding:0}dl.words dd{margin:0;color:var(--ink)}
+.viewswitch{display:inline-flex;margin:8px 0;border:1px solid var(--accent);border-radius:10px;overflow:hidden}
+.viewswitch a{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:var(--card);color:var(--accent-strong);font-weight:700;text-decoration:none}
+.viewswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
+.maplayers{display:flex;flex-wrap:wrap;gap:8px;border:0;padding:0;margin:8px 0;min-width:0}
+.maplayers legend{font-weight:700;font-size:14px;padding:0 0 4px}
+.mapwrap{position:relative;margin:8px 0}
+#island-map{height:min(70vh,640px);min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);line-height:normal}
+#island-map.tilesfailed{background:var(--accent-soft)}
+@media (scripting:none){.map[data-map],.catmap .map[data-map],.planmap .map[data-map],#island-map{height:auto;min-height:0}}
+.map[data-map].nomap,.catmap .map[data-map].nomap,.planmap .map[data-map].nomap,#island-map.nomap{height:auto;min-height:0}
+.maplegend{position:absolute;top:8px;left:8px;z-index:1050;max-width:min(60%,240px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:2px 10px;font-size:13px;line-height:1.3}
+.maplegend>summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
+.maplegend ul{list-style:none;margin:2px 0 6px;padding:0}
+.maplegend li{display:flex;align-items:center;gap:8px;margin:5px 0}
+.maplegend .catdot,.maplegend .sitesq{flex:none;margin:0 3px}
+.maploading{position:absolute;top:8px;left:8px;max-width:40%;z-index:1050;margin:0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-size:14px;line-height:1.3;pointer-events:none}
+.mapnote{position:absolute;left:8px;bottom:8px;z-index:1050;max-width:calc(100% - 16px);margin:0;background:var(--card);border:1px solid var(--warn-line);border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.3}
+.catsheet{position:absolute;z-index:1100;left:8px;right:8px;bottom:8px;max-height:75%;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.2);padding:12px;line-height:1.4}
+.catsheet .sheethead{display:flex;gap:10px;align-items:flex-start}
+.catsheet img{flex:none;width:72px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.catsheet .sheetname{font-size:17px;font-weight:700;margin:0}
+.catsheet .sheetname:focus{outline:none}
+.catsheet p{margin:4px 0;font-size:14px}
+.catsheet .sheetbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.catsheet .sheetbtns a,.catsheet .sheetbtns button{font:inherit;font-size:15px;min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);font-weight:700;text-decoration:none;cursor:pointer}
+.catsheet .sheetbtns a.primary{background:var(--accent);color:var(--on-accent)}
+.catsheet .sheetclose{margin-left:auto;flex:none;min-width:44px;min-height:44px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-2)}
+.catpinicon{display:flex;align-items:center;justify-content:center;background:transparent;border:0}
+button.catpinicon{width:44px;height:44px;padding:0;margin:0;box-sizing:border-box;cursor:pointer}
+.catpinicon:focus-visible{outline:3px solid var(--ink);outline-offset:2px;border-radius:50%}
+.trailpt{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--trail);color:var(--on-accent);font:700 12px/1 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 0 0 2px var(--card)}
+.mapfallback{margin:8px 0}
+.pin.catpin{width:44px;height:44px;margin:-22px 0 0 -22px;border:0;background:transparent;box-shadow:none;display:flex;align-items:center;justify-content:center}
+.pin.catpin.cluster .catcluster{width:30px;height:30px}
+@media (min-width:700px){.catsheet{right:auto;bottom:auto;top:8px;width:320px;max-height:calc(100% - 16px)}}
+@media (min-width:700px){
+.chips{grid-template-columns:1fr 1fr}
+main{padding-top:20px}
+.tiecard button{width:auto}
+.states{grid-template-columns:repeat(4,1fr)}
+dl{grid-template-columns:150px 1fr;gap:4px 12px}
+dt{margin-top:0}
+.thumb{width:96px;height:96px}
+.photo.catmain{max-height:320px}
+.catgrid{grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+}
+/* A wide screen shows the filters in the open, without the Filters button. */
+@supports selector(::details-content){
+@media (min-width:900px){
+details.filters::details-content{content-visibility:visible;display:block}
+details.filters>summary{display:none}
+.fpanel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px;margin-top:0}
+}
+}
+/* A big screen: the cat page's header card has the photo (200px square), the cat and the buttons side by side; the open-reports box spans the top. */
+@media (min-width:1000px){
+div.catcard{grid-template-columns:200px minmax(0,1fr) 260px;align-items:start;gap:16px 24px}
+div.catcard.noactions{grid-template-columns:200px minmax(0,1fr)}
+div.catcard>.openreports{grid-column:1/-1}
+.cardphoto img.photo.catmain,.cardphoto .nophoto{width:200px;height:200px;aspect-ratio:1}
+.catfacts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cattabs{margin:32px 0 0;border-radius:0}
+}
+</style></head><body><a class="skip" href="#main">Skip to the page</a><nav class="bar wide" aria-label="Dashboard"><a href="/api/team/home">Home</a><a href="/api/team/cats">Cats</a><a href="/api/team/cats?view=map">Map</a><a href="/api/team">Queue</a><a href="/api/team/colonies">Colonies</a><a class="here" href="/api/team/insights" aria-current="page">Reports</a><a href="/api/team/settings">Settings</a><span class="who" title="Test">Signed in as Test</span><form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form></nav><nav class="phonebar" aria-label="Dashboard"><span class="phonehere">Reports</span><details class="menufold"><summary>Menu</summary><div class="menulinks"><a href="/api/team/home">Home</a><a href="/api/team/cats">Cats</a><a href="/api/team/cats?view=map">Map</a><a href="/api/team">Queue</a><a href="/api/team/colonies">Colonies</a><a class="here" href="/api/team/insights" aria-current="page">Reports</a><a href="/api/team/settings">Settings</a><span class="who" title="Test">Signed in as Test</span><form method="post" action="/api/team/signout"><button type="submit">Sign out</button></form></div></details></nav><main id="main" tabindex="-1" class="wide"><p class="back"><a href="/api/team/insights">← Reports</a></p><h1>Launch measures</h1><nav class="rangebar" aria-label="Time range"><a class="tap here" href="/api/team/insights/launch?range=since" aria-current="true">Since launch</a><a class="tap" href="/api/team/insights/launch?range=month">This month</a><a class="tap" href="/api/team/insights/launch?range=3months">Last 3 months</a><a class="tap" href="/api/team/insights/launch?range=year">This year</a><a class="tap" href="/api/team/insights/launch?range=all">All time</a></nav><details class="astable"><summary>Dates you choose</summary><form method="get" action="/api/team/insights/launch" class="rangeform"><input type="hidden" name="range" value="custom"><label>From <input type="date" name="from" value="2026-10-28" max="2026-11-20" required></label><label>To <input type="date" name="to" value="2026-11-20" max="2026-11-20" required></label><button type="submit">Show</button></form></details><section id="use"><h2>Sightings and spotters</h2><p class="hbig"><strong>139</strong> sightings, from <strong>30</strong> spotters</p><p class="hint">Spotters are counted, never named or ranked. A spotter here is a phone or browser. One person on two devices counts twice.</p><p class="hint">November is the quiet season on Syros. A drop may be the season, not the app.</p><div class="chartbox"><svg class="chart" viewBox="0 0 560 320" role="img" aria-label="Sightings and spotters per week" xmlns="http://www.w3.org/2000/svg"><line x1="52" x2="548" y1="280" y2="280" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="287" font-size="20" text-anchor="end" fill="#1b2a38">0</text><line x1="52" x2="548" y1="221" y2="221" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="228" font-size="20" text-anchor="end" fill="#1b2a38">20</text><line x1="52" x2="548" y1="162" y2="162" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="169" font-size="20" text-anchor="end" fill="#1b2a38">40</text><line x1="52" x2="548" y1="103" y2="103" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="110" font-size="20" text-anchor="end" fill="#1b2a38">60</text><line x1="52" x2="548" y1="44" y2="44" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="51" font-size="20" text-anchor="end" fill="#1b2a38">80</text><path d="M52 256.4 L217.3 132.5 L382.7 97.1 L548 224" fill="none" stroke="#1b2a38" stroke-width="2" vector-effect="non-scaling-stroke" stroke-opacity="0.55" stroke-linejoin="round"/><circle cx="52" cy="256.4" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Sightings: 8 on 26 Oct 2026</title></circle><circle cx="217.3" cy="132.5" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Sightings: 50 on 2 Nov 2026</title></circle><circle cx="382.7" cy="97.1" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Sightings: 62 on 9 Nov 2026</title></circle><circle cx="548" cy="224" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Sightings: 19 on 16 Nov 2026</title></circle><path d="M52 271.2 L217.3 244.6 L382.7 235.8 L548 268.2" fill="none" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="52" cy="271.2" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Spotters: 3 on 26 Oct 2026</title></circle><circle cx="217.3" cy="244.6" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Spotters: 12 on 2 Nov 2026</title></circle><circle cx="382.7" cy="235.8" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Spotters: 15 on 9 Nov 2026</title></circle><circle cx="548" cy="268.2" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Spotters: 4 on 16 Nov 2026</title></circle><text x="548" y="212" font-size="20" text-anchor="end" fill="#1b2a38" font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke">Sightings: 19</text><text x="548" y="256.2" font-size="20" text-anchor="end" fill="#1b2a38" font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke">Spotters: 4</text><text x="52" y="314" font-size="20" text-anchor="start" fill="#1b2a38">26 Oct 2026</text><text x="548" y="314" font-size="20" text-anchor="end" fill="#1b2a38">16 Nov 2026</text></svg></div><details class="astable"><summary>Show as table</summary><div class="tablewrap"><table class="rtable"><caption>Sightings and spotters per week</caption><thead><tr><th scope="col">Week starting</th><th scope="col">Part of launch</th><th scope="col" class="num">Sightings</th><th scope="col" class="num">Spotters</th><th scope="col" class="num">Returning spotters</th><th scope="col">Sightings against baseline</th><th scope="col">Spotters against baseline</th></tr></thead><tbody><tr><td data-label="Week starting">26 Oct 2026</td><td data-label="Part of launch">Launch days</td><td class="num" data-label="Sightings">8</td><td class="num" data-label="Spotters">3</td><td class="num" data-label="Returning spotters">5</td><td data-label="Sightings against baseline">−42 on baseline</td><td data-label="Spotters against baseline">−9 on baseline</td></tr><tr><td data-label="Week starting">2 Nov 2026</td><td data-label="Part of launch">Baseline (first full week after launch)</td><td class="num" data-label="Sightings">50</td><td class="num" data-label="Spotters">12</td><td class="num" data-label="Returning spotters">5</td><td data-label="Sightings against baseline"></td><td data-label="Spotters against baseline"></td></tr><tr><td data-label="Week starting">9 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Sightings">62</td><td class="num" data-label="Spotters">15</td><td class="num" data-label="Returning spotters">5</td><td data-label="Sightings against baseline">+12 on baseline</td><td data-label="Spotters against baseline">+3 on baseline</td></tr><tr><td data-label="Week starting">16 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Sightings">19</td><td class="num" data-label="Spotters">4</td><td class="num" data-label="Returning spotters">5</td><td data-label="Sightings against baseline">−31 on baseline</td><td data-label="Spotters against baseline">−8 on baseline</td></tr></tbody></table></div></details><p><a class="tap" href="/api/team/insights/launch-use.csv?range=since" download>Download sightings and spotters as a spreadsheet (CSV)</a></p></section><section id="matched"><h2>Share matched</h2><p class="hbig">Matched to a known cat: <strong>82% · 111 of 135</strong></p><p class="hint">A suggested cat or one the spotter found, as a share of sightings that were finished.</p><div class="chartbox"><svg class="chart" viewBox="0 0 560 300" role="img" aria-label="Sightings per week, by what the spotter did" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="pat-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.4" height="6" fill="#fff"/></pattern><pattern id="pat-dots" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.3" fill="#fff"/></pattern></defs><line x1="52" x2="548" y1="260" y2="260" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="267" font-size="20" text-anchor="end" fill="#1b2a38">0</text><line x1="52" x2="548" y1="212" y2="212" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="219" font-size="20" text-anchor="end" fill="#1b2a38">10</text><line x1="52" x2="548" y1="164" y2="164" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="171" font-size="20" text-anchor="end" fill="#1b2a38">20</text><line x1="52" x2="548" y1="116" y2="116" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="123" font-size="20" text-anchor="end" fill="#1b2a38">30</text><line x1="52" x2="548" y1="68" y2="68" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="75" font-size="20" text-anchor="end" fill="#1b2a38">40</text><line x1="52" x2="548" y1="20" y2="20" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="27" font-size="20" text-anchor="end" fill="#1b2a38">50</text><rect x="70.6" y="238" width="86.8" height="22" rx="2" fill="rgba(27,42,56,0.55)"><title>Not finished: 5, from 26 Oct 2026</title></rect><rect x="70.6" y="223.6" width="86.8" height="12.4" rx="2" fill="rgba(27,42,56,0.55)"><title>No cat in the photo: 3, from 26 Oct 2026</title></rect><rect x="70.6" y="223.6" width="86.8" height="12.4" rx="2" fill="url(#pat-dots)"><title>No cat in the photo: 3, from 26 Oct 2026</title></rect><rect x="70.6" y="74.8" width="86.8" height="146.8" rx="2" fill="#0f4a72"><title>Matched to a suggested cat: 31, from 26 Oct 2026</title></rect><rect x="70.6" y="46" width="86.8" height="26.8" rx="2" fill="#1c77c3"><title>Matched to a cat they found themselves: 6, from 26 Oct 2026</title></rect><rect x="70.6" y="46" width="86.8" height="26.8" rx="2" fill="url(#pat-hatch)"><title>Matched to a cat they found themselves: 6, from 26 Oct 2026</title></rect><rect x="70.6" y="26.8" width="86.8" height="17.2" rx="2" fill="#2f92dc"><title>A new cat: 4, from 26 Oct 2026</title></rect><rect x="70.6" y="26.8" width="86.8" height="17.2" rx="2" fill="url(#pat-dots)"><title>A new cat: 4, from 26 Oct 2026</title></rect><rect x="70.6" y="22" width="86.8" height="2.8" rx="2" fill="#b8552f"><title>Other or not recorded: 1, from 26 Oct 2026</title></rect><rect x="70.6" y="22" width="86.8" height="2.8" rx="2" fill="url(#pat-hatch)"><title>Other or not recorded: 1, from 26 Oct 2026</title></rect><rect x="194.6" y="238" width="86.8" height="22" rx="2" fill="rgba(27,42,56,0.55)"><title>Not finished: 5, from 2 Nov 2026</title></rect><rect x="194.6" y="223.6" width="86.8" height="12.4" rx="2" fill="rgba(27,42,56,0.55)"><title>No cat in the photo: 3, from 2 Nov 2026</title></rect><rect x="194.6" y="223.6" width="86.8" height="12.4" rx="2" fill="url(#pat-dots)"><title>No cat in the photo: 3, from 2 Nov 2026</title></rect><rect x="194.6" y="74.8" width="86.8" height="146.8" rx="2" fill="#0f4a72"><title>Matched to a suggested cat: 31, from 2 Nov 2026</title></rect><rect x="194.6" y="46" width="86.8" height="26.8" rx="2" fill="#1c77c3"><title>Matched to a cat they found themselves: 6, from 2 Nov 2026</title></rect><rect x="194.6" y="46" width="86.8" height="26.8" rx="2" fill="url(#pat-hatch)"><title>Matched to a cat they found themselves: 6, from 2 Nov 2026</title></rect><rect x="194.6" y="26.8" width="86.8" height="17.2" rx="2" fill="#2f92dc"><title>A new cat: 4, from 2 Nov 2026</title></rect><rect x="194.6" y="26.8" width="86.8" height="17.2" rx="2" fill="url(#pat-dots)"><title>A new cat: 4, from 2 Nov 2026</title></rect><rect x="194.6" y="22" width="86.8" height="2.8" rx="2" fill="#b8552f"><title>Other or not recorded: 1, from 2 Nov 2026</title></rect><rect x="194.6" y="22" width="86.8" height="2.8" rx="2" fill="url(#pat-hatch)"><title>Other or not recorded: 1, from 2 Nov 2026</title></rect><rect x="318.6" y="238" width="86.8" height="22" rx="2" fill="rgba(27,42,56,0.55)"><title>Not finished: 5, from 9 Nov 2026</title></rect><rect x="318.6" y="223.6" width="86.8" height="12.4" rx="2" fill="rgba(27,42,56,0.55)"><title>No cat in the photo: 3, from 9 Nov 2026</title></rect><rect x="318.6" y="223.6" width="86.8" height="12.4" rx="2" fill="url(#pat-dots)"><title>No cat in the photo: 3, from 9 Nov 2026</title></rect><rect x="318.6" y="74.8" width="86.8" height="146.8" rx="2" fill="#0f4a72"><title>Matched to a suggested cat: 31, from 9 Nov 2026</title></rect><rect x="318.6" y="46" width="86.8" height="26.8" rx="2" fill="#1c77c3"><title>Matched to a cat they found themselves: 6, from 9 Nov 2026</title></rect><rect x="318.6" y="46" width="86.8" height="26.8" rx="2" fill="url(#pat-hatch)"><title>Matched to a cat they found themselves: 6, from 9 Nov 2026</title></rect><rect x="318.6" y="26.8" width="86.8" height="17.2" rx="2" fill="#2f92dc"><title>A new cat: 4, from 9 Nov 2026</title></rect><rect x="318.6" y="26.8" width="86.8" height="17.2" rx="2" fill="url(#pat-dots)"><title>A new cat: 4, from 9 Nov 2026</title></rect><rect x="318.6" y="22" width="86.8" height="2.8" rx="2" fill="#b8552f"><title>Other or not recorded: 1, from 9 Nov 2026</title></rect><rect x="318.6" y="22" width="86.8" height="2.8" rx="2" fill="url(#pat-hatch)"><title>Other or not recorded: 1, from 9 Nov 2026</title></rect><rect x="442.6" y="238" width="86.8" height="22" rx="2" fill="rgba(27,42,56,0.55)"><title>Not finished: 5, from 16 Nov 2026</title></rect><rect x="442.6" y="223.6" width="86.8" height="12.4" rx="2" fill="rgba(27,42,56,0.55)"><title>No cat in the photo: 3, from 16 Nov 2026</title></rect><rect x="442.6" y="223.6" width="86.8" height="12.4" rx="2" fill="url(#pat-dots)"><title>No cat in the photo: 3, from 16 Nov 2026</title></rect><rect x="442.6" y="74.8" width="86.8" height="146.8" rx="2" fill="#0f4a72"><title>Matched to a suggested cat: 31, from 16 Nov 2026</title></rect><rect x="442.6" y="46" width="86.8" height="26.8" rx="2" fill="#1c77c3"><title>Matched to a cat they found themselves: 6, from 16 Nov 2026</title></rect><rect x="442.6" y="46" width="86.8" height="26.8" rx="2" fill="url(#pat-hatch)"><title>Matched to a cat they found themselves: 6, from 16 Nov 2026</title></rect><rect x="442.6" y="26.8" width="86.8" height="17.2" rx="2" fill="#2f92dc"><title>A new cat: 4, from 16 Nov 2026</title></rect><rect x="442.6" y="26.8" width="86.8" height="17.2" rx="2" fill="url(#pat-dots)"><title>A new cat: 4, from 16 Nov 2026</title></rect><rect x="442.6" y="22" width="86.8" height="2.8" rx="2" fill="#b8552f"><title>Other or not recorded: 1, from 16 Nov 2026</title></rect><rect x="442.6" y="22" width="86.8" height="2.8" rx="2" fill="url(#pat-hatch)"><title>Other or not recorded: 1, from 16 Nov 2026</title></rect><text x="52" y="294" font-size="20" text-anchor="start" fill="#1b2a38">26 Oct 2026</text><text x="548" y="294" font-size="20" text-anchor="end" fill="#1b2a38">16 Nov 2026</text></svg><ul class="chartlegend"><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="rgba(27,42,56,0.55)"/></svg>Not finished</li><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="rgba(27,42,56,0.55)"/><rect x="0" y="0" width="14" height="14" rx="2" fill="url(#pat-dots)"></rect></svg>No cat in the photo</li><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="#0f4a72"/></svg>Matched to a suggested cat</li><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="#1c77c3"/><rect x="0" y="0" width="14" height="14" rx="2" fill="url(#pat-hatch)"></rect></svg>Matched to a cat they found themselves</li><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="#2f92dc"/><rect x="0" y="0" width="14" height="14" rx="2" fill="url(#pat-dots)"></rect></svg>A new cat</li><li><svg class="swatch" viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><rect width="14" height="14" rx="3" fill="#b8552f"/><rect x="0" y="0" width="14" height="14" rx="2" fill="url(#pat-hatch)"></rect></svg>Other or not recorded</li></ul></div><details class="astable"><summary>Show as table</summary><div class="tablewrap"><table class="rtable"><caption>Share matched, by week</caption><thead><tr><th scope="col">Week starting</th><th scope="col">Part of launch</th><th scope="col" class="num">Sightings</th><th scope="col" class="num">Not finished</th><th scope="col" class="num">No cat in the photo</th><th scope="col" class="num">Matched to a suggested cat</th><th scope="col" class="num">Matched to a cat they found themselves</th><th scope="col" class="num">A new cat</th><th scope="col" class="num">Other or not recorded</th><th scope="col" class="num">Matched to a known cat</th><th scope="col">Matched against baseline</th><th scope="col" class="num">Of which the matcher was down</th></tr></thead><tbody><tr><td data-label="Week starting">26 Oct 2026</td><td data-label="Part of launch">Launch days</td><td class="num" data-label="Sightings">8</td><td class="num" data-label="Not finished">5 of 8 · Too few to compare</td><td class="num" data-label="No cat in the photo">3 of 8 · Too few to compare</td><td class="num" data-label="Matched to a suggested cat">31 of 8 · Too few to compare</td><td class="num" data-label="Matched to a cat they found themselves">6 of 8 · Too few to compare</td><td class="num" data-label="A new cat">4 of 8 · Too few to compare</td><td class="num" data-label="Other or not recorded">1 of 8 · Too few to compare</td><td class="num" data-label="Matched to a known cat">82% · 37 of 45</td><td data-label="Matched against baseline">Same as baseline</td><td class="num" data-label="Of which the matcher was down">2</td></tr><tr><td data-label="Week starting">2 Nov 2026</td><td data-label="Part of launch">Baseline (first full week after launch)</td><td class="num" data-label="Sightings">50</td><td class="num" data-label="Not finished">10% · 5 of 50</td><td class="num" data-label="No cat in the photo">6% · 3 of 50</td><td class="num" data-label="Matched to a suggested cat">62% · 31 of 50</td><td class="num" data-label="Matched to a cat they found themselves">12% · 6 of 50</td><td class="num" data-label="A new cat">8% · 4 of 50</td><td class="num" data-label="Other or not recorded">2% · 1 of 50</td><td class="num" data-label="Matched to a known cat">82% · 37 of 45</td><td data-label="Matched against baseline"></td><td class="num" data-label="Of which the matcher was down">2</td></tr><tr><td data-label="Week starting">9 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Sightings">62</td><td class="num" data-label="Not finished">8% · 5 of 62</td><td class="num" data-label="No cat in the photo">5% · 3 of 62</td><td class="num" data-label="Matched to a suggested cat">50% · 31 of 62</td><td class="num" data-label="Matched to a cat they found themselves">10% · 6 of 62</td><td class="num" data-label="A new cat">6% · 4 of 62</td><td class="num" data-label="Other or not recorded">2% · 1 of 62</td><td class="num" data-label="Matched to a known cat">82% · 37 of 45</td><td data-label="Matched against baseline">Same as baseline</td><td class="num" data-label="Of which the matcher was down">2</td></tr><tr><td data-label="Week starting">16 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Sightings">19</td><td class="num" data-label="Not finished">Still open · 5 of 19</td><td class="num" data-label="No cat in the photo">3 of 19 · Too few to compare</td><td class="num" data-label="Matched to a suggested cat">31 of 19 · Too few to compare</td><td class="num" data-label="Matched to a cat they found themselves">6 of 19 · Too few to compare</td><td class="num" data-label="A new cat">4 of 19 · Too few to compare</td><td class="num" data-label="Other or not recorded">1 of 19 · Too few to compare</td><td class="num" data-label="Matched to a known cat">82% · 37 of 45</td><td data-label="Matched against baseline">Same as baseline</td><td class="num" data-label="Of which the matcher was down">2</td></tr></tbody></table></div></details><p><a class="tap" href="/api/team/insights/launch-matched.csv?range=since" download>Download the share matched as a spreadsheet (CSV)</a></p></section><section id="accuracy"><h2>Matching accuracy</h2><p class="hbig">Right first time: <strong>53% · 60 of 114</strong></p><p class="hbig">Checked: <strong>88% right · 132 of 150</strong></p><p class="hbig">Corrected by the team: <strong>16% · 15 of 93</strong></p><p class="hint">The headline counts a suggestion nobody checked as right. The checked figure is the one to trust once it has enough behind it.</p><details class="astable"><summary>Show as table</summary><div class="tablewrap"><table class="rtable"><caption>Matching accuracy, by week</caption><thead><tr><th scope="col">Week starting</th><th scope="col">Part of launch</th><th scope="col" class="num">Right first time</th><th scope="col" class="num">Right, lower down</th><th scope="col" class="num">Suggested, then corrected</th><th scope="col" class="num">Missed, though compared</th><th scope="col" class="num">Missed, too far away</th><th scope="col" class="num">Missed, nothing to compare</th><th scope="col" class="num">Right first time (share of all six)</th><th scope="col">Right first time against baseline</th><th scope="col" class="num">Checked: share right</th><th scope="col" class="num">Corrected by the team (share of suggestions taken)</th></tr></thead><tbody><tr><td data-label="Week starting">26 Oct 2026</td><td data-label="Part of launch">Launch days</td><td class="num" data-label="Right first time">20</td><td class="num" data-label="Right, lower down">6</td><td class="num" data-label="Suggested, then corrected">5</td><td class="num" data-label="Missed, though compared">3</td><td class="num" data-label="Missed, too far away">2</td><td class="num" data-label="Missed, nothing to compare">2</td><td class="num" data-label="Right first time (share of all six)">53% · 20 of 38</td><td data-label="Right first time against baseline">Same as baseline</td><td class="num" data-label="Checked: share right">88% · 44 of 50</td><td class="num" data-label="Corrected by the team (share of suggestions taken)">16% · 5 of 31</td></tr><tr><td data-label="Week starting">2 Nov 2026</td><td data-label="Part of launch">Baseline (first full week after launch)</td><td class="num" data-label="Right first time">20</td><td class="num" data-label="Right, lower down">6</td><td class="num" data-label="Suggested, then corrected">5</td><td class="num" data-label="Missed, though compared">3</td><td class="num" data-label="Missed, too far away">2</td><td class="num" data-label="Missed, nothing to compare">2</td><td class="num" data-label="Right first time (share of all six)">53% · 20 of 38</td><td data-label="Right first time against baseline"></td><td class="num" data-label="Checked: share right">88% · 44 of 50</td><td class="num" data-label="Corrected by the team (share of suggestions taken)">16% · 5 of 31</td></tr><tr><td data-label="Week starting">9 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Right first time">20</td><td class="num" data-label="Right, lower down">6</td><td class="num" data-label="Suggested, then corrected">5</td><td class="num" data-label="Missed, though compared">3</td><td class="num" data-label="Missed, too far away">2</td><td class="num" data-label="Missed, nothing to compare">2</td><td class="num" data-label="Right first time (share of all six)">53% · 20 of 38</td><td data-label="Right first time against baseline">Same as baseline</td><td class="num" data-label="Checked: share right">88% · 44 of 50</td><td class="num" data-label="Corrected by the team (share of suggestions taken)">16% · 5 of 31</td></tr><tr><td data-label="Week starting">16 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Right first time">20</td><td class="num" data-label="Right, lower down">6</td><td class="num" data-label="Suggested, then corrected">5</td><td class="num" data-label="Missed, though compared">3</td><td class="num" data-label="Missed, too far away">2</td><td class="num" data-label="Missed, nothing to compare">2</td><td class="num" data-label="Right first time (share of all six)">53% · 20 of 38</td><td data-label="Right first time against baseline">Same as baseline</td><td class="num" data-label="Checked: share right">88% · 44 of 50</td><td class="num" data-label="Corrected by the team (share of suggestions taken)">16% · 5 of 31</td></tr></tbody></table></div></details><p><a class="tap" href="/api/team/insights/launch-accuracy.csv?range=since" download>Download the matching accuracy as a spreadsheet (CSV)</a></p></section><section id="wait"><h2>Match wait</h2><p class="hbig">Latest week with waits (starting 16 Nov 2026): phone <strong>4.2 s</strong> typical, 11.5 s slow end; server's part 2.1 s typical</p><p class="hint" id="phone-wait-from">Phone wait recorded from 2 Nov 2026</p><p class="hint">Matcher down or timed out: 7% · 9 of 131. 15 sightings with a server time but no phone wait: saved for later, sent before the update, or over 10 minutes.</p><div class="chartbox"><svg class="chart" viewBox="0 0 560 320" role="img" aria-label="Match wait per week, in seconds" xmlns="http://www.w3.org/2000/svg"><line x1="52" x2="548" y1="280" y2="280" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="287" font-size="20" text-anchor="end" fill="#1b2a38">0</text><line x1="52" x2="548" y1="201.3" y2="201.3" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="208.3" font-size="20" text-anchor="end" fill="#1b2a38">5</text><line x1="52" x2="548" y1="122.7" y2="122.7" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="129.7" font-size="20" text-anchor="end" fill="#1b2a38">10</text><line x1="52" x2="548" y1="44" y2="44" stroke="rgba(27,42,56,.14)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="44" y="51" font-size="20" text-anchor="end" fill="#1b2a38">15</text><path d="M52 213.9 L217.3 213.9 L382.7 213.9 L548 213.9" fill="none" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="52" cy="213.9" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, typical: 4.2 on 26 Oct 2026</title></circle><circle cx="217.3" cy="213.9" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, typical: 4.2 on 2 Nov 2026</title></circle><circle cx="382.7" cy="213.9" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, typical: 4.2 on 9 Nov 2026</title></circle><circle cx="548" cy="213.9" r="4" fill="#0f4a72" stroke="#0f4a72" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, typical: 4.2 on 16 Nov 2026</title></circle><path d="M52 99.1 L217.3 99.1 L382.7 99.1 L548 99.1" fill="none" stroke="#b8552f" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="52" cy="99.1" r="4" fill="#b8552f" stroke="#b8552f" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, slow end: 11.5 on 26 Oct 2026</title></circle><circle cx="217.3" cy="99.1" r="4" fill="#b8552f" stroke="#b8552f" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, slow end: 11.5 on 2 Nov 2026</title></circle><circle cx="382.7" cy="99.1" r="4" fill="#b8552f" stroke="#b8552f" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, slow end: 11.5 on 9 Nov 2026</title></circle><circle cx="548" cy="99.1" r="4" fill="#b8552f" stroke="#b8552f" stroke-width="2" vector-effect="non-scaling-stroke"><title>Phone, slow end: 11.5 on 16 Nov 2026</title></circle><path d="M52 247 L217.3 247 L382.7 247 L548 247" fill="none" stroke="#1b2a38" stroke-width="2" vector-effect="non-scaling-stroke" stroke-opacity="0.55" stroke-linejoin="round"/><circle cx="52" cy="247" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Server, typical: 2.1 on 26 Oct 2026</title></circle><circle cx="217.3" cy="247" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Server, typical: 2.1 on 2 Nov 2026</title></circle><circle cx="382.7" cy="247" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Server, typical: 2.1 on 9 Nov 2026</title></circle><circle cx="548" cy="247" r="4" fill="#fff" stroke="#1b2a38" stroke-opacity="0.55" stroke-width="2" vector-effect="non-scaling-stroke"><title>Server, typical: 2.1 on 16 Nov 2026</title></circle><text x="548" y="87.1" font-size="20" text-anchor="end" fill="#1b2a38" font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke">Phone, slow end: 11.5</text><text x="548" y="201.9" font-size="20" text-anchor="end" fill="#1b2a38" font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke">Phone, typical: 4.2</text><text x="548" y="235" font-size="20" text-anchor="end" fill="#1b2a38" font-weight="700" stroke="#fff" stroke-width="6" stroke-linejoin="round" paint-order="stroke">Server, typical: 2.1</text><text x="52" y="314" font-size="20" text-anchor="start" fill="#1b2a38">26 Oct 2026</text><text x="548" y="314" font-size="20" text-anchor="end" fill="#1b2a38">16 Nov 2026</text></svg></div><details class="astable"><summary>Show as table</summary><div class="tablewrap"><table class="rtable"><caption>Match wait, by week (seconds)</caption><thead><tr><th scope="col">Week starting</th><th scope="col">Part of launch</th><th scope="col" class="num">Wait on the phone, typical</th><th scope="col" class="num">Wait on the phone, slow end</th><th scope="col" class="num">Server&#39;s part, typical</th><th scope="col" class="num">Matcher down or timed out</th><th scope="col" class="num">Sightings with no phone wait</th></tr></thead><tbody><tr><td data-label="Week starting">26 Oct 2026</td><td data-label="Part of launch">Launch days</td><td class="num" data-label="Wait on the phone, typical">4.2</td><td class="num" data-label="Wait on the phone, slow end">11.5</td><td class="num" data-label="Server&#39;s part, typical">2.1</td><td class="num" data-label="Matcher down or timed out">3 of 8 · Too few to compare</td><td class="num" data-label="Sightings with no phone wait">5</td></tr><tr><td data-label="Week starting">2 Nov 2026</td><td data-label="Part of launch">Baseline (first full week after launch)</td><td class="num" data-label="Wait on the phone, typical">4.2</td><td class="num" data-label="Wait on the phone, slow end">11.5</td><td class="num" data-label="Server&#39;s part, typical">2.1</td><td class="num" data-label="Matcher down or timed out">6% · 3 of 50</td><td class="num" data-label="Sightings with no phone wait">5</td></tr><tr><td data-label="Week starting">9 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Wait on the phone, typical">4.2</td><td class="num" data-label="Wait on the phone, slow end">11.5</td><td class="num" data-label="Server&#39;s part, typical">2.1</td><td class="num" data-label="Matcher down or timed out">5% · 3 of 62</td><td class="num" data-label="Sightings with no phone wait">5</td></tr><tr><td data-label="Week starting">16 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Wait on the phone, typical">4.2</td><td class="num" data-label="Wait on the phone, slow end">11.5</td><td class="num" data-label="Server&#39;s part, typical">2.1</td><td class="num" data-label="Matcher down or timed out">3 of 19 · Too few to compare</td><td class="num" data-label="Sightings with no phone wait">5</td></tr></tbody></table></div></details><p><a class="tap" href="/api/team/insights/launch-wait.csv?range=since" download>Download the match wait as a spreadsheet (CSV)</a></p></section><section id="follow"><h2>Follow-card effect</h2><p class="hbig">Sent another sighting within 7 days: <strong>25% · 20 of 80</strong></p><p class="hint">The follow card isn&#39;t switched on yet. This is the &#39;before&#39; figure it will be compared against.</p><p class="hint">A spotter&#39;s phone already follows a cat it matches, with no email (SYC-624).</p><p class="hint">Onboarding already offers “keep my spots safe” by email (SYC-524). What is measured is the effect of the reward-screen card on top of those.</p><details class="astable"><summary>Show as table</summary><div class="tablewrap"><table class="rtable"><caption>Sent another sighting within 7 days, by week</caption><thead><tr><th scope="col">Week starting</th><th scope="col">Part of launch</th><th scope="col" class="num">Finished sightings</th><th scope="col" class="num">Spotter sent another within 7 days</th><th scope="col" class="num">Share</th><th scope="col">Against baseline</th></tr></thead><tbody><tr><td data-label="Week starting">26 Oct 2026</td><td data-label="Part of launch">Launch days</td><td class="num" data-label="Finished sightings">40</td><td class="num" data-label="Spotter sent another within 7 days">10</td><td class="num" data-label="Share">25% · 10 of 40</td><td data-label="Against baseline">Same as baseline</td></tr><tr><td data-label="Week starting">2 Nov 2026</td><td data-label="Part of launch">Baseline (first full week after launch)</td><td class="num" data-label="Finished sightings">40</td><td class="num" data-label="Spotter sent another within 7 days">10</td><td class="num" data-label="Share">25% · 10 of 40</td><td data-label="Against baseline"></td></tr><tr><td data-label="Week starting">9 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Finished sightings">40</td><td class="num" data-label="Spotter sent another within 7 days">10</td><td class="num" data-label="Share">25% · 10 of 40</td><td data-label="Against baseline">Same as baseline</td></tr><tr><td data-label="Week starting">16 Nov 2026</td><td data-label="Part of launch">After launch</td><td class="num" data-label="Finished sightings">40</td><td class="num" data-label="Spotter sent another within 7 days">10</td><td class="num" data-label="Share">Still open · 10 of 40</td><td data-label="Against baseline"></td></tr></tbody></table></div></details><p><a class="tap" href="/api/team/insights/launch-follow.csv?range=since" download>Download the follow-up figures as a spreadsheet (CSV)</a></p></section><p class="hint" id="worked-out">Worked out 20 Nov 2026, 12:00 Syros time · since launch</p><details class="method"><summary>How this is worked out</summary><p class="hint">Counted by the day each cat was spotted. Sightings sent late are added to the week they were spotted, so recent weeks can still grow.</p><p class="hint">Sightings from spotters who have since deleted their account count as sightings, but not as spotters.</p><p class="hint">The Launch days row counts from launch day, so it can be lower than Coverage&#39;s figure for that week.</p><p class="hint">Weeks are Athens weeks. The baseline is the first full week (Monday to Sunday) that starts on or after the launch date; every later week is set against it, with no colour, because without targets a rise isn&#39;t automatically good.</p><p class="hint">A week with fewer than 20 sightings behind a percentage shows the count and greys the percentage.</p><p class="hint">Not finished is only fair 48 hours after a week ends, so the current week is Still open. That 48 hours is this report&#39;s rule, not something the app records.</p><p class="hint">Other or not recorded should be near zero. If it isn&#39;t, that is a fault worth a ticket.</p><p class="hint">Testers can&#39;t be marked, so any tester still active after launch is counted.</p><p class="hint">Matcher down or timed out is a share of sightings; a timeout is about 35 seconds and is left out of the typical wait.</p><p class="hint">Sightings with no phone wait are those saved for later, sent before the update, or over 10 minutes.</p><p class="hint">The headline counts a suggestion nobody checked as right. The checked figure is the one to trust once it has enough behind it.</p><p class="hint">The follow card isn&#39;t switched on yet. This is the &#39;before&#39; figure it will be compared against.</p><p class="hint">Figures change as records are corrected.</p></details></main></body></html>"
+`;
+
+exports[`the spreadsheet tables > matches its snapshot 1`] = `
+"﻿Week starting,Part of launch,Baseline,Sightings,Spotters,Returning spotters
+2026-10-26,Launch days,,8,3,5
+2026-11-02,Baseline (first full week after launch),yes,50,12,5
+2026-11-09,After launch,,62,15,5
+2026-11-16,After launch,,19,4,5
+
+---
+﻿Week starting,Part of launch,Baseline,Sightings,Not finished,No cat in the photo,Matched to a suggested cat,Matched to a cat they found themselves,A new cat,Other or not recorded,Matched to a known cat,Of which the matcher was down,Not finished still open
+2026-10-26,Launch days,,8,5,3,31,6,4,1,82,2,
+2026-11-02,Baseline (first full week after launch),yes,50,5,3,31,6,4,1,82,2,
+2026-11-09,After launch,,62,5,3,31,6,4,1,82,2,
+2026-11-16,After launch,,19,5,3,31,6,4,1,82,2,yes
+
+---
+﻿Week starting,Part of launch,Baseline,Right first time,"Right, lower down","Suggested, then corrected","Missed, though compared","Missed, too far away","Missed, nothing to compare",Right first time (share of all six),Checked: share right,Corrected by the team (share of suggestions taken)
+2026-10-26,Launch days,,20,6,5,3,2,2,53,88,16
+2026-11-02,Baseline (first full week after launch),yes,20,6,5,3,2,2,53,88,16
+2026-11-09,After launch,,20,6,5,3,2,2,53,88,16
+2026-11-16,After launch,,20,6,5,3,2,2,53,88,16
+
+---
+﻿Week starting,Part of launch,Baseline,"Wait on the phone, typical","Wait on the phone, slow end","Server's part, typical",Matcher down or timed out,Sightings with no phone wait
+2026-10-26,Launch days,,4.2,11.5,2.1,3,5
+2026-11-02,Baseline (first full week after launch),yes,4.2,11.5,2.1,3,5
+2026-11-09,After launch,,4.2,11.5,2.1,3,5
+2026-11-16,After launch,,4.2,11.5,2.1,3,5
+
+---
+﻿Week starting,Part of launch,Baseline,Finished sightings,Spotter sent another within 7 days,Share,Still open
+2026-10-26,Launch days,,40,10,25,
+2026-11-02,Baseline (first full week after launch),yes,40,10,25,
+2026-11-09,After launch,,40,10,25,
+2026-11-16,After launch,,40,10,,yes
+"
+`;
