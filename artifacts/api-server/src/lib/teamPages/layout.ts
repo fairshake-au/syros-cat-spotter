@@ -902,7 +902,6 @@ export function renderPage(opts: PageOptions): string {
       })
       .join("");
   const items = renderItems();
-  const phoneItems = items;
   // The current page's name, shown outside the fold; empty when none is current.
   const here = entries.find(({ n, active }) => n.href && n.key === active);
   const t = (key: "shell.signOut" | "shell.skip" | "shell.menu" | "shell.menuButton") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));
@@ -938,7 +937,7 @@ export function renderPage(opts: PageOptions): string {
     (items
       ? `<nav class="${barClass}" aria-label="${t("shell.menu")}">${items}${who}</nav>` +
         `<nav class="phonebar" aria-label="${t("shell.menu")}"><span class="phonehere">${here ? escapeHtml(here.n.label) : ""}</span>` +
-        `<details class="menufold"><summary>${t("shell.menuButton")}</summary><div class="menulinks">${phoneItems}${who}</div></details></nav>`
+        `<details class="menufold"><summary>${t("shell.menuButton")}</summary><div class="menulinks">${items}${who}</div></details></nav>`
       : who
         ? `<div class="${barClass}">${who}</div>`
         : "") +
