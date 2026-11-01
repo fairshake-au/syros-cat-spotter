@@ -20,8 +20,6 @@ export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" 
 interface NavItem {
   key: NavKey;
   label: string;
-  /** A shorter label for a phone, so the whole menu fits one row. */
-  short?: string;
   /** Null until that screen exists: shown as plain text, not a dead link. */
   href: string | null;
 }
@@ -123,7 +121,6 @@ background:linear-gradient(to right,var(--card) 40%,rgba(255,255,255,0)) left/28
 .bar>a,.bar>span{font:inherit;font-size:15px;padding:8px 2px;min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;flex:none}
 .bar .here{font-weight:700;color:var(--ink);border-bottom:3px solid var(--accent);text-decoration:none}
 .bar .off{color:var(--muted)}
-.bar .short{display:none}
 /* The name and Sign out: at the right on a desktop, at the end of the row on a phone. */
 /* A very long name may still shorten with "…" on a desktop; the whole name is in its title. */
 .bar>.who{margin-left:auto;padding:8px 2px 8px 10px;color:var(--muted);font-size:14px;line-height:28px;max-width:260px;display:block;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;min-width:120px}
@@ -894,23 +891,18 @@ export function renderPage(opts: PageOptions): string {
   const teamActive = opts.active ? (TEAM_PARENT[opts.active] ?? opts.active) : null;
   const entries = [...team.map((n) => ({ n, active: opts.nav === "guardian" ? opts.active : teamActive })), ...own.map((n) => ({ n, active: opts.active })), ...(workspace ? [{ n: WORKSPACE_NAV, active: null }] : [])];
   // The same links twice: the desktop bar, and the phone's fold (SYC-619 §2.1).
-  // On a phone "Feeding sites" shows as "Sites" in the bar (CSS picks one); the
-  // fold has full-width rows, so it always uses the full word.
-  const renderItems = (phone: boolean) =>
+  const renderItems = () =>
     entries
       .map(({ n, active }) => {
-        const label =
-          n.short && !phone
-            ? `<span class="long">${escapeHtml(n.label)}</span><span class="short">${escapeHtml(n.short)}</span>`
-            : escapeHtml(n.label);
+        const label = escapeHtml(n.label);
         if (!n.href) return `<span class="off">${label}</span>`;
         return n.key === active
           ? `<a class="here" href="${n.href}" aria-current="page">${label}</a>`
           : `<a href="${n.href}">${label}</a>`;
       })
       .join("");
-  const items = renderItems(false);
-  const phoneItems = renderItems(true);
+  const items = renderItems();
+  const phoneItems = items;
   // The current page's name, shown outside the fold; empty when none is current.
   const here = entries.find(({ n, active }) => n.href && n.key === active);
   const t = (key: "shell.signOut" | "shell.skip" | "shell.menu" | "shell.menuButton") => escapeHtml(tr(lang, key, undefined, opts.liveLanguages));

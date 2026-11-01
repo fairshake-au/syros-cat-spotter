@@ -348,6 +348,8 @@ async function askFirst(
   id: string,
   verb: "withdraw" | "sign-out",
   what: (name: string) => { title: string; lines: string[]; yes: string },
+  /** No question when the action can't apply to this person: the action's own answer says so. */
+  skip: (view: PersonView) => boolean = () => false,
 ): Promise<boolean> {
   if (!isFormPost(req) || bodyOf(req)["confirm"] === "1") return false;
   const me = teamPerson(res);
@@ -356,6 +358,7 @@ async function askFirst(
     res.status(404).type("html").send(renderNoSuchPerson(me.name));
     return true;
   }
+  if (skip(found.view)) return false;
   res.status(200).type("html").send(
     renderConfirmPage({
       ...what(found.view.name),
@@ -420,12 +423,21 @@ router.post("/team/people/:id/resend", ...formRoute("manage_people"), async (req
 router.post("/team/people/:id/withdraw", ...formRoute("manage_people"), async (req: Request, res: Response) => {
   const id = personIdOf(req, res);
   if (!id) return;
+  const me = teamPerson(res);
   if (
-    await askFirst(req, res, id, "withdraw", (name) => ({
-      title: `Withdraw the invitation to ${name}?`,
-      lines: ["The invitation link stops working at once.", "They are not told. You can invite them again later."],
-      yes: "Yes, withdraw the invitation",
-    }))
+    await askFirst(
+      req,
+      res,
+      id,
+      "withdraw",
+      (name) => ({
+        title: `Withdraw the invitation to ${name}?`,
+        lines: ["The invitation link stops working at once.", "They are not told. You can invite them again later."],
+        yes: "Yes, withdraw the invitation",
+      }),
+      // Only a pending invitation can be withdrawn (SYC-674): yourself, or someone who joined or left, goes straight to the answer.
+      (v) => id === me.id || v.state === "joined" || v.state === "left",
+    )
   )
     return;
   await answer(req, res, async () => {
