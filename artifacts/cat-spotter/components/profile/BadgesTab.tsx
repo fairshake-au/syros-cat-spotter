@@ -115,7 +115,7 @@ export function BadgesTab({
                       {(v.isNew || shownNew.has(v.id)) && (
                         <View
                           testID={`badge-new-${v.id}`}
-                          style={[styles.newChip, { backgroundColor: colors.primary }]}
+                          style={[styles.newChip, { backgroundColor: colors.primaryFill }]}
                         >
                           <Text style={[styles.newChipText, { color: colors.primaryForeground }]}>
                             {t('profileBadgeNew')}

@@ -330,7 +330,7 @@ export function ClaimCatSheet({
         style={[
           styles.input,
           opts.multiline && styles.multiline,
-          { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+          { backgroundColor: colors.card, borderColor: colors.controlBorder, color: colors.foreground },
         ]}
       />
     </View>
@@ -367,8 +367,8 @@ export function ClaimCatSheet({
               style={[
                 styles.checkBox,
                 {
-                  borderColor: livesOnSyros ? colors.primary : colors.border,
-                  backgroundColor: livesOnSyros ? colors.primary : colors.card,
+                  borderColor: livesOnSyros ? colors.primaryFill : colors.border,
+                  backgroundColor: livesOnSyros ? colors.primaryFill : colors.card,
                 },
               ]}
             >
@@ -510,7 +510,7 @@ export function ClaimCatSheet({
           accessibilityRole="button"
           style={[
             styles.submitBtn,
-            { backgroundColor: colors.primary, opacity: canSaveEdit ? 1 : 0.5 },
+            { backgroundColor: colors.primaryFill, opacity: canSaveEdit ? 1 : 0.5 },
           ]}
         >
           {update.isPending ? (

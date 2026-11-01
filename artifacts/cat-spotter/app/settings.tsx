@@ -119,7 +119,7 @@ export default function SettingsScreen() {
                   aria-checked={active}
                   accessibilityLabel={lang.label}
                   onPress={() => setLanguage(lang.code)}
-                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primary : 'transparent' }]}
+                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent' }]}
                 >
                   <Text
                     style={[styles.segmentText, { color: active ? colors.primaryForeground : colors.foreground }]}
@@ -146,7 +146,7 @@ export default function SettingsScreen() {
                   aria-checked={active}
                   accessibilityLabel={option.label}
                   onPress={() => setAppearance(option.key)}
-                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primary : 'transparent' }]}
+                  style={[styles.segmentBtn, { backgroundColor: active ? colors.primaryFill : 'transparent' }]}
                 >
                   <Feather
                     name={option.icon}
@@ -175,7 +175,7 @@ export default function SettingsScreen() {
               value={soundsOn}
               onValueChange={setSoundsOn}
               accessibilityLabel={t('settingsCelebrationSounds')}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: colors.controlBorder, true: colors.primaryFill }}
               style={styles.switchControl}
             />
           </View>

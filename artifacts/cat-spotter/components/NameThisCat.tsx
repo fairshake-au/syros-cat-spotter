@@ -204,7 +204,7 @@ function NameThisCatSheet({
               onSubmitEditing={submit}
               style={[
                 styles.input,
-                { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+                { backgroundColor: colors.card, borderColor: colors.controlBorder, color: colors.foreground },
               ]}
             />
             {suggestions.length > 0 && (

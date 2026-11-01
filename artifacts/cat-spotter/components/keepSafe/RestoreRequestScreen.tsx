@@ -220,7 +220,7 @@ export function RestoreRequestScreen({
               <View
                 style={[
                   styles.inputWrap,
-                  { backgroundColor: colors.card, borderColor: codeProblem ? danger : colors.border },
+                  { backgroundColor: colors.card, borderColor: codeProblem ? danger : colors.controlBorder },
                 ]}
               >
                 <TextInput
@@ -293,7 +293,7 @@ export function RestoreRequestScreen({
             <View
               style={[
                 styles.inputWrap,
-                { backgroundColor: colors.card, borderColor: error ? danger : colors.border },
+                { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
               ]}
             >
               <TextInput

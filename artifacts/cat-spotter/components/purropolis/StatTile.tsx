@@ -19,7 +19,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
-import { palette } from '@/constants/colors';
+import { toneColors } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing, shadows, lineHeights } from '@/constants/theme';
 import { displayUpperCase } from '@/lib/displayUpperCase';
 import { LABEL_FIT_STEPS, pickLabelFitStep } from '@/lib/labelFit';
@@ -138,11 +138,7 @@ export function StatTile({ value, label, icon, tone = 'neutral', style }: StatTi
   const allowBreak = fit.needed === OVERFLOW;
 
   const tones: Record<StatTileTone, { bg: string; fg: string }> = {
-    aegean: { bg: palette.aegean100, fg: palette.aegean800 },
-    bougain: { bg: palette.bougain100, fg: palette.bougain700 },
-    sun: { bg: palette.sun100, fg: palette.sun700 },
-    terra: { bg: palette.terra100, fg: palette.terra700 },
-    olive: { bg: palette.olive100, fg: palette.olive700 },
+    ...toneColors,
     neutral: { bg: colors.card, fg: colors.foreground },
   };
   const t = tones[tone];
@@ -172,7 +168,9 @@ export function StatTile({ value, label, icon, tone = 'neutral', style }: StatTi
       {/* Toned tiles keep a fixed light background in both schemes (matching the
           web DS, whose --*-100 ramps are scheme-invariant), so the label must be
           derived from the tone too. Using the scheme-aware muted colour here
-          puts pale grey text on a pale tile in dark mode.
+          puts pale grey text on a pale tile in dark mode. SYC-766: no
+          fading either; at 75% opacity the terra and olive labels fell
+          under 3:1.
 
           SYC-143: capitals via displayUpperCase (Greek capitals carry no
           accents), and the label wraps only between words. If its longest
@@ -188,7 +186,6 @@ export function StatTile({ value, label, icon, tone = 'neutral', style }: StatTi
           styles.label,
           {
             color: tone === 'neutral' ? colors.mutedForeground : t.fg,
-            opacity: tone === 'neutral' ? 1 : 0.75,
             fontSize,
             letterSpacing,
           },

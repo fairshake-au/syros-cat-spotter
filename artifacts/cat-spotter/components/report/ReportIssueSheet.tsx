@@ -209,7 +209,7 @@ export function ReportIssueSheet({
             multiline
             style={[
               styles.input,
-              { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card },
+              { borderColor: colors.controlBorder, color: colors.foreground, backgroundColor: colors.card },
             ]}
           />
         </View>
