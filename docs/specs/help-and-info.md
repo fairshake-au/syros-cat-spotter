@@ -68,7 +68,7 @@ Today, two messages say "the Help tab shows how to give":
 
 Both show **only when the donations link is off**. In that case the Help & info page shows nothing about giving either (§3.6). So both stop pointing at the tab:
 
-- **`feedNudgeInsteadNoLink`** keeps its first sentence and drops the second, in all three languages. It now reads: "Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round."
+- **`feedNudgeInsteadNoLink`** keeps its first sentence and drops the second, in all three languages. It now reads: "Syros Cats and local cat guardians feed many colonies the right food, in the right places." (SYC-650 dropped "all year round".)
 - **`LINK_OFF_PAGE`** body becomes EN "This link isn't available right now." · EL «Αυτός ο σύνδεσμος δεν είναι διαθέσιμος αυτή τη στιγμή.» · FR « Ce lien n'est pas disponible pour le moment. ». Its title is unchanged.
 
 Other mentions of the Help tab are code comments and docs. They are updated so they don't mislead the next reader:
