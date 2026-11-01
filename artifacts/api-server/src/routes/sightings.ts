@@ -678,8 +678,10 @@ async function withinDeviceMatchLimit(
 // for why this route needs both. Applied before body parsing, exactly as it
 // was before this PR's device-keyed limiter existed.
 router.post("/sightings", aiLimiter, async (req, res) => {
-  // SYC-795 (launch measures §4.4): taken first, before parsing, the device
-  // check and the rate limit, so the server's part of the wait counts them.
+  // SYC-795 (launch measures §4.4): the clock starts when this handler begins,
+  // after express.json and aiLimiter have run and the body has arrived. So
+  // the server's part of the wait counts the schema parse, the device check,
+  // the per-device limit and the match, but not the upload or the per-IP limit.
   const receivedAt = new Date();
   const body = CreateSightingBody.parse(req.body);
 
