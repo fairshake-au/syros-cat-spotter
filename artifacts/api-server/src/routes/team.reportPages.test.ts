@@ -205,7 +205,11 @@ describe("names starting with = + - @ (SYC-778)", () => {
       const res = await get(`/api/team/insights/${page}?range=3months`);
       for (const c of prefixed) {
         expect(res.text).toContain(`>${html(c.name)}<`);
-        expect(res.text).not.toContain(html(`'${c.name}`));
+        // Every copy (the progress page has two: the bars and their table)
+        // starts a text run or an attribute, with nothing added in front.
+        const copies = res.text.split(html(c.name)).slice(0, -1);
+        expect(copies.length).toBeGreaterThan(0);
+        for (const before of copies) expect(before).toMatch(/[>"]$/);
       }
     });
   }
