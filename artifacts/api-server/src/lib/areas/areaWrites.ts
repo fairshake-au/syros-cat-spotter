@@ -154,9 +154,10 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean => {
 export async function changeArea(
   person: { id: string },
   change: AreaChange,
-  /** Tests only: the fewest areas a retire may leave (default MIN_AREAS). */
-  minAreas: number = MIN_AREAS,
+  /** Tests only: the fewest areas a retire may leave. Never below MIN_AREAS (SYC-693). */
+  floor: number = MIN_AREAS,
 ): Promise<void> {
+  const minAreas = Math.max(MIN_AREAS, floor);
   try {
     await db.transaction(async (tx) => {
       if (change.kind === "add") {
