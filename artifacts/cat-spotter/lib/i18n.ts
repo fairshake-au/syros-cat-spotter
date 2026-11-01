@@ -405,7 +405,7 @@ const en: Dict = {
   mapPickerLabel: 'Map. Use the arrow keys to move the pin, or tap a spot to move the pin there.',
   markAllRead: 'Mark all read',
   catUpdateBanner: 'News about this cat',
-  noNotifications: 'No notifications yet. Spot or follow a cat to get its news.',
+  noNotifications: 'No notifications yet. News about the cats you follow will show here.',
   // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
   catTabAbout: 'About',
   catTabPhotos: 'Photos',
@@ -794,7 +794,7 @@ const en: Dict = {
   reviewOpenFailedTitle: 'Couldn’t open this spot',
   reviewOpenFailedBody: 'Spots you’ve saved to send later are on the Spot tab.',
   reviewOpenFailedCta: 'Go to the Spot tab',
-  noNotificationsHasSpots: 'No notifications yet. News about the cats you’ve spotted will show here.',
+  noNotificationsHasSpots: 'No notifications yet. News about the cats you follow will show here.',
   noNotificationsYet: 'No notifications yet.',
   notACatNotAdded: 'This photo won’t be added to any cat.',
   notACatRetake: 'Take another photo',
@@ -1006,13 +1006,13 @@ const en: Dict = {
   'fact.cantTell': '“Can’t tell” is a good answer. A wrong guess can make a cat look sterilised when it isn’t.',
   feedNudgeTitle: "Thinking of sharing your lunch?",
   feedNudgeWhy: "We'd gently ask you not to. Cats fed all summer by visitors come to rely on it. When the visitors leave, the food leaves with them, and the cats go hungry through the winter.",
-  feedNudgeInstead: "Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round.",
+  feedNudgeInstead: "Syros Cats and local cat guardians feed many colonies the right food, in the right places.",
   feedNudgeEuro: "€1 feeds a cat for a day. €30 feeds one for a month.",
   feedNudgeHelp: "Help feed a cat",
   feedNudgeDismiss: "Got it",
   feedNudgeA11yLabel: "Why not to feed the cats",
   feedNudgeLine: "Please don't feed the cats. €1 feeds one for a day.",
-  feedNudgeInsteadNoLink: "Syros Cats and local cat guardians feed colonies the right food, in the right places, all year round.",
+  feedNudgeInsteadNoLink: "Syros Cats and local cat guardians feed many colonies the right food, in the right places.",
   helpInfoTitle: "Help & info",
   helpCatHeading: "Found a cat that's hurt, sick or in danger?",
   helpCatButton: "A cat needs help",
@@ -1421,7 +1421,7 @@ const el: Dict = {
   mapPickerLabel: 'Χάρτης. Με τα βελάκια μετακινείς την πινέζα. Ή πάτα ένα σημείο για να πάει εκεί η πινέζα.',
   markAllRead: 'Όλα ως αναγνωσμένα',
   catUpdateBanner: 'Νέα για αυτή τη γάτα',
-  noNotifications: 'Καμία ειδοποίηση ακόμα. Εντόπισε ή ακολούθησε μια γάτα για να μαθαίνεις τα νέα της.', // SYC-4: draft
+  noNotifications: 'Καμία ειδοποίηση ακόμα. Τα νέα για τις γάτες που ακολουθείς θα εμφανίζονται εδώ.', // SYC-4: draft
   // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
   catTabAbout: 'Σχετικά', // SYC-4: draft
   catTabPhotos: 'Φωτογραφίες', // SYC-4: draft
@@ -1796,7 +1796,7 @@ const el: Dict = {
   reviewOpenFailedTitle: 'Δεν άνοιξε αυτή η παρατήρηση',
   reviewOpenFailedBody: 'Οι παρατηρήσεις που αποθήκευσες για αργότερα είναι στην καρτέλα «Εντόπισε».',
   reviewOpenFailedCta: 'Πήγαινε στην καρτέλα «Εντόπισε»',
-  noNotificationsHasSpots: 'Καμία ειδοποίηση ακόμα. Τα νέα για τις γάτες που έχεις εντοπίσει θα εμφανίζονται εδώ.',
+  noNotificationsHasSpots: 'Καμία ειδοποίηση ακόμα. Τα νέα για τις γάτες που ακολουθείς θα εμφανίζονται εδώ.', // SYC-4: draft
   noNotificationsYet: 'Καμία ειδοποίηση ακόμα.',
   notACatNotAdded: 'Αυτή η φωτογραφία δεν θα προστεθεί σε καμία γάτα.',
   notACatRetake: 'Τράβα άλλη φωτογραφία',
@@ -1986,13 +1986,13 @@ const el: Dict = {
   'fact.cantTell': '«Δεν μπορώ να πω» είναι καλή απάντηση. Μια λάθος εικασία μπορεί να κάνει μια γάτα να φαίνεται στειρωμένη ενώ δεν είναι.',
   feedNudgeTitle: "Σκέφτεσαι να μοιραστείς το φαγητό σου;",
   feedNudgeWhy: "Σου ζητάμε ευγενικά να μην το κάνεις. Οι γάτες που τις ταΐζουν οι επισκέπτες όλο το καλοκαίρι καταλήγουν να εξαρτώνται από αυτό. Όταν φεύγουν οι επισκέπτες, φεύγει και το φαγητό, και οι γάτες πεινάνε όλο τον χειμώνα.",
-  feedNudgeInstead: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο.",
+  feedNudgeInstead: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία." // SYC-4: draft,
   feedNudgeEuro: "Με 1 € τρέφεται μια γάτα για μια μέρα. Με 30 €, για έναν μήνα.",
   feedNudgeHelp: "Βοήθησε να φάει μια γάτα",
   feedNudgeDismiss: "Κατάλαβα",
   feedNudgeA11yLabel: "Γιατί να μην ταΐζεις τις γάτες",
   feedNudgeLine: "Σου ζητάμε να μην ταΐζεις τις γάτες. Με 1 € τρέφεται μια γάτα για μια μέρα.",
-  feedNudgeInsteadNoLink: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν τις αποικίες με τη σωστή τροφή, στα σωστά σημεία, όλο τον χρόνο.",
+  feedNudgeInsteadNoLink: "Οι Syros Cats και οι ντόπιοι κηδεμόνες γατών ταΐζουν πολλές αποικίες με τη σωστή τροφή, στα σωστά σημεία." // SYC-4: draft,
   helpInfoTitle: "Βοήθεια και πληροφορίες",
   helpCatHeading: "Βρήκες γάτα τραυματισμένη, άρρωστη ή σε κίνδυνο;",
   helpCatButton: "Μια γάτα χρειάζεται βοήθεια",
@@ -2401,7 +2401,7 @@ const fr: Dict = {
   mapPickerLabel: 'Carte. Utilise les flèches pour déplacer l’épingle, ou touche un endroit pour y mettre l’épingle.',
   markAllRead: 'Tout marquer comme lu',
   catUpdateBanner: 'Des nouvelles de ce chat',
-  noNotifications: 'Aucune notification pour le moment. Repère ou suis un chat pour recevoir ses nouvelles.', // SYC-4: draft
+  noNotifications: 'Aucune notification pour le moment. Les nouvelles des chats que tu suis s’afficheront ici.', // SYC-4: draft
   // SYC-624 C2: a cat's page in four tabs (tab labels, counts, link wording).
   catTabAbout: 'À propos', // SYC-4: draft
   catTabPhotos: 'Photos', // SYC-4: draft
@@ -2777,7 +2777,7 @@ const fr: Dict = {
   reviewOpenFailedTitle: 'Impossible d’ouvrir cette observation',
   reviewOpenFailedBody: 'Les observations gardées pour plus tard sont dans l’onglet « Repérer ».',
   reviewOpenFailedCta: 'Aller à l’onglet « Repérer »',
-  noNotificationsHasSpots: 'Aucune notification pour le moment. Les nouvelles des chats que tu as repérés s’afficheront ici.',
+  noNotificationsHasSpots: 'Aucune notification pour le moment. Les nouvelles des chats que tu suis s’afficheront ici.', // SYC-4: draft
   noNotificationsYet: 'Aucune notification pour le moment.',
   notACatNotAdded: 'Cette photo ne sera ajoutée à aucun chat.',
   notACatRetake: 'Prendre une autre photo',
@@ -2967,13 +2967,13 @@ const fr: Dict = {
   'fact.cantTell': '« Je ne sais pas » est une bonne réponse. Une mauvaise supposition peut faire croire qu’un chat est stérilisé alors qu’il ne l’est pas.',
   feedNudgeTitle: "Tu comptes partager ton déjeuner ?",
   feedNudgeWhy: "On te demande gentiment de ne pas le faire. Les chats nourris tout l’été par les visiteurs finissent par en dépendre. Quand les visiteurs partent, la nourriture part avec eux, et les chats ont faim tout l’hiver.",
-  feedNudgeInstead: "Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année.",
+  feedNudgeInstead: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits." // SYC-4: draft,
   feedNudgeEuro: "1 € nourrit un chat pendant une journée. 30 € le nourrissent pendant un mois.",
   feedNudgeHelp: "Aide à nourrir un chat",
   feedNudgeDismiss: "Compris",
   feedNudgeA11yLabel: "Pourquoi ne pas nourrir les chats",
   feedNudgeLine: "S’il te plaît, ne nourris pas les chats. 1 € en nourrit un pendant une journée.",
-  feedNudgeInsteadNoLink: "Syros Cats et les gardiens de chats locaux nourrissent les colonies avec une alimentation adaptée, aux bons endroits, toute l’année.",
+  feedNudgeInsteadNoLink: "Syros Cats et les gardiens de chats locaux nourrissent de nombreuses colonies avec une alimentation adaptée, aux bons endroits." // SYC-4: draft,
   helpInfoTitle: "Aide et infos",
   helpCatHeading: "Tu as trouvé un chat blessé, malade ou en danger ?",
   helpCatButton: "Un chat a besoin d'aide",
