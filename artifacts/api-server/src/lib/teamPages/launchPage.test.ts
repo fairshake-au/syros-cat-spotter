@@ -200,7 +200,8 @@ describe("the Launch measures page", () => {
   it("F1: the follow-up headline reads Still open when every headline week is still open", () => {
     const open = week(monday(16), "baseline", { stillOpen: { notFinished: true, followUp: true } });
     const html = renderLaunchPage(report({ weeks: [open], baseline: open }), o());
-    expect(html).toMatch(/Sent another sighting within 7 days: <strong>Still open<\/strong>/);
+    expect(html).toContain("Sent another sighting within 7 days: Still open");
+    expect(html).not.toMatch(/<strong>Still open<\/strong>/);
   });
 
   it("F2: once launched, headlines never include before-launch weeks; launch days alone if nothing later", () => {
@@ -215,6 +216,51 @@ describe("the Launch measures page", () => {
     const a = week(monday(2), "before_launch", { groups: groups({ suggested: 10, hand_pick: 10 }) });
     const html = renderLaunchPage(report({ launchDate: null, baseline: null, weeks: [a] }), o({ range: launchRange({}, NOW, null) }));
     expect(html).toContain("Matched to a known cat: <strong>100% · 20 of 20</strong>");
+  });
+
+  const svgs = (html: string) => [...html.matchAll(/<svg class="chart"[\s\S]*?<\/svg>/g)].map((m) => m[0]);
+  const labelled = (svg: string, label: string) => svg.includes(`>${label}</text>`);
+
+  it("G1: every chart marks the baseline week, and Launch days when there is one", () => {
+    const charts = svgs(renderLaunchPage(report(), o()));
+    expect(charts).toHaveLength(3);
+    for (const c of charts) {
+      expect(labelled(c, "Baseline")).toBe(true);
+      expect(labelled(c, "Launch")).toBe(true);
+    }
+  });
+
+  it("G1: no Baseline or Launch marker when no such week is in range", () => {
+    const html = renderLaunchPage(report({ baseline: null, weeks: [week(monday(2), "before_launch"), week(monday(9), "before_launch")] }), o());
+    const charts = svgs(html);
+    expect(charts).toHaveLength(3);
+    for (const c of charts) {
+      expect(labelled(c, "Baseline")).toBe(false);
+      expect(labelled(c, "Launch")).toBe(false);
+    }
+  });
+
+  it("G2: headlines that are words, not a figure, are plain text and not in the figure style", () => {
+    const few = week(monday(2), "baseline", { checked: { right: 10, total: 19 }, stillOpen: { notFinished: false, followUp: true } });
+    const html = renderLaunchPage(report({ weeks: [few], baseline: few }), o());
+    expect(html).toContain("Checked: Not enough checked yet");
+    expect(html).not.toMatch(/<strong>[^<]*Not enough checked yet/);
+    expect(html).not.toMatch(/class="hbig">Checked/);
+    expect(html).not.toMatch(/<strong>[^<]*Still open/);
+    expect(html).not.toMatch(/<strong>[^<]*Too few to compare/);
+  });
+
+  it("G2: a headline with a real figure keeps the figure style", () => {
+    expect(renderLaunchPage(report(), o())).toMatch(/class="hbig">Checked: <strong>88% right · 132 of 150<\/strong>/);
+  });
+
+  it("G3: the baseline week's own against-baseline cells say Baseline", () => {
+    const t = launchTables(report(), false);
+    expect(t.weeks.rows[1]).toMatchObject({ vs_sightings: "Baseline", vs_spotters: "Baseline" });
+    expect(t.matched.rows[1]!["vs_matched"]).toBe("Baseline");
+    expect(t.accuracy.rows[1]!["vs_right"]).toBe("Baseline");
+    expect(t.followUp.rows[1]!["vs_follow"]).toBe("Baseline");
+    expect(t.weeks.rows[0]!["vs_sightings"]).not.toBe("Baseline");
   });
 
   it("matches its snapshot", () => {

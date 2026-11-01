@@ -122,22 +122,26 @@ const comparable = (whole: number, open = false): boolean => !open && whole >= F
 
 const signedNumber = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 
-/** "+12 on baseline"; "" for the baseline itself or when there is no baseline. */
+/** "+12 on baseline"; "Baseline" on the baseline week itself; "" when there is no baseline. */
 function countDiff(w: LaunchWeek, b: LaunchWeek | null, pick: (x: LaunchWeek) => number): string {
-  if (b === null || w.label === "baseline") return "";
+  if (b === null) return "";
+  if (w.label === "baseline") return "Baseline";
   const d = pick(w) - pick(b);
   return d === 0 ? "Same as baseline" : `${signedNumber(d)} on baseline`;
 }
 
 /** "−3 points on baseline", when both shares have enough behind them. */
 function pointsDiff(mine: { pct: number | null; ok: boolean }, base: { pct: number | null; ok: boolean } | null, isBaseline: boolean): string {
-  if (base === null || isBaseline || !mine.ok || !base.ok || mine.pct === null || base.pct === null) return "";
+  if (base !== null && isBaseline) return "Baseline";
+  if (base === null || !mine.ok || !base.ok || mine.pct === null || base.pct === null) return "";
   const d = mine.pct - base.pct;
   return d === 0 ? "Same as baseline" : `${signedNumber(d)} ${Math.abs(d) === 1 ? "point" : "points"} on baseline`;
 }
 
-const seconds = (ms: number): number => Number((ms / 1000).toFixed(1));
-const secondsText = (ms: number): string => seconds(ms).toFixed(1);
+// Whole tenths of a second, with no toFixed (positions.source.test.ts keeps that for positions).
+const tenths = (ms: number): number => Math.round(ms / 100);
+const seconds = (ms: number): number => tenths(ms) / 10;
+const secondsText = (ms: number): string => `${Math.floor(tenths(ms) / 10)}.${tenths(ms) % 10}`;
 
 // ─── The figures behind each measure ────────────────────────────────────
 
@@ -324,6 +328,16 @@ function headShare(part: number, whole: number, open = false): string {
   return `${wholePct(part, whole)}% · ${part} of ${whole}`;
 }
 
+/**
+ * One headline line. A real figure is drawn big; words in its place ("Still
+ * open", "Not enough checked yet", "Too few to compare", "–") are plain text,
+ * which wraps sensibly on a phone.
+ */
+function headline(label: string, shown: string, isFigure: boolean): string {
+  return isFigure ? `<p class="hbig">${esc(label)}: <strong>${shown}</strong></p>` : `<p>${esc(label)}: ${shown}</p>`;
+}
+const isFigure = (whole: number, open = false) => !open && whole >= FEW;
+
 const sum = (ws: readonly LaunchWeek[], f: (w: LaunchWeek) => number) => ws.reduce((n, w) => n + f(w), 0);
 
 /** The line (neutral for a total, a mark colour for another) for a chart of one count per week. */
@@ -378,6 +392,10 @@ export function renderLaunchPage(
   const follow = { part: sum(closed, (w) => followShare(w).part), whole: sum(closed, (w) => followShare(w).whole) };
   const lastWait = [...r.weeks].reverse().find((w) => w.wait.phoneP50 !== null || w.wait.serverP50 !== null);
   const draw = r.sightings > 0;
+  // §2: the baseline week is marked on every chart, and so is the part-week of Launch days.
+  const markers = r.weeks.flatMap((w) =>
+    w.label === "baseline" ? [{ at: w.at, label: "Baseline" }] : w.label === "launch_days" ? [{ at: w.at, label: "Launch" }] : [],
+  );
 
   const use =
     '<section id="use"><h2>Sightings and spotters</h2>' +
@@ -389,6 +407,7 @@ export function renderLaunchPage(
       ? '<div class="chartbox">' +
         lineChart({
           title: "Sightings and spotters per week",
+          markers,
           series: [
             { label: "Sightings", neutral: true, points: weekly(r.weeks, (w) => w.sightings) },
             { label: "Spotters", mark: "sterilised", points: weekly(r.weeks, (w) => w.spotters) },
@@ -402,12 +421,13 @@ export function renderLaunchPage(
 
   const matchedSection =
     '<section id="matched"><h2>Share matched</h2>' +
-    `<p class="hbig">Matched to a known cat: <strong>${headShare(matched.part, matched.whole)}</strong></p>` +
+    headline("Matched to a known cat", headShare(matched.part, matched.whole), isFigure(matched.whole)) +
     '<p class="hint">A suggested cat or one the spotter found, as a share of sightings that were finished.</p>' +
     (draw
       ? '<div class="chartbox">' +
         barChart({
           title: "Sightings per week, by what the spotter did",
+          markers,
           bars: r.weeks.map((w) => ({
             at: w.at,
             parts: GROUPS.map((g) => ({ key: g, label: GROUP_WORD[g], value: w.groups[g], ...GROUP_PART[g] })),
@@ -423,9 +443,9 @@ export function renderLaunchPage(
     checked.total < FEW ? esc(NOT_ENOUGH) : `${wholePct(checked.right, checked.total)}% right · ${checked.right} of ${checked.total}`;
   const accuracySection =
     '<section id="accuracy"><h2>Matching accuracy</h2>' +
-    `<p class="hbig">Right first time: <strong>${headShare(acc.part, acc.whole)}</strong></p>` +
-    `<p class="hbig">Checked: <strong>${checkedHead}</strong></p>` +
-    `<p class="hbig">Corrected by the team: <strong>${headShare(corrected.part, corrected.whole)}</strong></p>` +
+    headline("Right first time", headShare(acc.part, acc.whole), isFigure(acc.whole)) +
+    headline("Checked", checkedHead, checked.total >= FEW) +
+    headline("Corrected by the team", headShare(corrected.part, corrected.whole), isFigure(corrected.whole)) +
     `<p class="hint">${esc("The headline counts a suggestion nobody checked as right. The checked figure is the one to trust once it has enough behind it.")}</p>` +
     (draw ? tableFor(t.accuracy) + (o.canExport ? downloadLink("launch-accuracy", o.range, "Download the matching accuracy as a spreadsheet (CSV)") : "") : "") +
     "</section>";
@@ -452,13 +472,13 @@ export function renderLaunchPage(
         `phone ${lastWait.wait.phoneP50 === null ? esc(NOT_RECORDED) : `<strong>${secondsText(lastWait.wait.phoneP50)} s</strong> typical`}` +
         `${lastWait.wait.phoneP90 === null ? "" : `, ${secondsText(lastWait.wait.phoneP90)} s slow end`}` +
         `${lastWait.wait.serverP50 === null ? "" : `; server's part ${secondsText(lastWait.wait.serverP50)} s typical`}</p>`
-      : '<p class="hbig">No waits recorded in this period</p>') +
+      : "<p>No waits recorded in this period</p>") +
     `<p class="hint" id="phone-wait-from">${esc(phoneNote)}</p>` +
     `<p class="hint">Matcher down or timed out: ${esc(share(down, headSightings))}. ` +
     `${esc(plural(noPhone, "sighting", "sightings"))} with a server time but no phone wait: saved for later, sent before the update, or over 10 minutes.</p>` +
     (draw
       ? '<div class="chartbox">' +
-        lineChart({ title: "Match wait per week, in seconds", series: waitSeries }) +
+        lineChart({ title: "Match wait per week, in seconds", series: waitSeries, markers }) +
         "</div>" +
         tableFor(t.wait) +
         (o.canExport ? downloadLink("launch-wait", o.range, "Download the match wait as a spreadsheet (CSV)") : "")
@@ -467,7 +487,11 @@ export function renderLaunchPage(
 
   const followSection =
     '<section id="follow"><h2>Follow-card effect</h2>' +
-    `<p class="hbig">Sent another sighting within 7 days: <strong>${followOpen ? esc(STILL_OPEN) : headShare(follow.part, follow.whole)}</strong></p>` +
+    headline(
+      "Sent another sighting within 7 days",
+      followOpen ? esc(STILL_OPEN) : headShare(follow.part, follow.whole),
+      !followOpen && isFigure(follow.whole),
+    ) +
     `<p class="hint">${esc("The follow card isn't switched on yet. This is the 'before' figure it will be compared against.")}</p>` +
     `<p class="hint">${esc("A spotter's phone already follows a cat it matches, with no email (SYC-624).")}</p>` +
     `<p class="hint">${esc("Onboarding already offers \u201Ckeep my spots safe\u201D by email (SYC-524). What is measured is the effect of the reward-screen card on top of those.")}</p>` +
