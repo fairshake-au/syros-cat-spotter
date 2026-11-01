@@ -19,6 +19,9 @@ describe("a NUL character in the URL", () => {
     "/api/profiles/username-availability?username=a%00b",
     "/api/cats?colour=%00",
     "/api/profiles/x/username?a[b]=%00",
+    // Express routes ignore case, so the guard must too.
+    "/API/profiles/%00/username",
+    "/Api/profiles/a%00b",
   ]) {
     it(`on GET ${path} is a 400 with a plain message, not a 500`, async () => {
       const res = await request(app).get(path).set("X-Device-Secret", SECRET);
@@ -36,6 +39,11 @@ describe("a NUL character in the URL", () => {
 
   it("leaves the dashboard's own handling alone: its search box answers a NUL itself", async () => {
     const res = await request(app).get("/api/team/colonies?q=%00").set("Accept", "application/json");
+    expect(res.body).not.toEqual({ error: NUL_MESSAGE });
+  });
+
+  it("leaves the dashboard alone whatever the case of its path", async () => {
+    const res = await request(app).get("/api/Team/colonies?q=%00").set("Accept", "application/json");
     expect(res.body).not.toEqual({ error: NUL_MESSAGE });
   });
 

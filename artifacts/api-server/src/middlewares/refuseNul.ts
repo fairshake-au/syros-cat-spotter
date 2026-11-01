@@ -53,7 +53,10 @@ export function refuseNul(req: Request, _res: Response, next: NextFunction): voi
 const OWN_NUL_HANDLING = /^\/api\/(team|mail|go)(\/|$)/;
 
 export function refuseNulInUrl(req: Request, _res: Response, next: NextFunction): void {
-  if (!req.path.startsWith("/api/") || OWN_NUL_HANDLING.test(req.path)) return next();
+  // Express routes ignore case (/API/profiles/… reaches the same route), so
+  // compare the lower-cased path (review of #410).
+  const path = req.path.toLowerCase();
+  if (!path.startsWith("/api/") || OWN_NUL_HANDLING.test(path)) return next();
   if (/%00/i.test(req.path) || containsNul(req.query)) {
     next(Object.assign(new Error("NUL character in request URL"), { type: NUL_IN_URL }));
     return;
