@@ -147,6 +147,9 @@ const isUniqueViolation = (err: unknown, constraint: string): boolean => {
   );
 };
 
+/** The fewest areas a retire may leave: a test may raise it, never lower it below MIN_AREAS (SYC-693). */
+export const retireFloor = (floor: number = MIN_AREAS): number => Math.max(MIN_AREAS, floor);
+
 /**
  * Makes one change to the list, with its history row, in one transaction.
  * Throws {@link AreaChangeRefused} naming the field at fault.
@@ -157,7 +160,7 @@ export async function changeArea(
   /** Tests only: the fewest areas a retire may leave. Never below MIN_AREAS (SYC-693). */
   floor: number = MIN_AREAS,
 ): Promise<void> {
-  const minAreas = Math.max(MIN_AREAS, floor);
+  const minAreas = retireFloor(floor);
   try {
     await db.transaction(async (tx) => {
       if (change.kind === "add") {

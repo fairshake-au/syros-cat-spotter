@@ -285,6 +285,10 @@ describe("renderHomePage", () => {
     expect(today).not.toContain(UNAVAILABLE_HTML);
     expect(today).toContain("ear clips to check");
     expect(today).not.toContain(NOTHING_WAITING);
+    // Exactly two, with the Queue lines fine: still one line.
+    const two = between(page(full({ needs: { ...needsOf(noNeeds), issuesOpen: bad }, toCheck: { ...checkOf(4, 2), colour: bad } })), "today", "trap");
+    expect(two.split(escapeHtml(SOME_UNAVAILABLE))).toHaveLength(2);
+    expect(two).not.toContain(UNAVAILABLE_HTML);
   });
 
   it("with nothing waiting, Today says so and the other parts still draw", () => {
