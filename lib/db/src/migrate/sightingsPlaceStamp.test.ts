@@ -37,7 +37,9 @@ afterAll(async () => {
 beforeEach(async () => {
   await c.query("begin");
   await c.query(`alter table sightings disable trigger sightings_no_truncate`);
+  await c.query(`alter table cats disable trigger cats_no_truncate`);
   await c.query(`truncate sightings, cats restart identity cascade`);
+  await c.query(`alter table cats enable trigger cats_no_truncate`);
   await c.query(`alter table sightings enable trigger sightings_no_truncate`);
   await c.query("commit");
 });
