@@ -169,7 +169,7 @@ describe("fan-out skips a cat recorded as deceased (§3.3)", () => {
     await db.insert(catSubscriptionsTable).values({ deviceId: spotterDevice, catId });
     await markDeceased(catId);
 
-    await notifyCatFollowers(catId, "someone-else", { title: "t", body: "b" });
+    await notifyCatFollowers(catId, "someone-else", { push: { kind: "home", name: "Tabby" } });
 
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe("fan-out skips a cat recorded as deceased (§3.3)", () => {
       .values({ deviceId: spotterDevice, token: "ExponentPushToken[deceased-skip-test-alive]" });
     await db.insert(catSubscriptionsTable).values({ deviceId: spotterDevice, catId });
 
-    await notifyCatFollowers(catId, "someone-else", { title: "t", body: "b" });
+    await notifyCatFollowers(catId, "someone-else", { push: { kind: "home", name: "Tabby" } });
 
     expect(sendPushNotificationMock).toHaveBeenCalledTimes(1);
   });

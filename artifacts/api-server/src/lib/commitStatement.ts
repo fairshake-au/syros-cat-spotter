@@ -10,6 +10,7 @@ import {
 import { catsFeeding } from "./catIdentity";
 import { fanOutNotifications, insertCatUpdate } from "./notificationFanout";
 import { logger } from "./logger";
+import type { NewsPush } from "./newsWords";
 import {
   loadCatRecords,
   writeObservation,
@@ -47,6 +48,8 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export interface PendingNews {
   cat: Cat;
   update: CatUpdate;
+  /** The push's meaning, so each phone is told in its own language (SYC-221). */
+  push?: NewsPush;
 }
 
 /** The words of the news, as the app shows them (in-app list and push body). */
@@ -116,7 +119,7 @@ export async function commitStatement(
     updateType: "desexed",
     message: sterilisedNewsMessage(cat.name),
   });
-  news.push({ cat, update });
+  news.push({ cat, update, push: { kind: "sterilised", name: cat.name } });
   return row;
 }
 

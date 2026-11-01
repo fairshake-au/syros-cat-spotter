@@ -777,8 +777,7 @@ describe("DELETE /api/me: the cat's data survives and the person is gone", () =>
       message: "Spotted again",
     });
     await notifyCatFollowers(w.discovered.id, "someone-else", {
-      title: "t",
-      body: "b",
+      push: { kind: "home", name: "Tabby" },
     });
     const tokens = pushMock.mock.calls.map(([token]) => token);
     expect(tokens).toContain(`token-${w.Q.deviceId}`);

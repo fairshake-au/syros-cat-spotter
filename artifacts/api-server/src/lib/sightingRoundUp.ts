@@ -3,6 +3,7 @@ import { desc, eq, lt, sql } from "drizzle-orm";
 import { sendPushNotification } from "./push";
 import { isResolvedDeceased } from "./catHelpers";
 import { logger, safeError } from "./logger";
+import { languageOf, roundUpWords } from "./newsWords";
 
 /**
  * The evening sighting round-up (data-spine.md PR 9, spec §6.4.4; Q4 = A,
@@ -68,17 +69,7 @@ export function roundUpText(catNames: readonly string[]): {
   title: string;
   body: string;
 } {
-  const title = "Cats you follow";
-  const [first, second] = catNames;
-  if (catNames.length <= 1) return { title, body: `${first} was spotted again.` };
-  if (catNames.length === 2) {
-    return { title, body: `${first} and ${second} were spotted again.` };
-  }
-  const others = catNames.length - 1;
-  return {
-    title,
-    body: `${first} and ${others} other cats you follow were spotted again.`,
-  };
+  return roundUpWords(catNames, "en");
 }
 
 export type RoundUpResult =
@@ -89,13 +80,14 @@ export type RoundUpResult =
 type Row = {
   device_id: string;
   token: string | null;
+  language: string | null;
   cat_id: number;
   cat_name: string;
   cat_update_id: number;
   seen: string | Date;
 };
 
-type Planned = Map<string, { token: string | null; cats: { id: number; name: string }[] }>;
+type Planned = Map<string, { token: string | null; language: string | null; cats: { id: number; name: string }[] }>;
 
 export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpResult> {
   const { date, hour } = athensParts(now);
@@ -131,7 +123,7 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
     // when a cat was seen: a day, never a time.
     const result = await tx.execute(sql`
       select distinct on (cs.device_id, c.id)
-             cs.device_id, pt.token, c.id as cat_id, c.name as cat_name,
+             cs.device_id, pt.token, pt.language, c.id as cat_id, c.name as cat_name,
              cu.id as cat_update_id, cu.created_at as seen
         from cat_updates cu
         join cats c on c.id = cu.cat_id
@@ -169,7 +161,7 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
 
     const byDevice: Planned = new Map();
     for (const r of kept) {
-      const entry = byDevice.get(r.device_id) ?? { token: r.token, cats: [] };
+      const entry = byDevice.get(r.device_id) ?? { token: r.token, language: r.language, cats: [] };
       entry.cats.push({ id: r.cat_id, name: r.cat_name });
       byDevice.set(r.device_id, entry);
     }
@@ -180,9 +172,12 @@ export async function sendDailyRoundUp(now: Date = new Date()): Promise<RoundUpR
 
   let pushes = 0;
   await Promise.all(
-    [...planned.values()].map(async ({ token, cats }) => {
+    [...planned.values()].map(async ({ token, language, cats }) => {
       if (!token) return;
-      const { title, body } = roundUpText(cats.map((c) => c.name));
+      const { title, body } = roundUpWords(
+        cats.map((c) => c.name),
+        languageOf(language),
+      );
       pushes += 1;
       await sendPushNotification(token, title, body, {
         type: "sighting_round_up",
