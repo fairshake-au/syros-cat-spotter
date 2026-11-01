@@ -369,6 +369,79 @@ describe("match wait (§4.4)", () => {
   });
 });
 
+describe("the baseline week, for any range (Ruling 5)", () => {
+  it("a range starting after the baseline still gives the baseline's own counts", () => {
+    // Launch Mon 16 Nov; the range is 30 Nov – 6 Dec. The loader adds the baseline week's rows.
+    const range = custom("2026-11-30", "2026-12-06", LATE);
+    const rows = [
+      row("2026-11-17T10:00:00Z", { deviceId: "dev-a" }),
+      row("2026-11-18T10:00:00Z", { deviceId: "dev-b", resolved: false }),
+      row("2026-11-19T10:00:00Z", { deviceId: "dev-a" }),
+      row("2026-12-01T10:00:00Z", { deviceId: "dev-a" }),
+    ];
+    const r = launchMeasuresFrom(rows, range, "2026-11-16", LATE);
+    expect(r.weeks.map((w) => w.at)).toEqual([MON(30)]);
+    expect(r.weeks[0]!.sightings).toBe(1);
+    expect(r.sightings).toBe(1);
+    expect(r.baseline).toMatchObject({ at: MON(16), label: "baseline", sightings: 3, spotters: 2, returning: 0 });
+    expect(r.baseline!.groups).toMatchObject({ not_finished: 1, suggested: 2 });
+    // dev-a's 17 Nov came back on the 19th; the 19th didn't (1 Dec is 12 days on).
+    expect(r.baseline!.followUp).toEqual({ eligible: 2, cameBack: 1 });
+  });
+
+  it("a range ending before the baseline still gives it", () => {
+    const range = custom("2026-11-09", "2026-11-15", LATE);
+    const r = launchMeasuresFrom([row("2026-11-24T10:00:00Z")], range, "2026-11-18", LATE);
+    expect(r.baseline).toMatchObject({ at: MON(23), sightings: 1 });
+  });
+
+  it("the baseline inside the range is that week's entry", () => {
+    const rows = [row("2026-11-24T10:00:00Z"), row("2026-11-25T10:00:00Z", { deviceId: "dev-b" })];
+    const r = launchMeasuresFrom(rows, RANGE, "2026-11-17", LATE);
+    expect(r.baseline).toEqual(weekAt(r, MON(23)));
+    expect(r.baseline!.sightings).toBe(2);
+  });
+
+  it("a range starting mid-way through the baseline still gives the whole week", () => {
+    const range = custom("2026-11-25", "2026-12-06", LATE);
+    const rows = [row("2026-11-24T10:00:00Z"), row("2026-11-26T10:00:00Z")];
+    const r = launchMeasuresFrom(rows, range, "2026-11-17", LATE);
+    expect(weekAt(r, MON(23)).sightings).toBe(1);
+    expect(r.baseline).toMatchObject({ at: MON(23), sightings: 2 });
+  });
+
+  it("is null with no launch date, a future one, or before the baseline week starts", () => {
+    expect(launchMeasuresFrom([], RANGE, null, LATE).baseline).toBeNull();
+    expect(launchMeasuresFrom([], RANGE, "2027-03-01", LATE).baseline).toBeNull();
+    // Launch Tue 17 Nov; now Fri 20 Nov: the baseline starts 23 Nov.
+    const now = new Date("2026-11-20T10:00:00Z");
+    expect(launchMeasuresFrom([], custom("2026-11-09", "2026-11-20", now), "2026-11-17", now).baseline).toBeNull();
+  });
+});
+
+describe("Launch days counts only from launch (Ruling 8)", () => {
+  it("a Wednesday launch leaves that week's Monday and Tuesday out of every figure", () => {
+    // Launch Wed 18 Nov: Syros midnight is 17 Nov 22:00 UTC.
+    const rows = [
+      row("2026-11-16T10:00:00Z", { deviceId: "dev-test", match: { serverWaitMs: 9000, phoneWaitMs: 9000 } }),
+      row("2026-11-17T21:59:00Z", { deviceId: "dev-test", match: { choice: "hand_pick", suggestedRank: null, missKind: "matcher_miss" } }),
+      row("2026-11-17T22:00:00Z", { deviceId: "dev-a", match: { serverWaitMs: 1000, phoneWaitMs: 2000 } }),
+    ];
+    const r = launchMeasuresFrom(rows, RANGE, "2026-11-18", LATE);
+    const w = weekAt(r, MON(16));
+    expect(w.label).toBe("launch_days");
+    expect(w.sightings).toBe(1);
+    expect(w.spotters).toBe(1);
+    expect(w.groups).toEqual({ not_finished: 0, no_cat: 0, suggested: 1, hand_pick: 0, new_cat: 0, other: 0 });
+    expect(w.accuracy).toMatchObject({ right_first: 1, missed_compared: 0 });
+    expect(w.suggestionsTaken).toBe(1);
+    expect(w.wait).toMatchObject({ phoneP50: 2000, serverP50: 1000 });
+    expect(w.followUp.eligible).toBe(1);
+    // Testing days still count as testing everywhere else: the period total keeps Coverage's.
+    expect(r.sightings).toBe(3);
+  });
+});
+
 describe("what leaves the module", () => {
   it("holds counts and week dates, never a device", () => {
     const rows = [row("2026-11-17T10:00:00Z", { deviceId: "dev-secret-zz" })];

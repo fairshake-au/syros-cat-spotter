@@ -85,6 +85,26 @@ describe("launchMeasuresReport agrees with Coverage (§4.1)", () => {
   });
 });
 
+describe("the baseline from the database, for a range after it (Ruling 5)", () => {
+  it("loads the baseline week's sightings, its follow-up tail and returning seeds", async () => {
+    // Launch Wed 1 Mar 2006; baseline Mon 6 – Sun 12 Mar; the range is April.
+    settings.launchDate = "2006-03-01";
+    const dev = (n: string) => `vitest-launch-${TAG}-b${n}`;
+    await sighting(dev("y"), at("2006-03-02T10:00:00Z")); // Launch days: y is returning in the baseline
+    await sighting(dev("x"), at("2006-03-07T10:00:00Z"));
+    await sighting(dev("y"), at("2006-03-08T10:00:00Z"), "pending");
+    await sighting(dev("x"), at("2006-03-10T10:00:00Z"), "pending"); // x's 7 Mar came back
+    await sighting(dev("x"), at("2006-03-14T10:00:00Z"), "pending"); // the tail: x's 10 Mar isn't eligible anyway
+    await sighting(dev("x"), at("2006-04-05T10:00:00Z"));
+    const RANGE = parseRange({ range: "custom", from: "2006-04-01", to: "2006-04-30" }, NOW);
+    const r = await launchMeasuresReport(RANGE, NOW);
+    expect(r.sightings).toBe(1);
+    expect(r.weeks.every((w) => w.at.getTime() >= at("2006-03-26T00:00:00Z").getTime())).toBe(true);
+    expect(r.baseline).toMatchObject({ label: "baseline", sightings: 3, spotters: 2, returning: 1, followUp: { eligible: 1, cameBack: 1 } });
+    expect(r.baseline!.at.toLocaleDateString("en-CA", { timeZone: "Europe/Athens" })).toBe("2006-03-06");
+  });
+});
+
 describe("the loader's match record and corrections (§4.3)", () => {
   // August 2005, a range of its own.
   const RANGE = parseRange({ range: "custom", from: "2005-08-01", to: "2005-08-07" }, NOW);
