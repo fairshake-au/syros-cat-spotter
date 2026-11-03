@@ -3,10 +3,11 @@ import { and, eq, inArray, ne, notLike } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendPushNotification } from "./push";
 import { isResolvedDeceased } from "./catHelpers";
+import { languageOf, newsText, type NewsPush } from "./newsWords";
 
 export interface CatNotification {
-  title: string;
-  body: string;
+  /** What happened; each phone is sent it in its own language (SYC-221). */
+  push: NewsPush;
   data?: Record<string, unknown>;
 }
 
@@ -32,19 +33,15 @@ export async function notifyDevices(
       {
         devices: deviceIds.length,
         tokens: tokens.length,
-        title: notification.title,
+        kind: notification.push.kind,
       },
       "Dispatching push notifications",
     );
     await Promise.all(
-      tokens.map((t) =>
-        sendPushNotification(
-          t.token,
-          notification.title,
-          notification.body,
-          notification.data,
-        ),
-      ),
+      tokens.map((t) => {
+        const { title, body } = newsText(notification.push, languageOf(t.language));
+        return sendPushNotification(t.token, title, body, notification.data);
+      }),
     );
   } catch (err) {
     logger.warn({ err }, "Push dispatch failed");

@@ -35,7 +35,7 @@ import { awardBadges, eventBadgesForSpot, queueMoment } from "../lib/badges/awar
 import { clampCaptureTime } from "../lib/captureTime";
 import { requireDeviceAuth, verifyDeviceSecret } from "../lib/deviceAuth";
 import { createUpdateAndFanOut } from "../lib/notificationFanout";
-import { spottedAgainMessage } from "../lib/sightingMessage";
+import { sightingNews, sightingPush, spottedAgainMessage } from "../lib/sightingMessage";
 import { replacedByMove, writeObservation, type DbOrTx } from "../lib/observations";
 import { matchCatPhoto, type NewPhotoInput } from "../lib/matching";
 import { saveSpotWithPhotos, spotPhotoList, validateSpotPhotos } from "../lib/spotPhotos";
@@ -1257,15 +1257,19 @@ router.post("/sightings/:sightingId/resolve", async (req, res) => {
 
   // Notification fan-out is best-effort and deliberately happens only after
   // the core resolve writes have committed.
+  const newsNow = new Date();
   await createUpdateAndFanOut({
     cat,
     updateType: "sighting",
     // SYC-166 slice 3: an old photo says the day it was taken (Decision D1).
     message: isNewCat
       ? `${cat.name} was just discovered on Syros!`
-      : spottedAgainMessage(cat.name, sighting.createdAt, new Date()),
+      : spottedAgainMessage(cat.name, sighting.createdAt, newsNow),
     triggerSightingId: sightingId,
     excludeDeviceId: sighting.deviceId,
+    push: isNewCat
+      ? { kind: "new_cat", name: cat.name }
+      : sightingPush(cat.name, sightingNews(sighting.createdAt, newsNow)),
   });
 
   const profile = await profilePayload(sighting.deviceId);

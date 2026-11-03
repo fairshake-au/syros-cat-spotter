@@ -7,6 +7,7 @@ import { athensDay, weekStartAthens, weekStartInstant } from "./weeks";
 import { sendPushNotification } from "./push";
 import { logger, safeError } from "./logger";
 import { STREAK_TIMEZONE } from "./streak";
+import { weekResultText, type NewsLanguage } from "./newsWords";
 
 /**
  * The weekly close and the Monday push (SYC-706, spec "Weekly board").
@@ -38,52 +39,9 @@ export const WEEK_PUSH_UNTIL_HOUR = 20;
 // The push's language is the one the phone registered with (push_tokens.language);
 // a phone that never sent one (an old build) is sent English. The bell row keeps
 // the English words for old builds; new builds word it from place and points.
-// Never an area or a place on the island.
-export type PushLanguage = "en" | "el" | "fr";
-
-const MEDAL: Record<number, string> = { 2: "🥈", 3: "🥉" };
-
-// Mirrors the app's formatRank (artifacts/cat-spotter/lib/formatRank.ts): English
-// 2nd/3rd, French 2e/3e, Greek the plain number. Only places 2 and 3 are worded.
-function rankWord(language: PushLanguage, place: number): string {
-  if (language === "el") return String(place);
-  if (language === "fr") return place === 1 ? "1er" : `${place}e`;
-  return place === 2 ? "2nd" : place === 3 ? "3rd" : `${place}th`;
-}
-
-const WEEK_COPY: Record<
-  PushLanguage,
-  { title: string; top: string; placed: (medal: string, rank: string) => string }
-> = {
-  en: {
-    title: "Last week's top spotters",
-    top: "🏆 You were the top spotter on Syros last week. You've earned Champion!",
-    placed: (medal, rank) => `${medal} You came ${rank} on Syros last week. You've earned Podium!`,
-  },
-  el: {
-    title: "Οι κορυφαίοι spotters της περασμένης εβδομάδας",
-    top: "🏆 Ήσουν ο κορυφαίος spotter της Σύρου την περασμένη εβδομάδα. Κέρδισες το παράσημο Πρωταθλητής!",
-    placed: (medal, rank) =>
-      `${medal} Ήρθες στη θέση ${rank} στη Σύρο την περασμένη εβδομάδα. Κέρδισες το παράσημο Βάθρο!`,
-  },
-  fr: {
-    title: "Les meilleurs spotters de la semaine dernière",
-    top: "🏆 Tu as été le meilleur spotter de Syros la semaine dernière. Tu as gagné le badge Champion !",
-    placed: (medal, rank) =>
-      `${medal} Tu as terminé ${rank} à Syros la semaine dernière. Tu as gagné le badge Podium !`,
-  },
-};
-
-/** The push's words, which are also the bell entry's stored words (in English), for a place of 1–3. */
-export function weekResultText(
-  place: number,
-  language: string | null = "en",
-): { title: string; body: string } {
-  const copy = WEEK_COPY[language === "el" || language === "fr" ? language : "en"];
-  const lang: PushLanguage = language === "el" || language === "fr" ? language : "en";
-  if (place === 1) return { title: copy.title, body: copy.top };
-  return { title: copy.title, body: copy.placed(MEDAL[place] ?? "🥉", rankWord(lang, place)) };
-}
+// Never an area or a place on the island. The words live in newsWords.ts (SYC-221).
+export type PushLanguage = NewsLanguage;
+export { weekResultText };
 
 /** The Monday that starts the week before the one containing `at`. */
 function previousWeekStart(at: Date): string {
