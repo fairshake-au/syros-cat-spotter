@@ -96,7 +96,10 @@ export async function smoke(
     let res: Response;
     const signal = AbortSignal.timeout(timeoutMs);
     try {
-      res = await fetch(`${base}${p}`, { headers, signal });
+      // SYC-769: never follow a redirect. fetch keeps X-Prelaunch-Key on a
+      // redirect to another host, so a 3xx would carry the key past the
+      // address check above. A redirect is a failed smoke instead.
+      res = await fetch(`${base}${p}`, { headers, signal, redirect: "manual" });
     } catch (err) {
       throw asSmokeError(err, p);
     }
