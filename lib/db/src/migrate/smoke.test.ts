@@ -114,6 +114,92 @@ describe("smoke through the pre-launch gate", () => {
   });
 });
 
+describe("smoke sends the pre-launch key only to the app (SYC-769)", () => {
+  it("refuses a base URL with '@' in it, key or no key, before any request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      for (const base of [
+        "https://apptest.catspotters.com:pw@evil.example.com",
+        "https://apptest.catspotters.com@evil.example.com",
+        "http://127.0.0.1:80@evil.example.com",
+        "https://user@apptest.catspotters.com",
+      ]) {
+        for (const env of [{ PRELAUNCH_KEY: "tester-key-123" }, {}]) {
+          await expect(smoke(base, env)).rejects.toThrow(/must not contain '@'/);
+        }
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("with the key set, refuses another host or plain http to the app, before any request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      for (const base of [
+        "https://evil.example.com",
+        "https://apptest.catspotters.com.evil.com",
+        "http://apptest.catspotters.com",
+        "not a url",
+        "https://someone-else.replit.app",
+        "https://syros-cat-spotter-eu.replit.app.evil.com",
+        "http://syros-cat-spotter-eu.replit.app",
+      ]) {
+        await expect(smoke(base, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow(/^smoke: /);
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe("smoke never follows a redirect (SYC-769)", () => {
+  it("a 3xx fails smoke, and the key never reaches the host it points to", async () => {
+    const elsewhereSeen: string[] = [];
+    const elsewhere = http.createServer((req, res) => {
+      elsewhereSeen.push((req.headers["x-prelaunch-key"] as string | undefined) ?? "");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    await new Promise<void>((resolve) => elsewhere.listen(0, "127.0.0.1", () => resolve()));
+    const { port: elsewherePort } = elsewhere.address() as AddressInfo;
+    await new Promise<void>((resolve) => {
+      server = http.createServer((_req, res) => {
+        res.writeHead(302, { Location: `http://localhost:${elsewherePort}/api/healthz` });
+        res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    try {
+      await expect(smoke(baseUrl, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow(/returned 302/);
+      expect(elsewhereSeen).toEqual([]);
+    } finally {
+      elsewhere.closeAllConnections();
+      await new Promise<void>((resolve) => elsewhere.close(() => resolve()));
+    }
+  });
+});
+
+describe("smoke's allowed addresses with the key set (SYC-769)", () => {
+  it("lets the recovery runbook's EU replit.app address and the catspotters.com hosts through to the first request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("stub: no network"));
+    try {
+      for (const base of ["https://syros-cat-spotter-eu.replit.app", "https://apptest.catspotters.com", "https://rehearsal.catspotters.com/"]) {
+        await expect(smoke(base, { PRELAUNCH_KEY: "tester-key-123" })).rejects.toThrow("stub: no network");
+      }
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
 describe("smoke with a null photoUrl (SYC-98 Fable review, finding 1)", () => {
   // The old code called `.endsWith("/0")` on every cat's photoUrl to skip
   // the primaryPhotoId: 0 sentinel; photoUrl is now null for that sentinel

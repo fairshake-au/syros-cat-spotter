@@ -5,8 +5,9 @@ import type { NextFunction, Request, Response } from "express";
 // log, because safeError drops the query). One check, after the body is
 // parsed and before any route runs, turns it into a plain 400 everywhere.
 
-/** Error type the app's error handler turns into a 400. */
+/** Error types the app's error handler turns into a 400. */
 export const NUL_IN_BODY = "body.contains.nul";
+export const NUL_IN_URL = "url.contains.nul";
 
 export const NUL_MESSAGE = "This request contains a character we can't accept. Please remove it and try again.";
 
@@ -32,6 +33,32 @@ export function refuseNul(req: Request, _res: Response, next: NextFunction): voi
   // the dashboard already answer a NUL with their own friendly messages.
   if (req.is("application/json") && containsNul(req.body)) {
     next(Object.assign(new Error("NUL character in request"), { type: NUL_IN_BODY }));
+    return;
+  }
+  next();
+}
+
+/**
+ * SYC-691: the same 400 for a NUL in the query string or the path (a path
+ * parameter such as /api/profiles/%00/username reached Postgres and became a
+ * 500). `req.path` keeps its percent-encoding, so a path NUL is "%00"; Express
+ * decodes it into `req.params` later, per route.
+ *
+ * Left alone, because they already answer a NUL with their own page or
+ * message (and tests that say so): the dashboard (/api/team, its search boxes
+ * and id routes), the email-link pages (/api/mail, whose token check refuses
+ * it with the "link not valid" page) and the donation redirects (/api/go,
+ * which never read the query).
+ */
+const OWN_NUL_HANDLING = /^\/api\/(team|mail|go)(\/|$)/;
+
+export function refuseNulInUrl(req: Request, _res: Response, next: NextFunction): void {
+  // Express routes ignore case (/API/profiles/… reaches the same route), so
+  // compare the lower-cased path (review of #410).
+  const path = req.path.toLowerCase();
+  if (!path.startsWith("/api/") || OWN_NUL_HANDLING.test(path)) return next();
+  if (/%00/i.test(req.path) || containsNul(req.query)) {
+    next(Object.assign(new Error("NUL character in request URL"), { type: NUL_IN_URL }));
     return;
   }
   next();

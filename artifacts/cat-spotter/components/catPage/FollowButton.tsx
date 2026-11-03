@@ -104,7 +104,7 @@ export function FollowButton({ catId, catName, deviceId, isFollowing, isOnline }
     if (noteText !== null && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility?.(noteText);
   }, [noteText]);
 
-  const bg = shown ? colors.primary : colors.card;
+  const bg = shown ? colors.primaryFill : colors.card;
   const fg = shown ? colors.primaryForeground : colors.primary;
   const note = noteText;
 

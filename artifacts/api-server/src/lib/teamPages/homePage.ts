@@ -27,6 +27,8 @@ import { firstWords } from "./noteWords";
 // what (D6): it names no team member at all. team.home.test pins the words.
 
 export const UNAVAILABLE = "This figure isn't available right now.";
+/** Today's one line when two or more of its figures failed (SYC-693), in place of a line per figure. */
+export const SOME_UNAVAILABLE = "Some of these figures aren't available right now.";
 export const NOTHING_WAITING = "Nothing waiting right now.";
 
 const QUEUE = "/api/team";
@@ -61,10 +63,10 @@ const tile = (href: string, n: number, one: string, many: string, gloss = "") =>
     : "";
 
 /** A count tile for a figure of its own: the tile, nothing, or the "isn't available" line where it would sit. */
-const countTile = (s: Section<number>, href: string, one: string, many: string, gloss = ""): { html: string; n: number } =>
+const countTile = (s: Section<number>, href: string, one: string, many: string, gloss = ""): { html: string; n: number; failed: boolean } =>
   s.ok
-    ? { html: tile(href, s.value, one, many, gloss), n: s.value }
-    : { html: `<li class="hwide">${unavailable}</li>`, n: 0 };
+    ? { html: tile(href, s.value, one, many, gloss), n: s.value, failed: false }
+    : { html: `<li class="hwide">${unavailable}</li>`, n: 0, failed: true };
 
 /**
  * SYC-532: shown while the look-alike check is failing (5 or more in 15
@@ -89,9 +91,22 @@ function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date, duplica
   let allRead = true;
 
   const reports = needs.reports;
+  const figures = [
+    countTile(needs.issuesOpen, `${QUEUE}#issues`, "problem with a photo or name", "problems with photos or names", "Problems the public reported with a cat's photo, name or page."),
+    // Nothing writes awaiting_team yet (plan Decision 2): the tile stays hidden until something does.
+    countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match", "A spotter's sighting that is waiting for the team to match it to a cat."),
+    countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check", "Cats a spotter thinks have a clipped ear. Look at the photo and confirm."),
+    countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check", "Cats whose recorded colour or markings may not match their photos."),
+    countTile(toCheck.newCats, "/api/team/new-cats-to-check", "new cat to check for a duplicate", "new cats to check for duplicates", "New cats added when the look-alike check was down. They may already be in the app."),
+  ];
+  // Two or more failed reads (a database outage) say so once, not once per figure (SYC-693).
+  const failures = (reports.ok ? 0 : 1) + figures.filter((f) => f.failed).length;
+  const oneLine = failures >= 2;
+  if (oneLine) parts.push(`<p class="empty">${esc(SOME_UNAVAILABLE)}</p>`);
+
   if (!reports.ok) {
     allRead = false;
-    parts.push(unavailable);
+    if (!oneLine) parts.push(unavailable);
   } else {
     const n = reports.value;
     if (n.lines.length > 0) {
@@ -109,16 +124,8 @@ function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date, duplica
     waiting += n.linesTotal + n.unchecked + n.otherOpen;
   }
 
-  const figures = [
-    countTile(needs.issuesOpen, `${QUEUE}#issues`, "problem with a photo or name", "problems with photos or names", "Problems the public reported with a cat's photo, name or page."),
-    // Nothing writes awaiting_team yet (plan Decision 2): the tile stays hidden until something does.
-    countTile(needs.awaitingMatch, "/api/team/cats", "sighting to match", "sightings to match", "A spotter's sighting that is waiting for the team to match it to a cat."),
-    countTile(toCheck.earClips, "/api/team/likely", "ear clip to check", "ear clips to check", "Cats a spotter thinks have a clipped ear. Look at the photo and confirm."),
-    countTile(toCheck.colour, "/api/team/colour-check", "cat for the colour check", "cats for the colour check", "Cats whose recorded colour or markings may not match their photos."),
-    countTile(toCheck.newCats, "/api/team/new-cats-to-check", "new cat to check for a duplicate", "new cats to check for duplicates", "New cats added when the look-alike check was down. They may already be in the app."),
-  ];
   for (const f of figures) {
-    tiles.push(f.html);
+    if (!(oneLine && f.failed)) tiles.push(f.html);
     waiting += f.n;
   }
   // SYC-59 PR 5.1: only for someone who holds review_duplicates (the route passes the count).
@@ -175,12 +182,11 @@ function trapSection(s: Section<TrapNext>): string {
   }
   if (t.noColony > 0) {
     // "Plus" only follows something above it: with no colonies, there is nothing to add to.
-    const lead = t.colonyCount === 0 ? "" : "Plus ";
     const rest =
       t.noColony === 1
         ? "1 street cat to do that isn't in a colony."
         : `${t.noColony} street cats to do that aren't in a colony.`;
-    const words = t.colonyCount === 0 ? rest.charAt(0).toUpperCase() + rest.slice(1) : lead + rest;
+    const words = t.colonyCount === 0 ? rest : `Plus ${rest}`;
     parts.push(`<p class="hint">${words}</p>`); // fixed words and a number only
   }
   if (t.colonyCount > 0) parts.push('<p><a class="hlink" href="/api/team/colonies">See all colonies</a></p>');

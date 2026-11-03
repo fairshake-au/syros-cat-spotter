@@ -310,8 +310,14 @@ const dayMonth = (iso: string, now: Date) => {
  * so the notice after it carries one tap that puts the photo back. It lasts
  * as long as the notice: until the page is next opened without `?done=hidden`.
  */
-function undoHide(opts: Pick<CatPageOptions, "done" | "photo">, catId: number, may: (c: Capability) => boolean): string {
-  if (opts.done !== "hidden" || !opts.photo || !may("restore_photo")) return "";
+function undoHide(
+  opts: Pick<CatPageOptions, "done" | "photo">,
+  catId: number,
+  may: (c: Capability) => boolean,
+  onPage: boolean,
+): string {
+  // Only for a photo of this cat (SYC-674): a hand-edited ?p= gets no Undo.
+  if (opts.done !== "hidden" || !opts.photo || !onPage || !may("restore_photo")) return "";
   return (
     ` <form class="undo" method="post" action="/api/team/photos/${encodeURIComponent(opts.photo)}/restore">` +
     `<input type="hidden" name="cat" value="${catId}">` +
@@ -545,7 +551,7 @@ export function renderCatPage(
   // ?done=constructor must not reach Object.prototype).
   const photoNotice =
     opts.done && Object.hasOwn(PHOTO_DONE, opts.done)
-      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}${undoHide(opts, v.cat.id, may)}</p>`
+      ? `<p class="notice" role="status">${esc(PHOTO_DONE[opts.done]!)}${undoHide(opts, v.cat.id, may, v.photos.some((p) => p.publicId === opts.photo))}</p>`
       : "";
   // The menu opens only when the page really came back from Hide or Restore on a photo we have.
   const landed = photoNotice !== "" && v.photos.some((p) => p.publicId === opts.photo);

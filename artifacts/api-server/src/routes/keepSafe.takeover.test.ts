@@ -39,8 +39,8 @@ import {
 import { eq, sql } from "drizzle-orm";
 import app from "../app";
 import { settleOutbox } from "../lib/mail/outbox";
-import { addressFingerprint, deviceFingerprint, normaliseAddress } from "../lib/mail/fingerprint";
-import { __setMoveHookForTest } from "../lib/keepSafe/move";
+import { addressFingerprint, deviceFingerprint, ipFingerprint, normaliseAddress } from "../lib/mail/fingerprint";
+import { __setMoveHookForTest, choiceId } from "../lib/keepSafe/move";
 import { severKeepSafe } from "../lib/keepSafe/sever";
 import { hashSecret } from "../lib/deviceAuth";
 import { __setRestorePadForTest, SENT_IF_KNOWN } from "./keepSafe";
@@ -171,12 +171,18 @@ function peek(phone: Phone, token: string) {
     .send({ deviceId: phone.id, token });
 }
 
+/**
+ * Redeem for the spotter with this device id, sent as the picker's opaque
+ * choice (what peek hands the page). "" sends no choice, for callers that pass
+ * their own in `extra`.
+ */
 function redeem(phone: Phone, token: string, spotterDeviceId: string, extra: Record<string, unknown> = {}) {
+  const choice = spotterDeviceId ? { choice: choiceId(token, spotterDeviceId) } : {};
   return request(app)
     .post("/api/restore/redeem")
     .set("X-Device-Secret", phone.secret)
     .set("X-Forwarded-For", freshIp())
-    .send({ deviceId: phone.id, token, spotterDeviceId, ...extra });
+    .send({ deviceId: phone.id, token, ...choice, ...extra });
 }
 
 async function storedHash(deviceId: string) {
@@ -391,13 +397,13 @@ describe("2. a replayed link", () => {
     const ip = freshIp();
     const fromIp = (body: Record<string, unknown>, secret = phone.secret) =>
       request(app).post("/api/restore/redeem").set("X-Device-Secret", secret).set("X-Forwarded-For", ip).send(body);
-    const first = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    const first = await fromIp({ deviceId: phone.id, token, choice: choiceId(token, old.id) });
     expect(first.status).toBe(200);
     // Use up the rest of this network's hour (30 a hour).
     for (let i = 0; i < 30; i++) await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
     const blocked = await fromIp({ deviceId: `${P}-junk`, token: "x" }, "junk-secret-junk-secret");
     expect(blocked.status).toBe(429);
-    const again = await fromIp({ deviceId: phone.id, token, spotterDeviceId: old.id });
+    const again = await fromIp({ deviceId: phone.id, token, choice: choiceId(token, old.id) });
     expect(again.status).toBe(200);
     expect(again.body).toEqual(first.body);
   });
@@ -471,6 +477,23 @@ describe("3. the link on a second device (Decision 12, Samuel 11–12 Oct 2026)"
     const p = await peek(phone, token);
     expect(p.status).toBe(401);
     expect(p.body).toEqual({ error: "link_not_valid" });
+  });
+
+  it("SYC-667: a device id in place of the picker's choice is refused without using the link up (M)", async () => {
+    const email = newAddress();
+    const old = await keptSafe(email);
+    const { phone, token } = await newPhoneWithLink(email);
+    // The pre-#114 field, alone and with a wrong choice: neither is read.
+    for (const extra of [{ spotterDeviceId: old.id }, { spotterDeviceId: old.id, choice: "0".repeat(24) }]) {
+      const r = await redeem(phone, token, "", extra);
+      expect(r.status).toBe(401);
+      expect(r.body).toEqual({ error: "link_not_valid" });
+      expect(await storedHash(old.id)).not.toBe(hashSecret(phone.secret));
+    }
+    // The link still works with the real choice.
+    const r = await redeem(phone, token, old.id);
+    expect(r.status).toBe(200);
+    expect(r.body.deviceId).toBe(old.id);
   });
 
   it("a picker choice moves exactly that spotter; a made-up choice, or one from another link, is refused without using the link up (M)", async () => {
@@ -580,7 +603,7 @@ const PROBES: Probe[] = [
   { name: "DELETE /keep-safe/:id", file: "keepSafe.ts", call: (id, s) => request(app).delete(`/api/keep-safe/${id}`).set("X-Device-Secret", s) },
   { name: "POST /restore/request", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/request").set("X-Device-Secret", s).send({ deviceId: id, email: "x@example.org" }) },
   { name: "POST /restore/peek", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/peek").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43) }) },
-  { name: "POST /restore/redeem", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/redeem").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43), spotterDeviceId: "x" }) },
+  { name: "POST /restore/redeem", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/redeem").set("X-Device-Secret", s).send({ deviceId: id, token: "A".repeat(43), choice: "x" }) },
   // SYC-664: the code box answers about the phone first, like every other route.
   { name: "POST /restore/code", file: "keepSafe.ts", call: (id, s) => request(app).post("/api/restore/code").set("X-Device-Secret", s).send({ deviceId: id, code: "12345678" }) },
 ];
@@ -886,6 +909,29 @@ describe("10. limits", () => {
       values ('restore', ${hmac}, 'another-server', ${requester}), ('restore', ${hmac}, 'another-server', ${requester})
     `);
     for (let i = 0; i < 3; i++) expect((await ask(phone, email)).status).toBe(202);
+    await settleOutbox();
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
+  });
+
+  it("SYC-667: the 20-an-hour network limit counts an IPv6 /56 as one network, so a fresh address from the same block doesn't get round it (M)", async () => {
+    const email = newAddress();
+    await keptSafe(email);
+    const block = randomBytes(2).toString("hex");
+    // 20 requests this hour from one address in the block (another server, say).
+    const used = ipFingerprint(`2001:db8:${block}:100::1`);
+    await db.execute(sql`
+      insert into mail_requests (kind, address_hmac, ip_hash)
+      select 'restore', 'syc-667-elsewhere', ${used} from generate_series(1, 20)
+    `);
+    const sameBlock = newPhone();
+    await bind(sameBlock);
+    expect((await ask(sameBlock, email, `2001:db8:${block}:1ff::2`)).status).toBe(202);
+    await settleOutbox();
+    expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(0);
+    // The next /56 is another network, with its own allowance.
+    const nextBlock = newPhone();
+    await bind(nextBlock);
+    expect((await ask(nextBlock, email, `2001:db8:${block}:200::2`)).status).toBe(202);
     await settleOutbox();
     expect(mailTo(email).filter((m) => m.subject.endsWith("is your Cat Spotters code"))).toHaveLength(1);
   });

@@ -161,12 +161,15 @@ export async function peekRestore(raw: string, callerDeviceId: string): Promise<
   };
 }
 
-/** Which spotter a picker answer means: an opaque choice, or (older pages) a device id. */
-export type SpotterPick = { choice?: string; spotterDeviceId?: string };
+/**
+ * Which spotter a picker answer means: the opaque choice only. A device id is
+ * refused (SYC-667, retiring SYC-282's grace period for pages loaded before
+ * PR #114), so a device id is never usable on these routes.
+ */
+export type SpotterPick = { choice?: string };
 
 function matchesPick(raw: string, deviceId: string, pick: SpotterPick): boolean {
-  if (pick.choice) return choiceId(raw, deviceId) === pick.choice;
-  return Boolean(pick.spotterDeviceId) && pick.spotterDeviceId === deviceId;
+  return Boolean(pick.choice) && choiceId(raw, deviceId) === pick.choice;
 }
 
 /**
@@ -230,7 +233,7 @@ export async function redeemRestore(input: {
   ipHash: string;
 }): Promise<MoveResult> {
   const { raw, callerDeviceId } = input;
-  if (!input.pick.choice && !input.pick.spotterDeviceId) return { ok: false, reason: "bad_spotter" };
+  if (!input.pick.choice) return { ok: false, reason: "bad_spotter" };
   if (input.deleteCurrent && !input.abandonCurrent) return { ok: false, reason: "delete_without_abandon" };
   try {
     return await db.transaction(async (tx) => {

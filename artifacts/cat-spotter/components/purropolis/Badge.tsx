@@ -20,9 +20,11 @@ export function Badge({ tone = 'info', children, style }: BadgeProps) {
   // `*Soft` backgrounds flip to near-black in dark mode, so a fixed dark ramp
   // (olive-700, sun-700, aegean-700) as the label colour is unreadable there.
   // Pairing `--status-x` with `--status-x-soft` is also what the web DS does.
+  // SYC-766: warning is too bright to read on its soft fill in light mode
+  // (1.7:1), so its label uses warningText.
   const tones: Record<BadgeTone, { bg: string; fg: string; dot: string }> = {
     success: { bg: colors.successSoft, fg: colors.success, dot: colors.success },
-    warning: { bg: colors.warningSoft, fg: colors.warning, dot: colors.warning },
+    warning: { bg: colors.warningSoft, fg: colors.warningText, dot: colors.warning },
     danger: { bg: colors.dangerSoft, fg: colors.danger, dot: colors.danger },
     info: { bg: colors.infoSoft, fg: colors.info, dot: colors.info },
   };

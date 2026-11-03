@@ -1,4 +1,5 @@
 import { STREAK_TIMEZONE } from "./streak";
+import { newsText, type NewsPush } from "./newsWords";
 
 const DAY_MS = 86_400_000;
 const LIVE_WINDOW_MS = DAY_MS;
@@ -43,16 +44,34 @@ function utcMidnight(ymd: string): number {
  * round-up writes its own words (`sightingRoundUp.ts`'s `roundUpText`), and
  * sighting updates never reach the public timeline. Pure, so the day
  * arithmetic is tested without a database.
+ *
+ * The same decision as data (SYC-221): which kind of sighting news, and for
+ * "seen on…" the Syros day, so each phone can be told in its own language and
+ * the bell can word it later (news-in-your-language.md §3.2).
  */
-export function spottedAgainMessage(catName: string, sightingAt: Date, now: Date): string {
+export type SightingNews =
+  | { wording: "spotted_again" }
+  | { wording: "seen_weekday" | "seen_date"; day: string };
+
+export function sightingNews(sightingAt: Date, now: Date): SightingNews {
   if (now.getTime() - sightingAt.getTime() <= LIVE_WINDOW_MS) {
-    return `${catName} was spotted again!`;
+    return { wording: "spotted_again" };
   }
   const seen = athensDay(sightingAt);
   // Both are UTC midnights, so this is a whole number of days whatever the
   // clocks did in Athens in between.
   const daysBack = (utcMidnight(athensDay(now).ymd) - utcMidnight(seen.ymd)) / DAY_MS;
-  return daysBack <= WEEKDAY_UP_TO_DAYS
-    ? `${catName} was seen on ${seen.weekday}`
-    : `${catName} was seen on ${seen.dayMonth}`;
+  return { wording: daysBack <= WEEKDAY_UP_TO_DAYS ? "seen_weekday" : "seen_date", day: seen.ymd };
+}
+
+/** The push for a sighting's news, ready for `newsText` in any language. */
+export function sightingPush(catName: string, news: SightingNews): NewsPush {
+  return news.wording === "spotted_again"
+    ? { kind: "spotted_again", name: catName }
+    : { kind: news.wording, name: catName, day: news.day };
+}
+
+/** The stored English words, as before SYC-221 (the bell for old builds). */
+export function spottedAgainMessage(catName: string, sightingAt: Date, now: Date): string {
+  return newsText(sightingPush(catName, sightingNews(sightingAt, now)), "en").body;
 }

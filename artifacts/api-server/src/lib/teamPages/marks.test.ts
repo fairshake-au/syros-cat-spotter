@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MARKS } from "../teamCatList";
-import { markBadge, markBar, MARK_BAR_WORD, MARK_COLOUR, MARK_CSS, MARK_ORDER, MARK_WORD } from "./marks";
+import { clusterRing, MAP_MARK_CSS, markBadge, markBar, MARK_BAR_WORD, MARK_COLOUR, MARK_CSS, MARK_ORDER, MARK_WORD, NOT_KNOWN_EDGE } from "./marks";
+import { DARK_TOKENS, LIGHT_TOKENS } from "./tokens";
 
 // SYC-396 PR 1.3: the four sterilisation marks are a shape AND a word.
 
@@ -33,7 +37,7 @@ describe("markBadge", () => {
 // SYC-396 PR 2.0, Task 2.0.3: the four-part sterilisation bar (spec §4, §12.2).
 describe("markBar", () => {
   const split = { sterilised: 89, probably: 23, not_known: 18, not_sterilised: 12 };
-  const segments = (html: string) => [...html.matchAll(/<span class="markbar-seg mark-(\w+)" style="flex:0 1 ([\d.]+)%;background:var\(--mark-(\w+)\)"/g)];
+  const segments = (html: string) => [...html.matchAll(/<span class="markbar-seg mark-(\w+)" style="flex:0 1 ([\d.]+)%;background-color:var\(--mark-(\w+)\)"/g)];
   const text = (html: string) => html.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<[^>]+>/g, "");
 
   it("draws one segment per non-zero mark, in MARK_ORDER, with widths that sum to 100%", () => {
@@ -127,5 +131,66 @@ describe("markBar", () => {
     const empty = markBar({ sterilised: 0, probably: 0, not_known: 0, not_sterilised: 0 }, { words, empty: "Καμία <i>" });
     expect(empty).toContain("Καμία &lt;i&gt;");
     expect(empty).not.toContain("No street cats yet");
+  });
+});
+
+describe("telling the four marks apart (SYC-783, option A)", () => {
+  const MAP_SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "assets", "dashboard-map.js");
+
+  it("Not known is light grey, not a third blue, in the fixed colours and both themes", () => {
+    expect(MARK_COLOUR).toEqual({ sterilised: "#0f4a72", probably: "#1c77c3", not_known: "#d7dee4", not_sterilised: "#b8552f" });
+    expect(LIGHT_TOKENS).toContain("--mark-not_known:#d7dee4;");
+    expect(DARK_TOKENS).toContain("--mark-not_known:#8c9caa;");
+  });
+
+  it("the map script draws with the same four colours as marks.ts", () => {
+    const block = readFileSync(MAP_SCRIPT, "utf8").match(/var MARK_COLOUR = \{([^}]*)\}/)![1]!;
+    const inScript = Object.fromEntries([...block.matchAll(/(\w+): "(#[0-9a-f]{6})"/g)].map((m) => [m[1], m[2]]));
+    expect(inScript).toEqual(MARK_COLOUR);
+  });
+
+  it("stripes Probably and outlines Not known in the bar, and sets only the colour inline so the stripes show", () => {
+    expect(MARK_CSS).toContain(".markbar-seg.mark-probably{background-image:repeating-linear-gradient(45deg,");
+    expect(MARK_CSS).toContain(".markbar-seg.mark-not_known{box-shadow:inset 0 0 0 1px var(--line-strong)}");
+    expect(MARK_CSS).toContain("print-color-adjust:exact");
+    const html = markBar({ sterilised: 3, probably: 2, not_known: 1, not_sterilised: 1 });
+    expect(html).not.toMatch(/background:var/);
+    expect(html.match(/background-color:var\(--mark-/g)).toHaveLength(4);
+  });
+
+  it("draws Not known's ring icon in muted ink, since the pale grey is too faint for a line", () => {
+    expect(MARK_CSS).toContain(".mark-not_known .mark-icon{color:var(--muted)}");
+    // After the per-mark rule, so it wins.
+    expect(MARK_CSS.indexOf(".mark-not_known .mark-icon{color:var(--muted)}")).toBeGreaterThan(
+      MARK_CSS.indexOf(".mark-not_known .mark-icon{color:var(--mark-not_known)}"),
+    );
+  });
+
+  it("a Not known map dot is filled grey with the darker edge", () => {
+    expect(MAP_MARK_CSS).toContain(`.catdot.mark-not_known{border-color:${NOT_KNOWN_EDGE};background:${MARK_COLOUR.not_known}}`);
+  });
+
+  it("a cluster ring has a white gap before each part, and none when one part fills it", () => {
+    expect(clusterRing({ sterilised: 1, probably: 1 })).toBe(
+      `conic-gradient(#fff 0% 0.8%,${MARK_COLOUR.sterilised} 0.8% 50%,#fff 50% 50.8%,${MARK_COLOUR.probably} 50.8% 100%)`,
+    );
+    expect(clusterRing({ not_known: 4 })).toBe(`conic-gradient(${MARK_COLOUR.not_known} 0% 100%)`);
+    expect(clusterRing({})).toBe(`conic-gradient(${MARK_COLOUR.not_known} 0 100%)`);
+  });
+
+  it("the map script's ring() builds the same ring as clusterRing for the same cats", () => {
+    const script = readFileSync(MAP_SCRIPT, "utf8");
+    const body = script.match(/function ring\(group\) \{[\s\S]*?return "conic-gradient\(" \+ stops\.join\(","\) \+ "\)";\n {2}\}/)![0];
+    const ring = new Function("MARKS", "MARK_COLOUR", `${body}; return ring;`)(MARK_ORDER, MARK_COLOUR) as (g: { mark: string }[]) => string;
+    const cases: Partial<Record<(typeof MARK_ORDER)[number], number>>[] = [
+      { sterilised: 1, probably: 1 },
+      { sterilised: 7, probably: 2, not_known: 3, not_sterilised: 1 },
+      { not_known: 5 },
+      { sterilised: 199, not_sterilised: 1 },
+    ];
+    for (const split of cases) {
+      const group = MARK_ORDER.flatMap((m) => Array.from({ length: split[m] ?? 0 }, () => ({ mark: m })));
+      expect(ring(group)).toBe(clusterRing(split));
+    }
   });
 });

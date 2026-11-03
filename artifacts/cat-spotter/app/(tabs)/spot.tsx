@@ -1456,7 +1456,7 @@ export default function SpotScreen() {
                 )}
                 <Pressable
                   onPress={() => confirmDiscardQueued(item.localId)}
-                  style={[styles.errorBtn, { backgroundColor: colors.destructive }]}
+                  style={[styles.errorBtn, { backgroundColor: colors.destructiveFill }]}
                 >
                   <Feather
                     name="trash-2"

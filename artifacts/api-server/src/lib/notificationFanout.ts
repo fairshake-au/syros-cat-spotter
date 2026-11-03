@@ -12,6 +12,7 @@ import { sendPushNotification } from "./push";
 import type { DbOrTx } from "./observations";
 import { isResolvedDeceased } from "./catHelpers";
 import { logger } from "./logger";
+import { languageOf, newsText, type NewsPush } from "./newsWords";
 
 /**
  * Insert a cat_updates row. Takes `tx` so a caller that also needs to write
@@ -40,6 +41,12 @@ export async function insertCatUpdate(
      * rows carry the identical millisecond-precision instant.
      */
     createdAt?: Date;
+    /**
+     * What the news is, for the push (SYC-221). In memory only in this PR:
+     * not stored, so it is accepted here to keep one options shape for
+     * `createUpdateAndFanOut` and is not read.
+     */
+    push?: NewsPush;
   },
 ): Promise<CatUpdate> {
   const [update] = await tx
@@ -72,6 +79,12 @@ export async function fanOutNotifications(opts: {
   cat: Cat;
   update: CatUpdate;
   excludeDeviceId?: string;
+  /**
+   * When given, each phone's push is worded in its own language from this
+   * (SYC-221). Without it (staff-typed news) the push is the cat's name and
+   * the update's message exactly as typed.
+   */
+  push?: NewsPush;
 }): Promise<void> {
   // §3.3: "Notifications stop" for a cat with a live deceased statement —
   // "the cruellest bug in the app" would be everyone who ever spotted her
@@ -121,7 +134,10 @@ export async function fanOutNotifications(opts: {
     .where(inArray(pushTokensTable.deviceId, recipients))
     .then((tokens) => {
       for (const t of tokens) {
-        void sendPushNotification(t.token, opts.cat.name, opts.update.message, {
+        const { title, body } = opts.push
+          ? newsText(opts.push, languageOf(t.language))
+          : { title: opts.cat.name, body: opts.update.message };
+        void sendPushNotification(t.token, title, body, {
           catId: opts.cat.id,
           catUpdateId: opts.update.id,
         });
@@ -144,12 +160,14 @@ export async function createUpdateAndFanOut(opts: {
   message: string;
   triggerSightingId?: number | null;
   excludeDeviceId?: string;
+  push?: NewsPush;
 }): Promise<CatUpdate> {
   const update = await insertCatUpdate(db, opts);
   await fanOutNotifications({
     cat: opts.cat,
     update,
     excludeDeviceId: opts.excludeDeviceId,
+    push: opts.push,
   });
   return update;
 }

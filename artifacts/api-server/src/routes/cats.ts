@@ -565,8 +565,7 @@ router.post("/cats/:catId/claim", async (req, res) => {
   if (result.firstEver) {
     // Fire-and-forget. Never the note or the pin (§8, SYC-232).
     void notifyCatFollowers(catId, deviceId, {
-      title: `${result.row.name} has a home!`,
-      body: `${result.row.name} now has a home.`,
+      push: { kind: "home", name: result.row.name },
       data: { type: "cat_claimed", catId },
     });
   }
@@ -1020,12 +1019,9 @@ router.patch("/cats/:catId", async (req, res) => {
     }
     updated = written;
     void notifyCatFollowers(catId, body.deviceId, {
-      title: renamed
-        ? `${cat.name} is now ${updated.name}!`
-        : `${updated.name} has an update`,
-      body: renamed
-        ? `${updated.name}'s owner renamed their cat.`
-        : `${updated.name}'s home details were updated by their owner.`,
+      push: renamed
+        ? { kind: "rename", oldName: cat.name, newName: updated.name }
+        : { kind: "home_details", name: updated.name },
       data: { type: "cat_updated", catId },
     });
   }

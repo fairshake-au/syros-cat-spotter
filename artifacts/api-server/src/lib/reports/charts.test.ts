@@ -48,6 +48,13 @@ describe("lineChart", () => {
     expect(svg).toMatch(/<circle [^>]*fill="#fff" stroke="#1b2a38"/);
   });
 
+  it("a Not known line takes the grey edge, since its pale fill vanishes on white (SYC-783)", () => {
+    const at = new Date("2026-09-08T00:00:00Z");
+    const svg = lineChart({ title: "Not known", series: [{ label: "Not known", mark: "not_known", points: [{ at, value: 3 }] }] });
+    expect(svg).toContain('stroke="#75838f"');
+    expect(svg).not.toContain("#d7dee4");
+  });
+
   it("escapes a label", () => {
     const svg = lineChart({ title: "<x>", series: [{ label: "<script>", neutral: true, points: [{ at: at(1), value: 1 }] }] });
     expect(svg).not.toContain("<script>");

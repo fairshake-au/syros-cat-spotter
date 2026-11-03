@@ -92,7 +92,7 @@ describe("notifyCatFollowers", () => {
     const t = await withToken(device("fan"));
     await follow(db, { deviceId: device("fan"), catId });
 
-    await notifyCatFollowers(catId, device("actor"), { title: "t", body: "b" });
+    await notifyCatFollowers(catId, device("actor"), { push: { kind: "home", name: "Tabby" } });
 
     expect(pushedTokens()).toEqual([t]);
   });
@@ -107,7 +107,7 @@ describe("notifyCatFollowers", () => {
     await follow(db, { deviceId: device("left"), catId });
     await unfollow(db, { deviceId: device("left"), catId });
 
-    await notifyCatFollowers(catId, device("actor"), { title: "t", body: "b" });
+    await notifyCatFollowers(catId, device("actor"), { push: { kind: "home", name: "Tabby" } });
 
     expect(pushedTokens()).toEqual([kept]);
   });
@@ -119,7 +119,7 @@ describe("notifyCatFollowers", () => {
     await follow(db, { deviceId: device("actor"), catId });
     await follow(db, { deviceId: device("other"), catId });
 
-    await notifyCatFollowers(catId, device("actor"), { title: "t", body: "b" });
+    await notifyCatFollowers(catId, device("actor"), { push: { kind: "home", name: "Tabby" } });
 
     expect(pushedTokens()).toEqual([other]);
   });
@@ -129,7 +129,7 @@ describe("notifyCatFollowers", () => {
     await withToken(`deleted:${PREFIX}gone`);
     await db.insert(catSubscriptionsTable).values({ deviceId: `deleted:${PREFIX}gone`, catId });
 
-    await notifyCatFollowers(catId, device("actor"), { title: "t", body: "b" });
+    await notifyCatFollowers(catId, device("actor"), { push: { kind: "home", name: "Tabby" } });
 
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
   });
@@ -147,7 +147,7 @@ describe("notifyCatFollowers", () => {
       observedAt: new Date(),
     });
 
-    await notifyCatFollowers(catId, device("actor"), { title: "t", body: "b" });
+    await notifyCatFollowers(catId, device("actor"), { push: { kind: "home", name: "Tabby" } });
 
     expect(sendPushNotificationMock).not.toHaveBeenCalled();
   });

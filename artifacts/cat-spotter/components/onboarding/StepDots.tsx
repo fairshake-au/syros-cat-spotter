@@ -13,7 +13,7 @@ export function StepDots({ total, active }: { total: number; active: number }) {
           style={[
             styles.dot,
             i === active
-              ? { width: 22, backgroundColor: colors.primary }
+              ? { width: 22, backgroundColor: colors.primaryFill }
               : { width: 6, backgroundColor: colors.border },
           ]}
         />

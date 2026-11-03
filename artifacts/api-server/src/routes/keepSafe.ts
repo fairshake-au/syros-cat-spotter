@@ -228,12 +228,9 @@ router.post("/restore/peek", peekLimiter, async (req, res) => {
   });
 });
 
-/** The picker's opaque choice (Decision 12, review finding 9); a device id is still accepted from an older page. */
+/** The picker's opaque choice (Decision 12, review finding 9). A `spotterDeviceId` is ignored (SYC-667). */
 function pickOf(body: Record<string, unknown>) {
-  return {
-    choice: typeof body["choice"] === "string" ? body["choice"] : undefined,
-    spotterDeviceId: typeof body["spotterDeviceId"] === "string" ? body["spotterDeviceId"] : undefined,
-  };
+  return { choice: typeof body["choice"] === "string" ? body["choice"] : undefined };
 }
 
 function secretOf(req: Request): string {
@@ -258,7 +255,7 @@ async function samePhoneReplay(req: Request, res: Response, next: NextFunction):
   const raw = body["token"];
   const pick = pickOf(body);
   const secret = secretOf(req);
-  if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && (pick.choice || pick.spotterDeviceId)) {
+  if (isTokenShaped(raw) && secret.length >= 16 && secret.length <= 256 && pick.choice) {
     const replay = await replayAfterMove({ raw, callerSecretHash: hashSecret(secret), pick });
     if (replay?.ok) {
       noStore(res);
