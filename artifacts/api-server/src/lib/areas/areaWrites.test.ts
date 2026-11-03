@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db, mappingEventsTable, namedAreasTable, peopleTable, pool } from "@workspace/db";
 import { namedAreasAt } from "./areaHistory";
-import { AreaChangeRefused, changeArea, MIN_AREAS } from "./areaWrites";
+import { AreaChangeRefused, changeArea, MIN_AREAS, retireFloor } from "./areaWrites";
 import { areaByKey, areaFor, areasVersion, currentAreas, loadAreas, SEED_AREAS } from "./namedAreas";
 
 // SYC-396 PR 2.4 (plan Task 2.4.2): changing the named areas, their history,
@@ -180,6 +180,13 @@ describe("changeArea: restore and the minimum (SYC-482)", () => {
     // Already on the list: nothing to bring back.
     expect(await refusal(changeArea(person, { kind: "restore", key: k }))).toBe("area");
     await changeArea(person, { kind: "retire", key: k });
+  });
+
+  it("a caller can raise the minimum but never lower it (SYC-693)", () => {
+    expect(retireFloor()).toBe(MIN_AREAS);
+    expect(retireFloor(0)).toBe(MIN_AREAS);
+    expect(retireFloor(-3)).toBe(MIN_AREAS);
+    expect(retireFloor(MIN_AREAS + 7)).toBe(MIN_AREAS + 7);
   });
 
   it("refuses to retire when that would leave fewer than the minimum, and changes nothing", async () => {
