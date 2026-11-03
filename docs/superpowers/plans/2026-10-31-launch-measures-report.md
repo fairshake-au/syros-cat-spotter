@@ -8,7 +8,7 @@
 
 **Tech Stack:** pnpm monorepo, Express api-server, drizzle (Postgres/Neon), vitest + supertest, Expo/React Native app (one bundle for phone and web), orval-generated API client from `lib/api-spec/openapi.yaml`.
 
-**Spec:** `docs/superpowers/specs/2026-10-30-launch-measures-report-design.md` (draft 5, approved by Samuel 31 Oct 2026, Decision 1 = B). Read it alongside this plan. Section numbers below (§4.2 and so on) are the spec's.
+**Spec:** `docs/superpowers/specs/2026-10-30-launch-measures-report-design.md` (draft 5, approved by Samuel 31 Oct 2026, Decision 1 = B). Read it alongside this plan. Section numbers below (§4.2 and so on) are the spec's. Draft 6 (3 Nov) adds a sixth measure, donations through the app (§4.7). That section is built with SYC-1, not in this plan's three PRs.
 
 ## Global Constraints
 

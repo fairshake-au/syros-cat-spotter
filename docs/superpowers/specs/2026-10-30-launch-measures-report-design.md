@@ -1,16 +1,17 @@
 # Launch measures: a report on the team dashboard
 
-SYC-795 · parent SYC-760 · draft 5, 31 Oct 2026 · adversarial review folded in (§11) · both decisions made (Decision 1 = B; Samuel checks matches, §4.6) · **approved by Samuel, 31 Oct 2026** ("decisions: 1B. approved with that change.")
+SYC-795 · parent SYC-760 · draft 6, 3 Nov 2026 (draft 5 approved 31 Oct; draft 6 adds donations as the sixth measure, §4.7, at Samuel's request) · adversarial review folded in (§11) · both decisions made (Decision 1 = B; Samuel checks matches, §4.6) · **approved by Samuel, 31 Oct 2026** ("decisions: 1B. approved with that change.")
 
 ## 1. What this is
 
-A new report under **Reports** on the team dashboard, called **Launch measures**. It shows the five numbers Samuel chose on 30 Oct 2026 (SYC-760), one row per week, starting from launch. These numbers decide what gets built after the post-launch hold. The report is how anyone, Samuel included, can read them without asking Claude.
+A new report under **Reports** on the team dashboard, called **Launch measures**. It shows the five numbers Samuel chose on 30 Oct 2026 (SYC-760), plus a sixth he added on 3 Nov 2026: **the amount donated through the app**, once donations in the app are built (SYC-1). One row per week, starting from launch. These numbers decide what gets built after the post-launch hold. The report is how anyone, Samuel included, can read them without asking Claude.
 
 Samuel's answers this spec builds on (SYC-760, 30 Oct 2026):
 
 - Measures: "Spots and spotters (Rec.), Share matched (Rec.)" and "Match wait time, Matching accuracy, Follow-card effect".
 - Where: "Add a new report into the dashboard".
 - Targets: "Baseline the launch week's numbers once it launches. Launch will be deferred by at least a week, possibly longer".
+- Added 3 Nov 2026: donations flowing through the app, when built, are part of the success measures and this report.
 
 So the report has **no targets**. The first full week after launch is the **baseline**: every later week is read against it.
 
@@ -46,7 +47,7 @@ Launch has moved (SYC-604) and may move again, so the date is **not written into
 - **The baseline** is the first full Athens week (Monday to Sunday) that starts on or after the launch date. Launch-day traffic is unusual and a part-week isn't comparable, so the days between launch and that Monday show as their own row, labelled "Launch days".
 - **Setting the date is a launch-day step.** It's added to SYC-345 when this ships.
 
-## 4. The five measures, and exactly how each is counted
+## 4. The six measures, and exactly how each is counted
 
 **Weeks.** All weeks are Athens weeks, the same as in the other reports.
 
@@ -172,6 +173,22 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **Once the card exists,** the date it's switched on is drawn as a marker on the chart. The table then compares the two weeks before with the two weeks after. Recording that date belongs to the card's own build (SYC-45). A note goes on SYC-45 when this ships.
 - **Until then** the section says: "The follow card isn't switched on yet. This is the 'before' figure it will be compared against."
 
+### 4.7 Donations through the app
+
+*What it tells us:* does the app bring in money for the cats? Samuel added this measure on 3 Nov 2026 (SYC-760). It counts real money given through the app's own donation flow, which SYC-1 builds.
+
+- **The figures, per week:**
+  - **Donated:** the total in euros of donations completed that week, shown to the cent ("€245.50").
+  - **Donations:** how many there were.
+- **What counts.** Only a donation the payment provider confirms as paid. A tap on a donate button isn't a donation: taps are SYC-525's count and stay out of this report. A payment that fails or is abandoned isn't counted. A refunded donation drops out of the week it was made, so a past week's total can go down. The page says so.
+- **Which week.** Each donation counts in the Athens week the donor paid. That's not when the money reaches Syros Cats: payments go to them in a monthly batch, through James, to keep Greek bank fees down (SYC-1). The method note says: "Counted on the day each donation was paid. The money reaches Syros Cats later, in a monthly transfer."
+- **Its own baseline.** Before donations open, every week is zero, so the launch baseline (§3) means nothing here. This section's baseline is the **first full Athens week after donations open**. The day they opened is drawn as a marker on the chart, the same way the follow card's switch-on date is (§4.5). Recording that date belongs to SYC-1's build.
+- **Small numbers.** There's no percentage, so nothing is greyed. A single large gift can make one week look big. The page says: "One large gift can make a week look unusual."
+- **Nothing personal.** No donor's name, email, or individual amount appears on the page or in the download. Only weekly totals and counts.
+- **Download:** `launch-donations.csv`, one row per week (week, donated in euros, donations, baseline flag), the same as the other five.
+- **Until donations open** the section says: "Donations in the app aren't open yet. This section fills in once they are." There's no chart and no table.
+- **Built with SYC-1, not in this report's three PRs.** There's no donation record to count yet, and the shape of that record depends on the payment route still to be settled with James (SYC-704). SYC-1 must store, for each donation: the amount in cents, the time it was paid, and whether it was refunded. It must also add this section and its download to the report. SYC-1 carries this as part of what "done" means for it.
+
 ## 5. Who can see it, and the downloads
 
 - **Seeing it:** anyone on the team who can see reports today. It's island-wide, like Coverage, and isn't added to the cat guardians' view.
@@ -279,7 +296,8 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 ## 9. Out of scope
 
 - Targets. They get set once the baseline exists (Samuel, 30 Oct).
-- Welfare reports closed within a week, active guardians, and donation taps. Samuel left these off. Donation taps keep their own ticket (SYC-525).
+- Welfare reports closed within a week, active guardians, and donation taps. Samuel left these off. Donation taps keep their own ticket (SYC-525). Money actually donated through the app is in, as §4.7.
+- Building the donations section in PRs 1–3. It's built with donations themselves (SYC-1), because there's nothing to count until then.
 - Building the follow card itself (SYC-45). This report only measures it.
 - Checking matches the spotter picked by hand, or new cats. New cats already have their own list, and hand picks can come later if the checked figure needs them.
 - Marking tester devices.
@@ -291,6 +309,7 @@ SYC-389's own rule still applies: if the typical wait is under 2 seconds, those 
 - **SYC-45 (email capture):** record the date the follow card is switched on.
 - **SYC-389 and SYC-376:** point each at this report as where its number now lives. SYC-56 keeps the deeper accuracy work.
 - **SYC-56:** note that Samuel's checked matches are its first labelled set.
+- **SYC-1 (donations):** its "done" includes §4.7: the per-donation record (amount, time paid, refunded), the date donations opened, and the report section with its download.
 
 ## 11. Adversarial review (30 Oct), and what changed
 
