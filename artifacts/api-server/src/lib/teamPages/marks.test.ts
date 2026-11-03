@@ -177,4 +177,20 @@ describe("telling the four marks apart (SYC-783, option A)", () => {
     expect(clusterRing({ not_known: 4 })).toBe(`conic-gradient(${MARK_COLOUR.not_known} 0% 100%)`);
     expect(clusterRing({})).toBe(`conic-gradient(${MARK_COLOUR.not_known} 0 100%)`);
   });
+
+  it("the map script's ring() builds the same ring as clusterRing for the same cats", () => {
+    const script = readFileSync(MAP_SCRIPT, "utf8");
+    const body = script.match(/function ring\(group\) \{[\s\S]*?return "conic-gradient\(" \+ stops\.join\(","\) \+ "\)";\n {2}\}/)![0];
+    const ring = new Function("MARKS", "MARK_COLOUR", `${body}; return ring;`)(MARK_ORDER, MARK_COLOUR) as (g: { mark: string }[]) => string;
+    const cases: Partial<Record<(typeof MARK_ORDER)[number], number>>[] = [
+      { sterilised: 1, probably: 1 },
+      { sterilised: 7, probably: 2, not_known: 3, not_sterilised: 1 },
+      { not_known: 5 },
+      { sterilised: 199, not_sterilised: 1 },
+    ];
+    for (const split of cases) {
+      const group = MARK_ORDER.flatMap((m) => Array.from({ length: split[m] ?? 0 }, () => ({ mark: m })));
+      expect(ring(group)).toBe(clusterRing(split));
+    }
+  });
 });
