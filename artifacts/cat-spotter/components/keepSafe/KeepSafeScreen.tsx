@@ -99,7 +99,7 @@ export function KeepSafeScreen({
           <View
             style={[
               styles.inputWrap,
-              { backgroundColor: colors.card, borderColor: error ? danger : colors.border },
+              { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
             ]}
           >
             <TextInput

@@ -157,15 +157,15 @@ The message now depends on what we know about the spotter, from the profile Home
 
 | Spotter | Message | Button |
 |---|---|---|
-| Hasn't spotted a cat yet | "No notifications yet. Spot a cat to follow its updates!" (unchanged, already translated) | **Spot a cat** |
-| Has spotted cats | "No notifications yet. News about the cats you've spotted will show here." | **Spot a cat** |
+| Hasn't spotted a cat yet | "No notifications yet. News about the cats you follow will show here." (SYC-650) | **Spot a cat** |
+| Has spotted cats | "No notifications yet. News about the cats you follow will show here." (SYC-650) | **Spot a cat** |
 | Not known (profile not loaded) | "No notifications yet." | **Spot a cat** |
 
 **Spot a cat** opens the Spot tab, as Home's button does. It reuses the existing `spotTitle` key ("Spot a cat" / "Εντόπισε μια γάτα" / "Repérer un chat").
 
 | Key | English | Greek | French |
 |---|---|---|---|
-| `noNotificationsHasSpots` | No notifications yet. News about the cats you've spotted will show here. | Καμία ειδοποίηση ακόμα. Τα νέα για τις γάτες που έχεις εντοπίσει θα εμφανίζονται εδώ. | Aucune notification pour le moment. Les nouvelles des chats que tu as repérés s'afficheront ici. |
+| `noNotificationsHasSpots` | No notifications yet. News about the cats you follow will show here. | Καμία ειδοποίηση ακόμα. Τα νέα για τις γάτες που ακολουθείς θα εμφανίζονται εδώ. | Aucune notification pour le moment. Les nouvelles des chats que tu suis s'afficheront ici. |
 | `noNotificationsYet` | No notifications yet. | Καμία ειδοποίηση ακόμα. | Aucune notification pour le moment. |
 
 ### 4.2 Home before the first spot

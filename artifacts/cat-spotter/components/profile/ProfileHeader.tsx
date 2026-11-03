@@ -49,7 +49,7 @@ export function ProfileHeader({
     <View
       style={[
         styles.header,
-        { backgroundColor: colors.primary, paddingTop: insets.top + bannerReserve + 20 },
+        { backgroundColor: colors.primaryFill, paddingTop: insets.top + bannerReserve + 20 },
       ]}
     >
       <View style={styles.identity}>

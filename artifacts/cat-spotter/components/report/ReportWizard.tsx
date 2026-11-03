@@ -334,7 +334,7 @@ export function ReportWizard({
                   maxLength={4000}
                   placeholder={t('reportNotePlaceholder')}
                   placeholderTextColor={colors.mutedForeground}
-                  style={[styles.note, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+                  style={[styles.note, { borderColor: colors.controlBorder, color: colors.foreground, backgroundColor: colors.card }]}
                   testID="report-note"
                 />
               </View>
@@ -395,7 +395,7 @@ export function ReportWizard({
                     autoComplete="email"
                     inputMode="email"
                     maxLength={254}
-                    style={[styles.emailInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+                    style={[styles.emailInput, { borderColor: colors.controlBorder, color: colors.foreground, backgroundColor: colors.card }]}
                     testID="report-email"
                   />
                   {(flow.email ?? '').trim() !== '' && !looksLikeEmail(flow.email ?? '') && (

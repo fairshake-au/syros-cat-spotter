@@ -478,7 +478,7 @@ export const fr: Record<StringKey, string> = {
   "sites.legend":
     "Repère plein : public. Contour : privé. Gris : fermé. Touche un repère pour ouvrir le point.",
   "map.teamOnly": "Cette carte est réservée à l’équipe.",
-  "map.whyTitle": "Pourquoi la carte fonctionne-t-elle ainsi ?",
+  "map.whyTitle": "Pourquoi la carte est privée", // SYC-346: draft for Johnny
   "map.whyBody":
     "Ton navigateur télécharge toute la carte de Syros depuis notre propre serveur, donc aucune entreprise de cartographie ni aucune requête ne sait quelle partie de l'île tu regardes.",
 
