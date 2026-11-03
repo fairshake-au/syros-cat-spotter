@@ -28,6 +28,8 @@ Success is judged by the launch measures Samuel chose on 30 Oct 2026 (SYC-760). 
 4. Matching accuracy against confirmed sightings (SYC-56).
 5. Whether the "follow this cat" email card changes how many spots people make (SYC-376).
 
+Once donations in the app are built, the amount donated through the app becomes a sixth measure (Samuel, 3 Nov 2026).
+
 ## Positioning
 
 A photo-first, island-scale cat register run with a real charity. A spotter's photo is compared by AI only against known cats within 500 m. The spotter confirms a match or names a new cat, so every sighting becomes data that Syros Cats uses for sterilisation and welfare work. It's playful for the visitor, with points, badges, streaks and named cats to follow, and careful about the cats: exact locations and feeding sites are protected, and welfare messaging respects how much the charity can take on.
