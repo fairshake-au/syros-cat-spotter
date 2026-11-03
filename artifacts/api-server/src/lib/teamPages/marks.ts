@@ -31,12 +31,23 @@ export const MARK_BAR_WORD: Record<SterilisedMark, string> = {
 // In the app's Aegean (SYC-579). These fixed values are for things drawn on
 // light paper: the maps and the report charts. Page text and badges use
 // var(--mark-*) from tokens.ts instead, which has a dark-theme shade too.
+//
+// SYC-783: "Not known" is light grey, not a third blue: it is the absence of
+// a fact, and three blues blurred together. Grey is too pale against white on
+// its own, so wherever it is a filled part it gets NOT_KNOWN_EDGE round it,
+// and "Probably" gets white stripes so it parts from "Sterilised" in print.
 export const MARK_COLOUR: Record<SterilisedMark, string> = {
   sterilised: "#0f4a72",
   probably: "#1c77c3",
-  not_known: "#2f92dc",
+  not_known: "#d7dee4",
   not_sterilised: "#b8552f",
 };
+
+/** The outline round a filled "Not known" part on light paper (3.9:1 on white). */
+export const NOT_KNOWN_EDGE = "#75838f";
+
+/** White stripes over "Probably" (SYC-783), so it never reads as "Sterilised". */
+const HATCH = "repeating-linear-gradient(45deg,rgba(255,255,255,.75) 0 2px,transparent 2px 6px)";
 
 // 16px shapes: a filled circle, a half-filled circle, an empty ring, and a ring
 // with a slash. They take their colour from the mark's class.
@@ -97,7 +108,10 @@ export function clusterRing(split: Partial<Record<SterilisedMark, number>>): str
     at += (n / total) * 100;
     // Whole hundredths of a per cent (no toFixed: positions.source.test.ts keeps that for positions).
     const pct = (v: number) => `${Math.round(v * 100) / 100}%`;
-    return [`${MARK_COLOUR[m]} ${pct(from)} ${pct(at)}`];
+    // A thin white gap before each part, as the bars have (SYC-783); none when one part fills the ring.
+    if (n === total) return [`${MARK_COLOUR[m]} 0% 100%`];
+    const gap = Math.min(0.8, (at - from) / 2);
+    return [`#fff ${pct(from)} ${pct(from + gap)}`, `${MARK_COLOUR[m]} ${pct(from + gap)} ${pct(at)}`];
   });
   return `conic-gradient(${stops.join(",")})`;
 }
@@ -150,7 +164,7 @@ export function markBar(
   }
   const widths = hundredths(parts.map((p) => p.n), total);
   const segs = parts
-    .map((p, i) => `<span class="markbar-seg mark-${p.m}" style="flex:0 1 ${widths[i]! / 100}%;background:var(--mark-${p.m})"></span>`)
+    .map((p, i) => `<span class="markbar-seg mark-${p.m}" style="flex:0 1 ${widths[i]! / 100}%;background-color:var(--mark-${p.m})"></span>`)
     .join("");
   // The legend repeats the bar's label in sight, so screen readers hear it once.
   const legend = parts
@@ -176,7 +190,7 @@ export const MAP_MARK_CSS =
   ".catdot{display:block;box-sizing:border-box;width:16px;height:16px;border-radius:50%;border:2px solid;background:var(--card);" + RING + "}" +
   `.catdot.mark-sterilised{border-color:${MARK_COLOUR.sterilised};background:${MARK_COLOUR.sterilised}}` +
   `.catdot.mark-probably{border-color:${MARK_COLOUR.probably};background:linear-gradient(90deg,${MARK_COLOUR.probably} 50%,#fff 50%)}` +
-  `.catdot.mark-not_known{border-color:${MARK_COLOUR.not_known}}` +
+  `.catdot.mark-not_known{border-color:${NOT_KNOWN_EDGE};background:${MARK_COLOUR.not_known}}` +
   `.catdot.mark-not_sterilised{border-color:${MARK_COLOUR.not_sterilised};background:linear-gradient(135deg,var(--card) 42%,${MARK_COLOUR.not_sterilised} 42%,${MARK_COLOUR.not_sterilised} 58%,#fff 58%)}` +
   ".catcluster{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:36px;height:36px;border-radius:50%;padding:5px;" + RING + "}" +
   ".catcluster>span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:var(--card);color:var(--ink);font:700 13px/1 Inter,system-ui,sans-serif}" +
@@ -191,10 +205,15 @@ export const MARK_CSS =
   (Object.keys(MARK_COLOUR) as SterilisedMark[])
     .map((m) => `.mark-${m} .mark-icon{color:var(--mark-${m})}`)
     .join("") +
+  // "Not known"'s ring icon is a line, not a fill: the pale grey is too faint for it, so it takes the muted ink.
+  ".mark-not_known .mark-icon{color:var(--muted)}" +
   // The four-part bar: 2px gaps, rounded ends; an empty outline when there are no street cats.
   ".markbar{margin:8px 0}" +
   ".markbar-track{display:flex;gap:2px;height:16px;border-radius:10px;overflow:hidden}" +
-  ".markbar-seg{display:block;min-width:2px}" +
+  // Print the parts as drawn: without this a browser drops backgrounds and the bar prints empty.
+  ".markbar-seg{display:block;min-width:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
+  `.markbar-seg.mark-probably{background-image:${HATCH}}` +
+  ".markbar-seg.mark-not_known{box-shadow:inset 0 0 0 1px var(--line-strong)}" +
   ".markbar-empty{border:2px solid var(--line-strong);box-sizing:border-box}" +
   ".markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:var(--ink)}" +
   ".markbar-sep{color:var(--muted)}";

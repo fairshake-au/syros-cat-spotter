@@ -128,7 +128,7 @@
   var MARK_COLOUR = {
     sterilised: "#0f4a72",
     probably: "#1c77c3",
-    not_known: "#2f92dc",
+    not_known: "#d7dee4",
     not_sterilised: "#b8552f",
   };
   var isMark = function (m) {
@@ -403,7 +403,11 @@
       if (!counts[m]) return;
       var from = at;
       at += (counts[m] / group.length) * 100;
-      stops.push(MARK_COLOUR[m] + " " + Math.round(from * 100) / 100 + "% " + Math.round(at * 100) / 100 + "%");
+      // A thin white gap before each part, as marks.ts clusterRing has (SYC-783); none when one part fills the ring.
+      if (counts[m] === group.length) return stops.push(MARK_COLOUR[m] + " 0% 100%");
+      var gap = Math.min(0.8, (at - from) / 2);
+      stops.push("#fff " + Math.round(from * 100) / 100 + "% " + Math.round((from + gap) * 100) / 100 + "%");
+      stops.push(MARK_COLOUR[m] + " " + Math.round((from + gap) * 100) / 100 + "% " + Math.round(at * 100) / 100 + "%");
     });
     return "conic-gradient(" + stops.join(",") + ")";
   }
