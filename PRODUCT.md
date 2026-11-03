@@ -12,7 +12,7 @@ Cat Spotters is one Expo codebase (`artifacts/cat-spotter`) that ships to the we
 
 Samuel weighs the groups below equally (1 Nov 2026). When their needs conflict, settle it one screen at a time and don't default to either side. The two spotter audiences have **complementary** needs, not opposite ones.
 
-- **Spotters: tourists and locals on Syros.** They meet a street cat, photograph it on their phone, and find out whether it's a known cat or a new one. Usually they're outdoors in the town and lanes, often with weak or no mobile data. Anyone can spot anonymously, with no account. Locals include families, and children use the app, sometimes on a parent's phone.
+- **Spotters: tourists and locals on Syros.** They meet a street cat, photograph it on their phone, and find out whether it's a known cat or a new one. Usually they're outdoors in the town and lanes, often with weak or no mobile data. Anyone can spot anonymously, with no account. The app is for everybody, so children may use it, sometimes on a parent's phone (`docs/specs/privacy-policy.md`; under-15s need a parent's OK to give an email).
 - **Cat guardians.** The people who feed and look after a colony. Syros Cats authorises them to arrange sterilisations, which the charity pays for.
 - **The Syros Cats team** (Jacky, Susan, Jo and helpers). They use the team dashboard: the welfare report queue, feeding sites and colonies, cat record corrections, possible duplicates and naming moderation. They need data they can trust to plan trapping, sterilisation (TNR) and welfare work.
 
@@ -28,7 +28,7 @@ Success is judged by the launch measures Samuel chose on 30 Oct 2026 (SYC-760). 
 4. Matching accuracy against confirmed sightings (SYC-56).
 5. Whether the "follow this cat" email card changes how many spots people make (SYC-376).
 
-Once donations in the app are built, the amount donated through the app becomes a sixth measure (Samuel, 3 Nov 2026).
+Once donations through the app are built (SYC-1), the amount donated through the app becomes a sixth measure (Samuel, 3 Nov 2026). Today the Donate button and the feeding nudge's "Help feed a cat" link send people to Syros Cats' own donation page, and the app doesn't see the money.
 
 ## Positioning
 
@@ -36,16 +36,18 @@ A photo-first, island-scale cat register run with a real charity. A spotter's ph
 
 ## Operating Context
 
-- **Spotting happens in the street:** bright Cycladic sun, one-handed use, a cat that may walk off, and patchy signal. Spots made offline wait in a queue on the phone and are sent and matched when it reconnects. The cat catalogue and the island's map tiles are saved on the phone, so browsing works offline too. Offline support is **partial**; never claim the whole app works without signal.
+- **Spotting happens in the street:** bright Cycladic sun, one-handed use, a cat that may walk off, and patchy signal. Spots made offline wait in a queue on the phone and are sent and matched when it reconnects. Some browsing also works offline, but what is saved on the phone differs between the web and native builds (see `docs/specs/offline-queue-on-web.md` and `docs/specs/first-run-language-and-offline-start.md`). Offline support is **partial**; never claim the whole app works without signal.
 - **Three languages:** English, Greek and French, with Greek script throughout. Strings live in `artifacts/cat-spotter/lib/i18n.ts` and `artifacts/api-server/src/lib/teamPages/strings/*.ts`.
-- **Accounts:** spotting is anonymous by default, tied to the device. An optional email ("Keep my spots safe") lets a spotter recover their spots with a code. Team members and cat guardians sign in by email.
+- **Accounts:** these are two separate systems.
+  - **Spotters** never meet an account wall. Spotting is anonymous, tied to the device. An optional email ("Keep my spots safe") lets a spotter recover their spots with a code.
+  - **Team members and cat guardians** are invited, then sign in with an emailed link (`docs/specs/roles-and-invites.md`).
 - **Syros Cats' real working practices:** their records live in month-by-month WhatsApp groups, not structured records. Colonies are usually named after the place plus the cat guardian's name. Welfare reports go to admin@syroscats and to the dashboard queue. Anyone, mostly people with no account, may ask for sterilisation funding. Before designing anything that depends on how Syros Cats work, ask them first (see `CLAUDE.md` and SYC-761, `docs/syros-cats-facts.md`).
 - **Getting found:** QR codes in cafés and on Kini feeders lead people to the app. The public website, catspotters.com, lives in a separate repo (`fairshake-au/catspotters-website`).
 
 ## Capabilities and Constraints
 
 - **Capabilities:** photo spotting with AI matching, a cat catalogue and cat pages, an island map, an offline queue and offline map tiles, points, badges, streaks and a leaderboard, notifications and cat subscriptions, claiming a cat, naming with moderation, rejecting photos with no cat in them, "cat in trouble" welfare reports, report an issue, starter cat facts, a feeding nudge, recovering spots by email code, and the team dashboard with roles and invites.
-- **Location privacy:** the public sees cat locations blurred. Exact locations are for the team and trusted roles only. Feeding sites are visible only to Syros Cats unless they make a particular site public (a cat-targeting concern).
+- **Location privacy:** the public sees cat locations blurred. Exact locations are for the team and trusted roles only. Feeding sites are seen only by the Syros Cats team and the guardians of that colony, unless the team makes a particular site public. A private site is left out of public data entirely, not blurred, so nobody can find and target the cats there (`docs/specs/feeding-sites-and-colonies.md`).
 - **Welfare expectations:** the app must manage expectations about Syros Cats' capacity. Encourage taking a sick cat straight to a vet (the vet will likely charge). On litter reports, say "contact us first, don't just turn up".
 - **Safety:** onboarding includes keep-your-distance health and safety guidance.
 - **Terms:**
@@ -54,13 +56,13 @@ A photo-first, island-scale cat register run with a real charity. A spotter's ph
   - the sterilisation ear mark is a **clipped tip**, usually on the left ear, never "notched" (a notch is a battle scar);
   - a cat not seen for 3 years is presumed deceased;
   - a cat with no visible clip is never counted as evidence that it isn't sterilised.
-- **Points:** 15 for confirming a known cat, 25 for a new cat.
+- **Points:** 15 for confirming a known cat (including one the spotter picks by hand), 25 for a new cat, and 10 for reporting a duplicate that the team then merges (`artifacts/api-server/src/lib/points.ts`).
 - **Names:** cat names a spotter or owner enters are refused if they hold five digits in a row or look like a phone number.
 - **Open decisions:** the final store name is to be confirmed with Syros Cats. Donations in the app wait on the payment route, which is to be settled with James (minimising Greek bank fees).
 
 ## Brand Commitments
 
-- The name is **Cat Spotters**, shown as Cat Spotters (Syros), with a location subdomain (`syros.…`) that leaves room for other islands. The earlier name "Purropolis" is retired; `replit.md` still describes it and is out of date on this point.
+- The name is **Cat Spotters**, shown as Cat Spotters (Syros), with a planned location subdomain (`syros.…`) that leaves room for other islands. The earlier name "Purropolis" is retired; `replit.md` still describes it and is out of date on this point.
 - The voice is plain and warm. Copy uses plain words, not technical ones (see `docs/specs/plain-words-part-2-copy-table.md`).
 
 ## Evidence on Hand
