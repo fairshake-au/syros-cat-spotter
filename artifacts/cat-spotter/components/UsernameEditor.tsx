@@ -220,7 +220,7 @@ export function UsernameEditor({
                     ? colors.primary
                     : taken
                       ? (colors.destructive ?? '#c0392b')
-                      : colors.border,
+                      : colors.controlBorder,
                   color: colors.foreground,
                 },
               ]}
@@ -230,7 +230,7 @@ export function UsernameEditor({
               disabled={!canSubmit}
               style={[
                 styles.saveBtn,
-                { backgroundColor: colors.primary, opacity: canSubmit ? 1 : 0.5 },
+                { backgroundColor: colors.primaryFill, opacity: canSubmit ? 1 : 0.5 },
               ]}
             >
               {pending ? (

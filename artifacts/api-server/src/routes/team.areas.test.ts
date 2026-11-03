@@ -326,6 +326,21 @@ describe("adding an area by map (SYC-557)", () => {
   const sendTo = (path: string, cookie: string, body: Record<string, string>) =>
     request(app).post(path).set("Origin", TEAM_ORIGIN).set("Cookie", cookie).set("Accept", "text/html").type("form").send(body);
 
+  it("a bad name or key answers JSON when JSON is asked for, like the other area routes (SYC-693)", async () => {
+    for (const path of ["/api/team/areas/new", "/api/team/areas/new/pick"]) {
+      const res = await request(app)
+        .post(path)
+        .set("Origin", TEAM_ORIGIN)
+        .set("Cookie", team.cookie)
+        .set("Accept", "application/json")
+        .type("form")
+        .send({ name: nm("Jsonbad"), key: "Not A Key!" });
+      expect(res.status, path).toBe(400);
+      expect(res.body, path).toMatchObject({ error: "bad_form", field: "key" });
+      expect(typeof res.body.message, path).toBe("string");
+    }
+  });
+
   it("name and key lead to a map, the pin's spot to a confirmation, and the button adds the area", async () => {
     const key = k("addmap");
     const step1 = await sendTo("/api/team/areas/new", team.cookie, { name: nm("Addmap"), key });

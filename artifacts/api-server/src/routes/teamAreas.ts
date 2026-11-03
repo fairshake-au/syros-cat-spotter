@@ -199,6 +199,11 @@ async function newAreaOf(
     return await checkNewArea(values.key, values.name);
   } catch (err) {
     if (!(err instanceof AreaChangeRefused)) throw err;
+    // JSON answers like the other area routes (SYC-693).
+    if (wantsJson(req)) {
+      res.status(400).json({ error: "bad_form", field: err.field, message: err.message });
+      return null;
+    }
     await loadAreas();
     await page(res, 400, await areaChanges(), {
       again: { op: "add", field: err.field, message: err.message, values },

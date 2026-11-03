@@ -8,6 +8,7 @@ import { seedReport } from "../lib/teamAuth/__fixtures__/queueKit";
 import app from "../app";
 import { RUN, guardianOn, newColony, seedCat, signedPerson, type Signed } from "../test/roleKit";
 import { logVetVisit } from "../lib/vetVisits";
+import { nameTag } from "../test/nameTag";
 
 // Every team member holds view_vet_costs today, so `can` is wrapped: the
 // person in `denied.id` is refused view_vet_costs, and only that (the
@@ -179,6 +180,49 @@ describe("Colony health", () => {
     expect(csv.text).toContain(`'=cmd|' /C calc'!A0 ${RUN}`);
     expect(csv.text).not.toMatch(/(^|\r\n|,)=cmd/);
   });
+});
+
+// SYC-778: a screenshot showed "=Galissas camp" on both pages and it read as
+// the spreadsheet guard leaking into the page. It wasn't: that colony was
+// named with a leading "=" to show the guard off, and the guard adds an
+// apostrophe, not an "=". These pin it down for every risky first character:
+// the page shows the name exactly as stored, and only the spreadsheet adds the
+// apostrophe.
+describe("names starting with = + - @ (SYC-778)", () => {
+  const prefixed: { id: number; name: string }[] = [];
+  const html = (s: string) => s.replace(/&/g, "&amp;").replace(/'/g, "&#39;");
+
+  beforeAll(async () => {
+    for (const p of ["=", "+", "-", "@"]) {
+      const c = await colony(`${p}Prefix colony ${nameTag()}`);
+      await seedCat(c.id);
+      prefixed.push(c);
+    }
+  });
+
+  for (const page of ["progress", "health"] as const) {
+    it(`${page}: the page shows each name as stored, with no apostrophe added`, async () => {
+      const res = await get(`/api/team/insights/${page}?range=3months`);
+      for (const c of prefixed) {
+        expect(res.text).toContain(`>${html(c.name)}<`);
+        // Every copy (the progress page has two: the bars and their table)
+        // starts a text run or an attribute, with nothing added in front.
+        const copies = res.text.split(html(c.name)).slice(0, -1);
+        expect(copies.length).toBeGreaterThan(0);
+        for (const before of copies) expect(before).toMatch(/[>"]$/);
+      }
+    });
+  }
+
+  for (const file of ["progress-colonies.csv", "health.csv"] as const) {
+    it(`${file}: each name gets the apostrophe, and none starts a cell bare`, async () => {
+      const res = await get(`/api/team/insights/${file}?range=3months`);
+      for (const c of prefixed) {
+        const line = res.text.split("\r\n").find((l) => l.includes(c.name))!;
+        expect(line.startsWith(`'${c.name}`) || line.startsWith(`"'${c.name}`)).toBe(true);
+      }
+    });
+  }
 });
 
 /** The photo of this file's one sighting, for cleaning up. */

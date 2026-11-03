@@ -7,7 +7,7 @@ import { fonts, fontSizes, radii, borderWidths } from '@/constants/theme';
  * Filter pill used by the Cat-alog screen's category row. No web
  * counterpart in mockup-sandbox/purropolis — this is native-only, built
  * to match the design: active = solid primary bg + white text, inactive =
- * surface-card bg + 1.5px border-strong border.
+ * surface-card bg + a controlBorder outline (SYC-766: 3:1 or more).
  */
 export interface ChipProps {
   label: string;
@@ -42,8 +42,10 @@ export function Chip({ label, active = false, disabled = false, onPress, style }
           style={[
             styles.pill,
             {
-              backgroundColor: active ? colors.primary : colors.card,
-              borderColor: active ? 'transparent' : colors.border,
+              backgroundColor: active ? colors.primaryFill : colors.card,
+              // SYC-766: the primary outline marks the selected chip in dark mode,
+              // where the fill alone is under 3:1 against the card.
+              borderColor: active ? colors.primary : colors.controlBorder,
               opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}

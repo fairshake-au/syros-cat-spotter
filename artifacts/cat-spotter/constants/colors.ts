@@ -13,7 +13,13 @@ export const palette = {
   aegean700: '#135f92',
   aegean600: '#1c77c3', // primary
   aegean500: '#2f92dc',
+  // SYC-766: control outlines in dark mode (4.6:1 on cards, 5.9:1 on the
+  // page, 3.3:1 on the sunk surface).
+  aegean450: '#7f9cb6',
   aegean400: '#66b2e8',
+  // SYC-766: dark-mode text and icons (6.6:1 on cards, 4.8:1 on the sunk
+  // surface), the dashboard's dark --accent-text.
+  aegean350: '#7cc0ef',
   aegean300: '#a3d1f2',
   aegean200: '#cfe7f9',
   aegean100: '#e8f4fc',
@@ -24,6 +30,9 @@ export const palette = {
   // SYC-509: was #667889 (4.07:1 on the page). #5a6b7c is 4.9:1 on the page,
   // 5.35:1 on cards and 4.66:1 on the sunk surface, so small muted text passes AA.
   stone600: '#5a6b7c',
+  // SYC-766: a darker grey for control outlines (3.8:1 on cards, 3.5:1 on
+  // the page), above the 3:1 floor for borders. Hairlines keep stone300.
+  stone550: '#75838f',
   stone500: '#8c9caa',
   stone400: '#b6c2cc',
   stone300: '#d7dee4',
@@ -37,12 +46,16 @@ export const palette = {
   bougain300: '#f6a9c8',
   bougain100: '#fce4ee',
 
+  // SYC-766: text on sun100 (7.4:1). sun700 on sun100 is only 2.4:1.
+  sun800: '#6b4a00',
   sun700: '#d99413',
   sun600: '#f5b023',
   sun500: '#ffc94d',
   sun300: '#ffe0a0',
   sun100: '#fff5df',
 
+  // SYC-766: text on terra100 and the page (5.4:1 / 5.7:1), as the dashboard uses.
+  terra800: '#a3401f',
   terra700: '#b8552f',
   terra600: '#e07856',
   terra500: '#ee9070',
@@ -60,7 +73,7 @@ const colors = {
   light: {
     // Legacy aliases (kept for backward compatibility)
     text: palette.stone900,
-    tint: palette.aegean600,
+    tint: palette.aegean700,
 
     // Core surfaces
     background: palette.stone100, // surface-page
@@ -70,8 +83,11 @@ const colors = {
     card: palette.stone000, // surface-card
     cardForeground: palette.stone900,
 
-    // Primary action color (buttons, links, active states)
-    primary: palette.aegean600,
+    // Primary colour for text, icons and outlines (links, active states).
+    // SYC-766: aegean600 was 4.2:1 on the page; aegean700 is 6.1:1.
+    primary: palette.aegean700,
+    // Primary as a fill behind primaryForeground (buttons, selected chips).
+    primaryFill: palette.aegean600, // 4.6:1 with white
     primaryForeground: palette.stone000, // text-on-primary
 
     // Secondary / less-emphasis interactive surfaces
@@ -89,29 +105,38 @@ const colors = {
     // Highlight (marigold sun)
     highlight: palette.sun500,
 
-    // Destructive actions (delete, error states)
-    destructive: palette.terra700, // status-danger
+    // Destructive actions (delete, error states). `destructive` is for text
+    // and icons; `destructiveFill` sits behind destructiveForeground.
+    // SYC-766: terra700 was 4.3:1 as text on the page; terra800 is 5.7:1.
+    destructive: palette.terra800, // status-danger
+    destructiveFill: palette.terra700, // 4.7:1 with white
     destructiveForeground: palette.stone000,
 
     // Status colors
-    success: palette.olive600,
+    // SYC-766: success, danger and info are dark enough to be text on their
+    // soft fills and on the page. Warning stays bright for dots and fills,
+    // so its words use warningText.
+    success: palette.olive700,
     successSoft: palette.olive100,
     warning: palette.sun600,
+    warningText: palette.sun800,
     warningSoft: palette.sun100,
-    danger: palette.terra700,
+    danger: palette.terra800,
     dangerSoft: palette.terra100,
-    info: palette.aegean500,
+    info: palette.aegean700,
     infoSoft: palette.aegean100,
 
-    // Borders and input outlines
+    // Borders and input outlines. `border` is for decorative hairlines;
+    // `controlBorder` outlines things you can type in or tap (SYC-766).
     border: palette.stone300, // border-soft
+    controlBorder: palette.stone550,
     input: palette.stone300,
   },
 
   dark: {
     // Legacy aliases (kept for backward compatibility)
     text: palette.stone000,
-    tint: palette.aegean500,
+    tint: palette.aegean350,
 
     // Core surfaces — deep Aegean night navy with whitewash text
     background: palette.aegean950, // surface-page
@@ -121,8 +146,12 @@ const colors = {
     card: palette.aegean900, // surface-card
     cardForeground: palette.stone000,
 
-    // Primary action color (brighter aegean for contrast on navy)
-    primary: palette.aegean500,
+    // Primary colour for text, icons and outlines (brighter aegean for navy).
+    // SYC-766: aegean500 was 3.9:1 on cards; aegean350 is 6.6:1 (4.8:1 sunk).
+    primary: palette.aegean350,
+    // Fills stay on aegean600 in dark mode too, as the dashboard does:
+    // white on aegean500 was 3.3:1 (SYC-702).
+    primaryFill: palette.aegean600,
     primaryForeground: palette.stone000, // text-on-primary
 
     // Secondary / less-emphasis interactive surfaces
@@ -140,22 +169,28 @@ const colors = {
     // Highlight (marigold sun)
     highlight: palette.sun500,
 
-    // Destructive actions (lighter terra for contrast on navy)
-    destructive: palette.terra600, // status-danger (dark)
+    // Destructive actions (lighter terra for contrast on navy).
+    // SYC-766: terra600 was 4.4:1 as text on cards and 2.9:1 under white;
+    // text uses #f2a487 (6.5:1 on cards) and fills use terra700, as the dashboard does.
+    destructive: '#f2a487', // status-danger (dark)
+    destructiveFill: palette.terra700,
     destructiveForeground: palette.stone000,
 
     // Status colors (soft tints become deep night washes)
-    success: palette.olive500,
+    // SYC-766: olive500 and aegean400 were 4.0:1 on the sunk surface.
+    success: palette.olive300,
     successSoft: '#20290f',
     warning: palette.sun500,
+    warningText: palette.sun500,
     warningSoft: '#33270c',
-    danger: palette.terra600,
+    danger: '#f2a487',
     dangerSoft: '#3a1d10',
-    info: palette.aegean400,
+    info: palette.aegean350,
     infoSoft: '#0c3b5d',
 
     // Borders and input outlines
     border: palette.aegean800, // border-soft (dark)
+    controlBorder: palette.aegean450,
     input: palette.aegean800,
   },
 
@@ -163,3 +198,16 @@ const colors = {
 };
 
 export default colors;
+
+/**
+ * Toned Tag and StatTile colours. These tints are the same in both schemes
+ * (as the web DS's --*-100 ramps are), so their ink is fixed too.
+ * SYC-766: sun and terra use the darker 800 inks so small labels pass 4.5:1.
+ */
+export const toneColors = {
+  aegean: { bg: palette.aegean100, fg: palette.aegean800 },
+  bougain: { bg: palette.bougain100, fg: palette.bougain700 },
+  sun: { bg: palette.sun100, fg: palette.sun800 },
+  terra: { bg: palette.terra100, fg: palette.terra800 },
+  olive: { bg: palette.olive100, fg: palette.olive700 },
+} as const;

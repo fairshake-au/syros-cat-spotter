@@ -9,7 +9,7 @@ import { guardianOn, newColony, signedPerson, type Signed } from "../test/roleKi
 import { readFileSync } from "node:fs";
 import { homeData, type HomeData, type HomeDeps, type HomeNeeds, type HomeToCheck, type Section } from "../lib/dashboard/home";
 import type { TrapColony } from "../lib/dashboard/trapNext";
-import { NOTHING_WAITING, renderHomePage, UNAVAILABLE } from "../lib/teamPages/homePage";
+import { NOTHING_WAITING, renderHomePage, SOME_UNAVAILABLE, UNAVAILABLE } from "../lib/teamPages/homePage";
 import { firstWords } from "../lib/teamPages/noteWords";
 import type { QueueReport, WelfareQueue } from "../lib/welfareQueue";
 import { escapeHtml } from "../lib/teamPages/escape";
@@ -274,6 +274,21 @@ describe("renderHomePage", () => {
     const q = between(page(full({ needs: { ...needsOf(noNeeds), reports: bad } })), "today", "trap");
     expect(q).toContain("ear clips to check");
     expect(q).toContain(UNAVAILABLE_HTML);
+  });
+
+  it("two or more failed Today figures say so in one line, not one line each (SYC-693)", () => {
+    const bad = { ok: false } as const;
+    const d = full({ needs: { ...needsOf(noNeeds), reports: bad, issuesOpen: bad }, toCheck: { ...checkOf(4, 2), colour: bad } });
+    const today = between(page(d), "today", "trap");
+    expect(today).toContain(escapeHtml(SOME_UNAVAILABLE));
+    expect(today.split(escapeHtml(SOME_UNAVAILABLE))).toHaveLength(2);
+    expect(today).not.toContain(UNAVAILABLE_HTML);
+    expect(today).toContain("ear clips to check");
+    expect(today).not.toContain(NOTHING_WAITING);
+    // Exactly two, with the Queue lines fine: still one line.
+    const two = between(page(full({ needs: { ...needsOf(noNeeds), issuesOpen: bad }, toCheck: { ...checkOf(4, 2), colour: bad } })), "today", "trap");
+    expect(two.split(escapeHtml(SOME_UNAVAILABLE))).toHaveLength(2);
+    expect(two).not.toContain(UNAVAILABLE_HTML);
   });
 
   it("with nothing waiting, Today says so and the other parts still draw", () => {
