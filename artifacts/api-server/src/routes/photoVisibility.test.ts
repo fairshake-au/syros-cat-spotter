@@ -690,6 +690,17 @@ describe("P6-8: staff still see a hidden photo, labelled with who hid it and whe
     const odd = await request(app).get(`/api/team/cats/${cat.id}?done=hidden&p=%3Cscript%3E`).set("Cookie", cookie);
     expect(odd.text).not.toContain("<script>");
   });
+
+  it("Undo only offers back a photo of this cat, never one named by a hand-edited ?p= (SYC-674)", async () => {
+    const cat = await seedCat(0);
+    const other = await seedCat(0);
+    const page = await request(app)
+      .get(`/api/team/cats/${cat.id}?done=hidden&p=${other.main.publicId}`)
+      .set("Cookie", cookie);
+    expect(page.status).toBe(200);
+    expect(page.text).not.toContain(">Undo</button>");
+    expect(page.text).not.toContain(`action="/api/team/photos/${other.main.publicId}/restore"`);
+  });
 });
 
 // ── P6-9: add-only ─────────────────────────────────────────────────────────
