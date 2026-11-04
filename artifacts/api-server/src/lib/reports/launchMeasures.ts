@@ -116,6 +116,11 @@ export interface LaunchMeasures {
   withoutSpotter: number;
   launchDate: string | null;
   /** The earliest sighting with a phone wait, or null. */
+  /**
+   * The earliest sighting among the rows read that has a phone wait. It can
+   * fall in the 7-day follow-up tail just after the range, and that is still a
+   * true "recorded from" date.
+   */
   phoneWaitFrom: Date | null;
   workedOutAt: Date;
   ms: number;
