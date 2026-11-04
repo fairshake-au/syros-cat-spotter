@@ -61,7 +61,7 @@ One PR, a draft until checked, with colours and Spot buttons, then the raised ta
 - `NameStep.tsx:424` moves off `palette.bougain500`.
 - The gradient at `app/review.tsx:1108` moves to bougain700 → terra800.
 - SYC-827: solid paper-white text and a dark pill on Welcome, Profile and Home.
-- Spot buttons move to `variant="accent"`: `AboutTab.tsx:207`, `app/notifications.tsx:274`, `app/review.tsx:334, 558, 756, 1259`, the confirm-match button, and `spot.tsx` "Check for matches".
+- Spot buttons move to `variant="accent"`: `AboutTab.tsx:207`, `app/notifications.tsx:274`, `app/review.tsx:334, 756, 1259`, the confirm-match button, and `spot.tsx` "Check for matches".
 - `lib/colorContrast.test.ts` header says pink is left out on purpose (SYC-142). Remove that exclusion.
 
 **Raised tab.**

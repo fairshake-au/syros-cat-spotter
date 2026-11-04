@@ -120,7 +120,6 @@ function ClassicTabLayout() {
             backgroundColor: colors.accentForeground,
             color: colors.accent,
             marginTop: -22,
-            marginLeft: 12,
             fontSize: 11,
             fontFamily: 'Inter_700Bold',
           },

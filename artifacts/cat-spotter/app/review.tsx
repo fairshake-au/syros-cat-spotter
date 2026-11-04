@@ -856,7 +856,7 @@ export default function ReviewScreen() {
           {hintRefused ? (
             <Button
               key="hint-carry-on"
-              variant="primary"
+              variant="accent"
               size="lg"
               block
               wrapLabel
@@ -868,7 +868,7 @@ export default function ReviewScreen() {
           ) : (
             <Button
               key="hint-yes"
-              variant="primary"
+              variant="accent"
               size="lg"
               block
               wrapLabel

@@ -279,7 +279,7 @@ Border widths: `thin` 1.5px, `thick` 2.5px. Sterilisation marks are circles, a h
 - Dashboard: text links in a thin top bar, current page bold with a 3px Aegean underline; phone gets a "Menu" fold.
 
 ### Hero (signature)
-- The Home screen's blue band: Aegean 600 fill, 30px bottom corners, a 130px paw emoji at 12% opacity, an avatar with ring, the greeting and name with a wave emoji, a translucent white streak chip, a 42px figure, and a 12px progress track (white at 24%) with a sun 500 fill. This is the "blue header" the critique named.
+- The Home screen's blue band: Aegean 600 fill, 30px bottom corners, a 130px paw emoji at 12% opacity, an avatar with ring, the greeting and name with a wave emoji, a dark streak chip, a 42px figure, and a 12px progress track (white at 24%) with a sun 500 fill. This is the "blue header" the critique named.
 
 ### Other
 - **Tag / Badge:** pill, 12px bold. Tag takes a tone; Badge has a 7px status dot and uses scheme-aware soft fills.
