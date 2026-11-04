@@ -77,6 +77,31 @@ function grid(p: Plot, scale: { top: number; ticks: number[] }): string {
     .join("");
 }
 
+/** A labelled vertical guide at a moment (a baseline week, a launch): dashed ink, its name at the top. */
+export interface ChartMarker {
+  at: Date;
+  label: string;
+}
+
+/**
+ * The guides, drawn at the x given for each. A name sits right of its guide,
+ * or left of it when the next guide is close or the edge is near, so two names
+ * never overlap. Names are fixed text, escaped.
+ */
+function markerGuides(p: Plot, marks: { x: number; label: string }[]): string {
+  const sorted = [...marks].sort((a, b) => a.x - b.x);
+  return sorted
+    .map((m, i) => {
+      const next = sorted[i + 1];
+      const toLeft = (next !== undefined && next.x - m.x < 90) || m.x > p.right - 90;
+      return (
+        `<line x1="${r1(m.x)}" x2="${r1(m.x)}" y1="${r1(p.top)}" y2="${r1(p.bottom)}" stroke="${INK}" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>` +
+        text(toLeft ? m.x - 5 : m.x + 5, p.top - 6, m.label, toLeft ? "end" : "start", ' font-weight="700"')
+      );
+    })
+    .join("");
+}
+
 export interface LineSeries {
   label: string;
   points: { at: Date; value: number }[];
@@ -91,7 +116,7 @@ export interface LineSeries {
  * A status line gets filled points in its mark's colour; a neutral total gets
  * open points in grey ink, so the two differ in shape as well as colour.
  */
-export function lineChart(o: { series: LineSeries[]; title: string }): string {
+export function lineChart(o: { series: LineSeries[]; title: string; markers?: ChartMarker[] }): string {
   const H = 320;
   const p: Plot = { left: FONT * 2.6, right: VIEW_W - 12, top: FONT * 2.2, bottom: H - FONT * 2 };
   const all = o.series.flatMap((s) => s.points);
@@ -152,7 +177,12 @@ export function lineChart(o: { series: LineSeries[]; title: string }): string {
         ? text((p.left + p.right) / 2, H - 6, dayWords(new Date(t0)), "middle")
         : text(p.left, H - 6, dayWords(new Date(t0)), "start") + text(p.right, H - 6, dayWords(new Date(t1)), "end");
 
-  return open(H, o.title) + grid(p, scale) + lines + labels + xLabels + "</svg>";
+  // A guide is only drawn where the chart has a point in time to put it on.
+  const guides = markerGuides(
+    p,
+    (o.markers ?? []).filter((m) => m.at.getTime() >= t0 && m.at.getTime() <= t1).map((m) => ({ x: x(m.at), label: m.label })),
+  );
+  return open(H, o.title) + grid(p, scale) + guides + lines + labels + xLabels + "</svg>";
 }
 
 export interface BarPart {
@@ -194,9 +224,9 @@ const legendSwatch = (part: BarPart) =>
  * in that order, bottom of the bar first, so a part is never named by colour
  * alone.
  */
-export function barChart(o: { bars: { at: Date; parts: BarPart[] }[]; title: string }): string {
+export function barChart(o: { bars: { at: Date; parts: BarPart[] }[]; title: string; markers?: ChartMarker[] }): string {
   const H = 300;
-  const p: Plot = { left: FONT * 2.6, right: VIEW_W - 12, top: FONT, bottom: H - FONT * 2 };
+  const p: Plot = { left: FONT * 2.6, right: VIEW_W - 12, top: o.markers?.length ? FONT * 2.2 : FONT, bottom: H - FONT * 2 };
   const totals = o.bars.map((b) => b.parts.reduce((t, part) => t + Math.max(0, part.value), 0));
   const scale = niceScale(Math.max(0, ...totals));
   const n = Math.max(1, o.bars.length);
@@ -244,7 +274,14 @@ export function barChart(o: { bars: { at: Date; parts: BarPart[] }[]; title: str
           .join("")}</ul>`;
 
   const defs = o.bars.some((b) => b.parts.some((part) => part.pattern === "hatch" || part.pattern === "dots")) ? PATTERN_DEFS : "";
-  return open(H, o.title) + defs + grid(p, scale) + bars + xLabels + "</svg>" + legend;
+  const guides = markerGuides(
+    p,
+    (o.markers ?? []).flatMap((m) => {
+      const i = o.bars.findIndex((b) => b.at.getTime() === m.at.getTime());
+      return i < 0 ? [] : [{ x: p.left + i * slot + slot / 2, label: m.label }];
+    }),
+  );
+  return open(H, o.title) + defs + grid(p, scale) + guides + bars + xLabels + "</svg>" + legend;
 }
 
 /**

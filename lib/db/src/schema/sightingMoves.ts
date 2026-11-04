@@ -26,8 +26,8 @@ export const MOVE_REASONS = [
   "merge_undone",
 ] as const;
 
-/** Which screen the move came from. */
-export const MOVE_SOURCES = ["cat_page", "matched_by_hand", "report", "game", "merge", "undo"] as const;
+/** Which screen the move came from. `match_check` (SYC-795) is the team's match check. */
+export const MOVE_SOURCES = ["cat_page", "matched_by_hand", "report", "game", "merge", "undo", "match_check"] as const;
 
 /**
  * The mover's role when moving (§9.1: staff | management), never looked up

@@ -295,6 +295,10 @@ const ALREADY_RESOLVED = new Error("Sighting already resolved");
 // SYC-415 (spec §5.2): `photos` is every photo of the spot, in position
 // order, and the record also notes "no cat in any photo" and "may be more
 // than one cat".
+//
+// SYC-795 (launch measures §4.4): `receivedAt` is when the route handler
+// first saw the request, passed on so the record can note the server's part
+// of the spotter's wait.
 /** The cats a photo check compares against: every live cat (exported for the merge tests). */
 export const matcherPool = () => liveCats(getTableColumns(catsTable));
 
@@ -304,6 +308,7 @@ async function computeMatchCandidates(
   photos: NewPhotoInput[],
   lat: number,
   lng: number,
+  receivedAt: Date,
 ): Promise<MatchAnswer> {
   // SYC-39: only cats within 500 m (exact positions), nearest first — see
   // selectCandidateCats and DECISIONS.md Part 2h.
@@ -412,7 +417,7 @@ async function computeMatchCandidates(
     // SYC-415 §6.2 point 3 / §8: unknown (null) when the matcher failed.
     noCatInAnyPhoto: matcherFailed ? null : !isCatPhoto,
     mixedCats: matcherFailed ? null : mixedCats,
-  });
+  }, receivedAt);
 
   // SYC-532: tell the team when checks start failing, and when they recover.
   // Never throws, and never changes the answer below.
@@ -498,7 +503,7 @@ async function recordPhotoGone(req: Request, sightingId: number): Promise<void> 
     matcherFailed: true,
     noCatInAnyPhoto: null,
     mixedCats: null,
-  });
+  }, null);
 }
 
 // SYC-151: store what was compared and suggested. The dedupe-hit path calls
@@ -506,6 +511,11 @@ async function recordPhotoGone(req: Request, sightingId: number): Promise<void> 
 // response (plan finding P3), but never once a choice has been recorded.
 // Best effort: a failed write is logged and the sighting still gets its
 // response; resolve then labels it "unlabelled" rather than guessing.
+//
+// SYC-795 (launch measures §4.4): the server's part of the wait is written
+// once, by the first check that worked, and a resend or recheck never
+// replaces it (coalesce). A failed check, or a caller with no request time
+// (the photo has gone), leaves it empty for a later check to fill.
 async function recordMatch(
   req: Request,
   sightingId: number,
@@ -516,17 +526,27 @@ async function recordMatch(
     noCatInAnyPhoto: boolean | null;
     mixedCats: boolean | null;
   },
+  receivedAt: Date | null,
 ): Promise<boolean> {
-  const values = { ...sets, matchedAt: new Date() };
+  const matchedAt = new Date();
+  // Clamped at 0 so a clock step can't trip sighting_matches_server_wait_ck.
+  const serverWaitMs =
+    sets.matcherFailed || receivedAt === null
+      ? null
+      : Math.max(0, matchedAt.getTime() - receivedAt.getTime());
+  const values = { ...sets, matchedAt };
   try {
     // True only when the row was really written: an update skipped because
     // a choice was already made (setWhere) writes nothing.
     const written = await db
       .insert(sightingMatchesTable)
-      .values({ sightingId, ...values })
+      .values({ sightingId, ...values, serverWaitMs })
       .onConflictDoUpdate({
         target: sightingMatchesTable.sightingId,
-        set: values,
+        set: {
+          ...values,
+          serverWaitMs: sql`coalesce(${sightingMatchesTable.serverWaitMs}, excluded.server_wait_ms)`,
+        },
         setWhere: isNull(sightingMatchesTable.chosenAt),
       })
       .returning({ sightingId: sightingMatchesTable.sightingId });
@@ -658,6 +678,11 @@ async function withinDeviceMatchLimit(
 // for why this route needs both. Applied before body parsing, exactly as it
 // was before this PR's device-keyed limiter existed.
 router.post("/sightings", aiLimiter, async (req, res) => {
+  // SYC-795 (launch measures §4.4): the clock starts when this handler begins,
+  // after express.json and aiLimiter have run and the body has arrived. So
+  // the server's part of the wait counts the schema parse, the device check,
+  // the per-device limit and the match, but not the upload or the per-IP limit.
+  const receivedAt = new Date();
   const body = CreateSightingBody.parse(req.body);
 
   // SYC-92: the upload route was the one place a device id was taken on
@@ -733,7 +758,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
     const photos = await storedSpotPhotos(existing);
     let answer: MatchAnswer;
     if (photos.length > 0) {
-      answer = await computeMatchCandidates(req, existing.id, photos, existing.lat, existing.lng);
+      answer = await computeMatchCandidates(req, existing.id, photos, existing.lat, existing.lng, receivedAt);
     } else {
       await recordPhotoGone(req, existing.id);
       answer = PHOTO_GONE;
@@ -769,6 +794,7 @@ router.post("/sightings", aiLimiter, async (req, res) => {
     saved.photos.map((p) => ({ role: p.role, photoBase64: p.base64, mime: p.mime })),
     body.lat,
     body.lng,
+    receivedAt,
   );
 
   res.status(201).json({ sightingId: saved.sightingId, ...answer });
@@ -825,6 +851,8 @@ const recheckInFlight = new Set<number>();
 // be a free re-roll of paid model calls. The per-IP cost ceiling (aiLimiter)
 // applies exactly as it does to sending a spot.
 router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
+  // SYC-795 (launch measures §4.4): taken first, as in POST /sightings.
+  const receivedAt = new Date();
   const sightingId = Number(req.params.sightingId);
   const body = RecheckSightingBody.parse(req.body);
 
@@ -888,7 +916,14 @@ router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
     if (!(await withinDeviceMatchLimit(req, res, deviceId))) return;
     // Always the sighting's own stored location, never one from the phone
     // (cat-record-data-spine.md §6.3: no nearest-cat oracle).
-    const answer = await computeMatchCandidates(req, sightingId, photos, sighting.lat, sighting.lng);
+    const answer = await computeMatchCandidates(
+      req,
+      sightingId,
+      photos,
+      sighting.lat,
+      sighting.lng,
+      receivedAt,
+    );
     // The spotter may have chosen a cat while this ran (up to ~35 s): the
     // answer is then moot, and saying so beats look-alikes for a done spot.
     const [after] = await db

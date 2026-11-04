@@ -132,3 +132,32 @@ describe("tableFor", () => {
     expect(html).toContain('<td class="num" data-label="Cats">3</td>');
   });
 });
+
+describe("chart markers (SYC-795 task 5)", () => {
+  const bars = [1, 8, 15].map((d) => ({ at: at(d), parts: [{ key: "a", label: "A", value: 3, colour: "#123456" }] }));
+  const lines = () => [{ label: "L", neutral: true as const, points: [{ at: at(1), value: 1 }, { at: at(8), value: 2 }, { at: at(15), value: 3 }] }];
+
+  it("a line chart draws a labelled dashed guide at a marker inside its dates", () => {
+    const svg = lineChart({ title: "t", series: lines(), markers: [{ at: at(8), label: "Baseline" }] });
+    expect(svg).toContain(">Baseline</text>");
+    expect(svg).toContain('stroke-dasharray="5 4"');
+  });
+  it("a bar chart puts the guide on the matching bar's slot", () => {
+    const svg = barChart({ title: "t", bars, markers: [{ at: at(8), label: "Baseline" }] });
+    expect(svg).toContain(">Baseline</text>");
+    expect(svg).toContain('stroke-dasharray="5 4"');
+  });
+  it("a marker outside the chart is not drawn", () => {
+    expect(lineChart({ title: "t", series: lines(), markers: [{ at: at(25), label: "Baseline" }] })).not.toContain("Baseline");
+    expect(barChart({ title: "t", bars, markers: [{ at: at(9), label: "Baseline" }] })).not.toContain("Baseline");
+  });
+  it("without markers the drawing is exactly as before", () => {
+    expect(lineChart({ title: "t", series: lines() })).not.toContain("stroke-dasharray");
+    expect(barChart({ title: "t", bars })).not.toContain("stroke-dasharray");
+    expect(barChart({ title: "t", bars })).toBe(barChart({ title: "t", bars, markers: [] }));
+  });
+  it("two close markers don't overlap: the earlier name sits left of its guide", () => {
+    const svg = lineChart({ title: "t", series: lines(), markers: [{ at: at(1), label: "Launch" }, { at: at(2), label: "Baseline" }] });
+    expect(svg).toMatch(/text-anchor="end"[^>]*font-weight="700"[^>]*>Launch</);
+  });
+});
