@@ -1,10 +1,9 @@
 import { catsTable, db, photosTable, sightingMatchesTable, sightingMovesTable, sightingsTable } from "@workspace/db";
 import { and, asc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { areaByKey } from "./areas/namedAreas";
-import { canonicalCatOf } from "./catIdentity";
 import { can, type CapabilityHolder } from "./capabilities";
 import { MoveRefused } from "./moveSightings";
-import { catDisplayPhotos } from "./photoVisibility";
+import { teamPhotoUrl } from "./teamCatView";
 import { launchMidnight, MERGE_REASONS, MERGE_SOURCES } from "./reports/launchMeasures";
 
 // Matches to check (SYC-795, launch measures spec §4.6). The suggestions
@@ -22,10 +21,13 @@ export interface MatchToCheck {
   spottedAt: Date;
   /** The named area's words, "Off Syros", or "Somewhere on Syros" when none was stamped. */
   area: string;
-  /** The team photo address of the spotter's photo, or null. */
+  /** The team photo address (card size) of the spotter's photo, or null. */
   sightingPhotoUrl: string | null;
-  /** The cat's main photo as the public sees it, or null. */
+  /** The team photo address (card size) of the cat's own main photo, hidden or not, or null. */
   catPhotoUrl: string | null;
+  /** The full-size addresses, for the link on each photo. */
+  sightingPhotoFullUrl: string | null;
+  catPhotoFullUrl: string | null;
 }
 
 type Person = CapabilityHolder & { id: string };
@@ -55,34 +57,34 @@ export async function matchesToCheck(launchDate: string | null): Promise<MatchTo
       photoId: sightingsTable.photoId,
       areaKey: sightingsTable.areaKey,
       spottedAt: sightingsTable.createdAt,
-      chosenCatId: sightingMatchesTable.chosenCatId,
+      catId: sightingsTable.catId,
       rank: sightingMatchesTable.suggestedRank,
     })
     .from(sightingMatchesTable)
     .innerJoin(sightingsTable, eq(sightingsTable.id, sightingMatchesTable.sightingId))
-    .where(and(listed(launch), sql`${sightingMatchesTable.chosenCatId} is not null`))
+    .where(and(listed(launch), sql`${sightingsTable.catId} is not null`))
     .orderBy(asc(sightingsTable.createdAt), asc(sightingsTable.id));
   if (rows.length === 0) return [];
 
-  const canonical = await canonicalCatOf(rows.map((r) => r.chosenCatId!));
-  const catIds = [...new Set([...canonical.values()].filter((c): c is number => c !== null))];
-  const cats = catIds.length
-    ? await db.select({ id: catsTable.id, name: catsTable.name, primaryPhotoId: catsTable.primaryPhotoId }).from(catsTable).where(inArray(catsTable.id, catIds))
-    : [];
+  // The cat the sighting is filed under now, which is what the move screen expects (a sighting an undo
+  // returned is filed under another cat than the one the spotter chose).
+  const catIds = [...new Set(rows.map((r) => r.catId!))];
+  const cats = await db.select({ id: catsTable.id, name: catsTable.name, primaryPhotoId: catsTable.primaryPhotoId }).from(catsTable).where(inArray(catsTable.id, catIds));
   const catById = new Map(cats.map((c) => [c.id, c]));
-  const catPhotos = await catDisplayPhotos(cats);
+  // The team may see a hidden photo, so the cat's own main photo is shown, never the public stand-in.
+  const photoIds = [...new Set([...rows.map((r) => r.photoId), ...cats.map((c) => c.primaryPhotoId)])];
   const photos = await db
     .select({ id: photosTable.id, publicId: photosTable.publicId })
     .from(photosTable)
-    .where(and(inArray(photosTable.id, rows.map((r) => r.photoId)), isNull(photosTable.removedAt)));
+    .where(and(inArray(photosTable.id, photoIds), isNull(photosTable.removedAt)));
   const publicIdOf = new Map(photos.map((p) => [p.id, p.publicId]));
+  const full = (id: number) => (publicIdOf.has(id) ? teamPhotoUrl(publicIdOf.get(id)!) : null);
+  const card = (id: number) => (publicIdOf.has(id) ? `${teamPhotoUrl(publicIdOf.get(id)!)}/card` : null);
 
   const out: MatchToCheck[] = [];
   for (const r of rows) {
-    const catId = canonical.get(r.chosenCatId!) ?? null;
-    const cat = catId === null ? undefined : catById.get(catId);
+    const cat = catById.get(r.catId!);
     if (cat === undefined || r.rank === null) continue;
-    const publicId = publicIdOf.get(r.photoId);
     out.push({
       sightingId: r.sightingId,
       catId: cat.id,
@@ -90,8 +92,10 @@ export async function matchesToCheck(launchDate: string | null): Promise<MatchTo
       rank: r.rank,
       spottedAt: r.spottedAt,
       area: r.areaKey === "off" ? "Off Syros" : (areaByKey(r.areaKey)?.name ?? "Somewhere on Syros"),
-      sightingPhotoUrl: publicId ? `/api/team/photos/${encodeURIComponent(publicId)}` : null,
-      catPhotoUrl: catPhotos.get(cat.id) ?? null,
+      sightingPhotoUrl: card(r.photoId),
+      catPhotoUrl: card(cat.primaryPhotoId),
+      sightingPhotoFullUrl: full(r.photoId),
+      catPhotoFullUrl: full(cat.primaryPhotoId),
     });
   }
   return out;

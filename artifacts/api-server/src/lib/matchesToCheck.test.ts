@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { eq } from "drizzle-orm";
-import { db, pool, sightingMatchesTable, sightingMovesTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { catsTable, db, markLeft, photosTable, pool, sightingMatchesTable, sightingMovesTable, sightingsTable } from "@workspace/db";
 import { moveKit } from "../test/moveKit";
+import { libMerge, libUndo } from "../test/merges";
+import { hidePhoto, signedPerson } from "../test/roleKit";
 import { markLooksRight, matchesToCheck, matchesToCheckCount } from "./matchesToCheck";
 import { MoveRefused } from "./moveSightings";
 import { launchMeasuresReport } from "./reports/launchMeasures";
@@ -25,12 +27,15 @@ const at = (iso: string) => new Date(iso);
 const staff = { id: "vitest-match-check-staff", scopes: [{ role: "staff", colonyId: null }] };
 const guardian = { id: "vitest-match-check-guardian", scopes: [{ role: "guardian", colonyId: 1 }] };
 const device = () => kit.device();
+let removerEmail: string | null = null;
 
 beforeAll(async () => {
+  process.env["TEAM_SESSION_KEYS"] = "vitest-matchcheck-lib-key-0123456789abcdef-0123456789";
   await kit.cleanup();
 });
 afterAll(async () => {
   await kit.cleanup();
+  if (removerEmail) await markLeft(removerEmail, "cli:vitest");
   await pool.end();
 });
 
@@ -83,8 +88,8 @@ describe("what is on the list (§4.6)", () => {
     expect(mine.map((r) => r.rank)).toEqual([1, 3]);
     expect(mine[0]!.catName).toMatch(/^VitestMatchCheck/);
     expect(mine[0]!.spottedAt).toEqual(at("2040-03-02T10:00:00Z"));
-    expect(mine[0]!.sightingPhotoUrl).toMatch(/^\/api\/team\/photos\//);
-    expect(mine[0]!.catPhotoUrl).toMatch(/^\/api\/photos\//);
+    expect(mine[0]!.sightingPhotoUrl).toMatch(/^\/api\/team\/photos\/[^/]+\/card$/);
+    expect(mine[0]!.catPhotoUrl).toMatch(/^\/api\/team\/photos\/[^/]+\/card$/);
     expect(await matchesToCheckCount(LAUNCH)).toBe(rows.length);
   });
 
@@ -113,6 +118,67 @@ describe("what is on the list (§4.6)", () => {
     expect(listed).toContain(merged);
     expect(listed).toContain(undone);
     expect(listed).not.toContain(corrected);
+  });
+});
+
+describe("edges of the list", () => {
+  it("leaves out a redacted sighting", async () => {
+    const cat = await kit.cat();
+    const s = await suggested(cat, at("2040-03-11T10:00:00Z"));
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`alter table sightings disable trigger sightings_append_only`);
+      await tx.update(sightingsTable).set({ deviceId: null, redactedAt: at("2040-03-12T10:00:00Z"), redactionReason: "test" }).where(eq(sightingsTable.id, s));
+      await tx.execute(sql`alter table sightings enable trigger sightings_append_only`);
+    });
+    expect(ids(await matchesToCheck(LAUNCH))).not.toContain(s);
+  });
+
+  it("shows no sighting photo when that photo was removed", async () => {
+    const remover = await signedPerson("matchcheckremover", ["staff"]);
+    removerEmail = remover.email;
+    const cat = await kit.cat();
+    const s = await suggested(cat, at("2040-03-11T11:00:00Z"));
+    const [row] = await db.select({ photoId: sightingsTable.photoId }).from(sightingsTable).where(eq(sightingsTable.id, s));
+    await db.update(photosTable).set({ removedAt: at("2040-03-12T10:00:00Z"), removedBy: remover.id, removedReason: "test", data: null }).where(eq(photosTable.id, row!.photoId));
+    const found = (await matchesToCheck(LAUNCH)).find((r) => r.sightingId === s);
+    expect(found).toBeDefined();
+    expect(found!.sightingPhotoUrl).toBeNull();
+    expect(found!.sightingPhotoFullUrl).toBeNull();
+    expect(found!.catPhotoUrl).not.toBeNull();
+  });
+
+  it("keeps the Athens launch midnight: 22:30Z the day before is in, 21:30Z is out", async () => {
+    const cat = await kit.cat();
+    const inside = await suggested(cat, at("2040-02-29T22:30:00Z"));
+    const outside = await suggested(cat, at("2040-02-29T21:30:00Z"));
+    const listed = ids(await matchesToCheck(LAUNCH));
+    expect(listed).toContain(inside);
+    expect(listed).not.toContain(outside);
+  });
+
+  it("shows the cat's own main photo when it is hidden, never the sighting's photo", async () => {
+    const cat = await kit.cat();
+    const s = await suggested(cat, at("2040-03-11T12:00:00Z"));
+    const [c] = await db.select({ p: catsTable.primaryPhotoId }).from(catsTable).where(eq(catsTable.id, cat));
+    await hidePhoto(c!.p);
+    const own = (await db.select({ id: photosTable.publicId }).from(photosTable).where(eq(photosTable.id, c!.p)))[0]!.id;
+    const found = (await matchesToCheck(LAUNCH)).find((r) => r.sightingId === s)!;
+    expect(found.catPhotoUrl).toBe(`/api/team/photos/${own}/card`);
+    expect(found.catPhotoUrl).not.toBe(found.sightingPhotoUrl);
+  });
+
+  it("names the cat the sighting is filed under now, after a merge is undone with the sighting ticked", async () => {
+    const a = await kit.cat();
+    const b = await kit.cat();
+    const s = await suggested(a, at("2040-03-11T13:00:00Z"));
+    await kit.sighting(a, device(), at("2040-03-11T13:30:00Z"));
+    await kit.sighting(b, device(), at("2040-03-11T13:40:00Z"));
+    const merged = await libMerge(a, b);
+    await libUndo(merged.mergeId, [s]);
+    const [now] = await db.select({ catId: sightingsTable.catId }).from(sightingsTable).where(eq(sightingsTable.id, s));
+    const found = (await matchesToCheck(LAUNCH)).find((r) => r.sightingId === s);
+    expect(found).toBeDefined();
+    expect(found!.catId).toBe(now!.catId);
   });
 });
 

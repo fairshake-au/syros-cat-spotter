@@ -33,8 +33,13 @@ router.get(
     // SYC-59 PR 5.1: the Possible duplicates count, for those who may open the list. A failed count hides the tile, not Home.
     const duplicates = can(person, "review_duplicates") ? await listDuplicates(now).then((l) => l.length, () => 0) : 0;
     // SYC-795: the Matches to check count, for those who may move sightings. A failed count hides the tile, not Home.
-    const launchDate = await getAppSettings().then((a) => a.launchDate, () => null);
-    const matchChecks = can(person, "move_sighting") ? await matchesToCheckCount(launchDate).then((n) => n, () => 0) : 0;
+    const matchCheckLaunch = can(person, "move_sighting") ? await getAppSettings().then((a) => a.launchDate, () => null) : null;
+    const matchChecks = can(person, "move_sighting")
+      ? await matchesToCheckCount(matchCheckLaunch).then((n) => n, (err: unknown) => {
+          req.log.warn({ err }, "Matches to check count failed; the tile is hidden");
+          return 0;
+        })
+      : 0;
     res.type("html").send(
       renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"), duplicates, matchChecks,
         batches: can(person, "log_vet_visit") && can(person, "view_vet_costs") && can(person, "find_cat_from_photo"),

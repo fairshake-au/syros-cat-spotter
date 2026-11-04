@@ -115,8 +115,8 @@ describe("the list", () => {
     expect(row).toContain("3rd suggestion");
     expect(rowOf(res.text, second)).toContain("2nd suggestion");
     expect(row).toMatch(/#\d+/);
-    expect(row).toMatch(/<img[^>]+src="\/api\/team\/photos\//);
-    expect(row).toMatch(/<img[^>]+src="\/api\/photos\//);
+    expect(row).toMatch(/<img[^>]+src="\/api\/team\/photos\/[^"]+\/card"/);
+    expect(row).toMatch(/<img[^>]+src="\/api\/team\/photos\/[^"]+\/card"/);
     expect(row).toContain("Looks right");
     expect(row).toContain("Different cat");
     expect(res.text).not.toMatch(/<script/i);

@@ -20,9 +20,9 @@ const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: 
 export const differentCatHref = (m: Pick<MatchToCheck, "catId" | "sightingId">): string =>
   `/api/team/sightings/move?cat=${m.catId}&s=${m.sightingId}&source=match_check`;
 
-const photo = (url: string | null, alt: string) =>
+const photo = (url: string | null, fullUrl: string | null, alt: string) =>
   url
-    ? `<a href="${esc(url)}"><img src="${esc(url)}" alt="${esc(alt)}" loading="lazy" width="160" height="160"></a>`
+    ? `<a href="${esc(fullUrl ?? url)}"><img src="${esc(url)}" alt="${esc(alt)}" loading="lazy" width="160" height="160"></a>`
     : '<span class="nophoto">No photo</span>';
 
 function row(m: MatchToCheck): string {
@@ -30,8 +30,8 @@ function row(m: MatchToCheck): string {
   return (
     `<article class="report matchrow" id="m-${m.sightingId}">` +
     '<div class="matchphotos">' +
-    `<figure>${photo(m.sightingPhotoUrl, "The spotter's photo")}<figcaption>Spotter's photo</figcaption></figure>` +
-    `<figure>${photo(m.catPhotoUrl, `Main photo of ${name}`)}<figcaption>${esc(name)}'s main photo</figcaption></figure>` +
+    `<figure>${photo(m.sightingPhotoUrl, m.sightingPhotoFullUrl, "The spotter's photo")}<figcaption>Spotter's photo</figcaption></figure>` +
+    `<figure>${photo(m.catPhotoUrl, m.catPhotoFullUrl, `Main photo of ${name}`)}<figcaption>${esc(name)}'s main photo</figcaption></figure>` +
     "</div>" +
     `<p class="head"><a class="catlink" href="/api/team/cats/${m.catId}"><strong>${esc(name)}</strong></a> <span class="syr">${esc(syrNumber(m.catId))}</span></p>` +
     `<p class="meta">${esc(m.area)} · ${esc(day(m.spottedAt))}</p>` +
@@ -47,7 +47,7 @@ function row(m: MatchToCheck): string {
 export function renderMatchesToCheckPage(matches: MatchToCheck[], personName: string): string {
   const intro =
     "<p>Suggestions spotters took since launch that nobody has checked. Look at the two photos. " +
-    "<strong>Looks right</strong> takes the row off this list. <strong>Different cat</strong> opens the move screen with this sighting ticked. " +
+    "<strong>Looks right</strong> takes the row off this list. <strong>Different cat</strong> opens the move screen with this sighting filled in. " +
     "The oldest come first, and the order is fixed, so skipping a row leaves it at the top.</p>";
   const body =
     matches.length === 0
