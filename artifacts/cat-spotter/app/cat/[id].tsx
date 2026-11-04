@@ -34,7 +34,7 @@ import { mainPhotoCaption } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
 import { IconButton } from '@/components/purropolis';
 import { formatDay, formatPublicDate } from '@/lib/catPageDates';
-import { lifeLine, sterilisedLineKey } from '@/lib/catStatusLines';
+import { lifeLine, sterilisedIcon, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
 import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
 import { homeActionFor, seenQuietLine, visiblePhotoCount } from '@/lib/catPageFacts';
@@ -221,7 +221,8 @@ export default function CatDetailScreen() {
     line.key === 'notSeenSince'
       ? t('notSeenSince').replace('{date}', formatDay(line.date, language))
       : t(line.key);
-  const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
+  const sterilisedKey = sterilisedLineKey(cat.sterilised);
+  const sterilisedLine = t(sterilisedKey);
   const heroCaption = mainPhotoCaption(cat, sightings, careTimeline, t);
   const heroCanOpen = !!cat.photoUrl && heroLoaded === cat.photoUrl && heroCaption !== null;
 
@@ -363,6 +364,7 @@ export default function CatDetailScreen() {
               storyAvailable={storyAvailable}
               lifeLineText={lifeLineText}
               sterilisedLine={sterilisedLine}
+              sterilisedIcon={sterilisedIcon(sterilisedKey)}
               seenQuiet={seenQuietLine(t, {
                 sightingsCount: cat.sightingsCount,
                 spottersCount: data.spottersCount,

@@ -510,9 +510,40 @@ describe('the facts card and the cards under the main button', () => {
     expect(icon.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('keeps the "Where" row: place bold, appearance quiet', () => {
+  it('keeps the "Where" row for the place, under the map pin', () => {
     page();
-    expect(screen.getByTestId('fact-where').textContent).toContain('By the harbour');
+    const where = screen.getByTestId('fact-where');
+    expect(where.textContent).toContain('By the harbour');
+    expect(where.querySelector('[data-feather="map-pin"]')).toBeTruthy();
+  });
+
+  // SYC-809: the coat is not a place, so it never sits under the map pin.
+  it('gives the coat its own row, apart from the place', () => {
+    page({}, cat({ coatColours: ['ginger'] } as Partial<Cat>));
+    expect(screen.getByTestId('fact-where').textContent).not.toContain('Ginger');
+    const coat = screen.getByTestId('fact-coat');
+    expect(coat.textContent).toContain('Ginger');
+    expect(coat.querySelector('[data-feather="map-pin"]')).toBeNull();
+  });
+
+  it('has no "Where" row for a cat with no place, even with a coat', () => {
+    page({}, cat({ description: null, coatColours: ['ginger'] } as Partial<Cat>));
+    expect(screen.queryByTestId('fact-where')).toBeNull();
+    expect(screen.getByTestId('fact-coat').textContent).toContain('Ginger');
+  });
+
+  // SYC-809: "not known yet" never wears a tick.
+  it('marks "Sterilised: not known yet" with a question mark, not a tick', () => {
+    page();
+    const row = screen.getByTestId('fact-sterilised');
+    expect(row.textContent).toContain(en.sterilisedUnknown);
+    expect(row.querySelector('[data-feather="help-circle"]')).toBeTruthy();
+    expect(row.querySelector('[data-feather="check-circle"]')).toBeNull();
+  });
+
+  it('keeps the tick for a cat confirmed sterilised', () => {
+    page({}, cat({ sterilised: { value: true, confidence: 'confirmed', clippedTipSightings: 0 } } as Partial<Cat>));
+    expect(screen.getByTestId('fact-sterilised').querySelector('[data-feather="check-circle"]')).toBeTruthy();
   });
 });
 

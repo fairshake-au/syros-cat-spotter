@@ -12,6 +12,7 @@ import { LANGUAGES } from '../i18n';
 import {
   lifeLine,
   parseDateOnly,
+  sterilisedIcon,
   sterilisedLineKey,
   textFor,
   STATUS_LINE_KEYS,
@@ -132,4 +133,14 @@ describe('every status line, in every language', () => {
       expect(textFor(code, 'sterilisedUnknown')).toMatch(STERILISATION_WORD[code]!);
     });
   }
+});
+
+// SYC-809: the icon beside the sterilised line says the same as its words.
+describe('sterilisedIcon', () => {
+  it('ticks only a cat confirmed sterilised', () => {
+    expect(sterilisedIcon('sterilisedConfirmedTrue')).toBe('check-circle');
+    expect(sterilisedIcon('sterilisedLikely')).toBe('check');
+    expect(sterilisedIcon('sterilisedConfirmedFalse')).toBe('x-circle');
+    expect(sterilisedIcon('sterilisedUnknown')).toBe('help-circle');
+  });
 });

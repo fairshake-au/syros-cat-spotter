@@ -56,6 +56,18 @@ export function sterilisedLineKey(sterilised: Cat['sterilised']): SterilisedLine
   return 'sterilisedUnknown';
 }
 
+/**
+ * SYC-809: the icon beside the sterilised line says the same as its words.
+ * Only a confirmed sterilisation gets the ringed tick; "not known yet" is a
+ * question, never a tick (a missing clip is never evidence either way).
+ */
+export function sterilisedIcon(key: SterilisedLineKey): 'check-circle' | 'check' | 'x-circle' | 'help-circle' {
+  if (key === 'sterilisedConfirmedTrue') return 'check-circle';
+  if (key === 'sterilisedLikely') return 'check';
+  if (key === 'sterilisedConfirmedFalse') return 'x-circle';
+  return 'help-circle';
+}
+
 /** Every language has a non-empty string for every key these functions can
  * pick -- used by the i18n coverage test below so a missing translation
  * fails loudly instead of rendering the raw key on a phone. */

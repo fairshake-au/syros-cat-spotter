@@ -52,6 +52,7 @@ export function AboutTab({
   storyAvailable,
   lifeLineText,
   sterilisedLine,
+  sterilisedIcon,
   seenQuiet,
   appearance,
   canSpot,
@@ -81,6 +82,8 @@ export function AboutTab({
   storyAvailable: boolean;
   lifeLineText: string;
   sterilisedLine: string;
+  /** The icon that says the same as the sterilised line (catStatusLines.ts). */
+  sterilisedIcon: FactRow['icon'];
   seenQuiet: string | null;
   /** The appearance line (colour and markings), or null. */
   appearance: string | null;
@@ -98,12 +101,10 @@ export function AboutTab({
   const { t, language } = useLanguage();
   const sentenceName = catNameInSentence(cat);
   const place = cat.description?.trim() || null;
-  const whereBold = place ?? appearance;
-  const whereQuiet = place ? appearance : null;
 
   const rows: FactRow[] = [
     { key: 'home', icon: 'heart', bold: lifeLineText },
-    { key: 'sterilised', icon: 'check-circle', bold: sterilisedLine },
+    { key: 'sterilised', icon: sterilisedIcon, bold: sterilisedLine },
     {
       key: 'seen',
       icon: 'eye',
@@ -111,7 +112,10 @@ export function AboutTab({
       quiet: seenQuiet,
     },
   ];
-  if (whereBold) rows.push({ key: 'where', icon: 'map-pin', bold: whereBold, quiet: whereQuiet });
+  // SYC-809: the coat is not a place, so it gets its own row and never sits
+  // under the map pin.
+  if (appearance) rows.push({ key: 'coat', icon: 'droplet', bold: appearance });
+  if (place) rows.push({ key: 'where', icon: 'map-pin', bold: place });
 
   const bannerTarget: CatTab | null = update
     ? update.updateType === 'sighting'
