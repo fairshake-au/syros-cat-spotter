@@ -9,6 +9,9 @@ import { renderNewCatsPage } from "../lib/teamPages/newCatsPage";
 import { nearbyCatsOf } from "../lib/newCatsNearby";
 import { can } from "../lib/capabilities";
 import { listDuplicates } from "../lib/duplicateList";
+import { getAppSettings } from "../lib/appSettings";
+import { matchesToCheck, matchesToCheckCount } from "../lib/matchesToCheck";
+import { renderMatchesToCheckPage } from "../lib/teamPages/matchesToCheckPage";
 
 // Home: the first page after signing in (SYC-396 spec §4; plan PR 2.1).
 // `view_welfare_queue`, island-only: it shows the whole island's reports, so
@@ -29,8 +32,11 @@ router.get(
     req.log.info({ ms: Date.now() - started }, "home figures worked out");
     // SYC-59 PR 5.1: the Possible duplicates count, for those who may open the list. A failed count hides the tile, not Home.
     const duplicates = can(person, "review_duplicates") ? await listDuplicates(now).then((l) => l.length, () => 0) : 0;
+    // SYC-795: the Matches to check count, for those who may move sightings. A failed count hides the tile, not Home.
+    const launchDate = await getAppSettings().then((a) => a.launchDate, () => null);
+    const matchChecks = can(person, "move_sighting") ? await matchesToCheckCount(launchDate).then((n) => n, () => 0) : 0;
     res.type("html").send(
-      renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"), duplicates,
+      renderHomePage(data, { personName: person.name, now, costs: can(person, "view_vet_costs"), duplicates, matchChecks,
         batches: can(person, "log_vet_visit") && can(person, "view_vet_costs") && can(person, "find_cat_from_photo"),
       }),
     );
@@ -50,5 +56,13 @@ router.get(
     res.type("html").send(renderNewCatsPage(cats, person.name, nearby));
   },
 );
+
+// SYC-795: Samuel's Matches to check list. Same door as the move screen it leads to.
+router.get("/team/matches-to-check", requireTeam("move_sighting"), async (_req: Request, res: Response) => {
+  const person = teamPerson(res);
+  setTeamHeaders(res);
+  const { launchDate } = await getAppSettings();
+  res.type("html").send(renderMatchesToCheckPage(await matchesToCheck(launchDate), person.name));
+});
 
 export default router;
