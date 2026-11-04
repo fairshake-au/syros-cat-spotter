@@ -115,10 +115,12 @@ function ClassicTabLayout() {
         options={{
           title: t('tabSpot'),
           tabBarBadge: reviewReadyCount > 0 ? reviewReadyCount : undefined,
-          // White, so it shows against the raised pink camera.
+          // White and out on the rim, so it shows against the raised camera.
           tabBarBadgeStyle: {
             backgroundColor: colors.accentForeground,
             color: colors.accent,
+            marginTop: -22,
+            marginLeft: 12,
             fontSize: 11,
             fontFamily: 'Inter_700Bold',
           },
