@@ -132,8 +132,8 @@ function todaySection(needs: HomeNeeds, toCheck: HomeToCheck, now: Date, duplica
   tiles.push(tile("/api/team/duplicates", duplicates, "possible duplicate", "possible duplicates", "Pairs of cats that may be one cat. Nothing changes until you merge them."));
   waiting += duplicates;
   // SYC-795: only for someone who holds move_sighting (the route passes the count).
+  // It stays out of `waiting`: it's a checking list, not work the team owes (Samuel, 4 Nov).
   tiles.push(tile("/api/team/matches-to-check", matchChecks, "match to check", "matches to check", "Suggestions spotters took. Check the photo matches the cat."));
-  waiting += matchChecks;
   allRead &&= [needs.issuesOpen, needs.awaitingMatch, toCheck.earClips, toCheck.colour, toCheck.newCats].every((x) => x.ok);
 
   const tileList = tiles.join("");

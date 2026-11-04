@@ -1,6 +1,6 @@
 # Launch measures: a report on the team dashboard
 
-SYC-795 · parent SYC-760 · draft 6, 3 Nov 2026 (draft 5 approved 31 Oct; draft 6 adds donations as the sixth measure, §4.7, at Samuel's request) · adversarial review folded in (§11) · both decisions made (Decision 1 = B; Samuel checks matches, §4.6) · **approved by Samuel, 31 Oct 2026** ("decisions: 1B. approved with that change.")
+SYC-795 · parent SYC-760 · draft 7, 4 Nov 2026 (draft 5 approved 31 Oct; draft 6 adds donations as the sixth measure, §4.7, at Samuel's request; draft 7 opens Matches to check to the whole team, §4.6) · adversarial review folded in (§11) · both decisions made (Decision 1 = B; Samuel checks matches, §4.6) · **approved by Samuel, 31 Oct 2026** ("decisions: 1B. approved with that change.")
 
 ## 1. What this is
 
@@ -126,7 +126,7 @@ Samuel decided on 30 Oct 2026 that he checks matches himself: "I'll do the match
   - **Looks right.** Records that the match was checked and right, and takes it off the list.
   - **Different cat.** Opens the existing move screen with this sighting filled in. Moving it records the correction exactly as moves already do.
 - **Order is fixed, oldest first.** It doesn't let you pick easy ones, and it isn't sorted by how confident the app was. Otherwise the checked figure would only measure the easy cases. If Samuel skips a row it stays at the top, so the order is never chosen by hand.
-- **Who sees it:** people who can move sightings today. That's the team permission added for moving and merging. Nobody else on the team sees it, and nothing goes to Jacky or Susan.
+- **Who sees it:** the whole team, meaning everyone who can move sightings (Samuel, 4 Nov 2026: "whole team sees it, but I'll do the first round of match checking before we publish"). Home shows the count as a tile but leaves it out of what's waiting, so it never reads as work the team owes.
 - **On the road:** it's a phone-width page, usable on Samuel's phone. Server-drawn with no scripts, like the other lists.
 - **Where:** a link from the dashboard home with a count ("12 matches to check"), the same way New cats to check is reached.
 - **Recording:** "Looks right" fills the match record's team step, which is written once and only while empty, with "looks right", who, and when. The app already allows that value. Nothing writes it today. A later move still counts as a correction, and moves already only fill the step if it's empty. So a sighting checked as right and later moved shows in both rows. The report counts it as "corrected", because the later word wins.
