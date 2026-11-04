@@ -21,7 +21,7 @@ vi.mock("./appSettings", async (importOriginal) => {
   return { ...real, getAppSettings: async () => ({ ...(await real.getAppSettings()), launchDate: settings.launchDate }) };
 });
 
-const kit = moveKit("VitestMatchCheck");
+const kit = moveKit("VitestMatchCheck", { lat: 37.15, lng: 25.3 });
 const LAUNCH = "2040-03-01";
 const at = (iso: string) => new Date(iso);
 const staff = { id: "vitest-match-check-staff", scopes: [{ role: "staff", colonyId: null }] };

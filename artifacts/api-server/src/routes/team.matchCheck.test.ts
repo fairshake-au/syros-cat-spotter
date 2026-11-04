@@ -27,7 +27,7 @@ import { renderMatchesToCheckPage } from "../lib/teamPages/matchesToCheckPage";
 // other test files make can't appear. Cat names are letters only (SYC-709).
 
 const KEY = "vitest-matchcheck-key-0123456789abcdef-0123456789";
-const kit = moveKit("VitestMatchPage");
+const kit = moveKit("VitestMatchPage", { lat: 37.15, lng: 25.4 });
 const LAUNCH = "2041-03-01";
 let staff: Signed;
 let guardian: Signed;
