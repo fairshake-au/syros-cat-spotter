@@ -1,6 +1,6 @@
 # Today's look, tidied (SYC-811, Option 3)
 
-Status: decisions recorded 4 Nov 2026, except which emoji stay.
+Status: all decisions recorded 4 Nov 2026.
 
 Samuel chose Option 3 on 4 Nov 2026: "for now, let's go with option 3". The blue header, rounded cards and font stay. Port Register and Façades are parked. This spec covers the spotter app only.
 
@@ -21,7 +21,7 @@ Samuel, 4 Nov 2026: "1A, 2A, 3 puns survive ... 5 it can go live immediately".
 - **Spot tab:** raised round camera button (2A). iPhones on iOS 26 keep Apple's own tab bar. Swapping Help for Map stays out and stays open on SYC-781.
 - **Puns:** they stay, in all three languages. The wording doesn't change.
 - **Timing:** goes live as soon as it's merged and published. Samuel's words above cover this work under the 1-14 Nov hold. SYC-760's measures note the date it went live, because a more prominent Spot button could change the number of spots.
-- **Emoji:** open.
+- **Emoji:** all stay (Samuel, 4 Nov 2026: "Keep them all"). No screens or translation strings change for this.
 
 ## What changes
 
