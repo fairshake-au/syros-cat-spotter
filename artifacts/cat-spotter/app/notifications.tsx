@@ -271,7 +271,7 @@ export default function NotificationsScreen() {
             {t(notificationsEmptyKey(profileQuery.data))}
           </Text>
           {/* SYC-578: the empty inbox's way forward. */}
-          <Button variant="primary" size="lg" onPress={() => goToSpotTab(router)}>
+          <Button variant="accent" size="lg" onPress={() => goToSpotTab(router)}>
             {t('spotTitle')}
           </Button>
         </View>
