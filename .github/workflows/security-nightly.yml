@@ -1,0 +1,40 @@
+name: security-nightly
+# SYC-768: the same critical-advisory check as ci.yml's "No package has a
+# critical advisory" step (SYC-746), run on main every night. The CI gate only
+# runs when someone pushes, so an advisory published after the last merge
+# (GHSA-jrc7-96c5-q579) went unseen until the next push. This run FAILS when
+# main's lockfile holds a package with a critical advisory. GitHub emails a
+# failed scheduled run to whoever last changed the cron line below (Samuel,
+# while his account makes the merges). It also fails if the npm advisory
+# service is down, so read the log before acting on the email.
+#
+# Cheap by design: `pnpm audit` reads pnpm-lock.yaml only, so there is no
+# install and no database, well under a minute a night. The repo is public, so
+# GitHub-hosted runs use no paid Actions minutes. Critical only, like the
+# gate: the high findings docs/dependency-security.md records as patched or
+# accepted would fail every night.
+on:
+  schedule:
+    # 03:41 UTC: before Athens wakes, off the hour when GitHub's schedule
+    # queue is least busy.
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+permissions: { contents: read }
+concurrency: { group: "security-nightly", cancel-in-progress: true }
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: No package on main has a critical advisory
+        run: pnpm audit --audit-level critical

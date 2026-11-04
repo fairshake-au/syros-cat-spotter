@@ -2,7 +2,7 @@ import type { Split } from "../dashboard/countedCats";
 import { wholePct } from "../dashboard/colonyFigures";
 import type { SterilisedMark } from "../teamCatList";
 import { escapeHtml as esc } from "../teamPages/escape";
-import { MARK_COLOUR, markBar } from "../teamPages/marks";
+import { MARK_COLOUR, markBar, NOT_KNOWN_EDGE } from "../teamPages/marks";
 import { dayWords } from "./range";
 import { INK, VIEW_W } from "./chartCss";
 
@@ -111,7 +111,8 @@ export function lineChart(o: { series: LineSeries[]; title: string }): string {
   const lines = o.series
     .map((s) => {
       if (s.points.length === 0) return "";
-      const colour = s.mark ? MARK_COLOUR[s.mark] : INK;
+      // Not known's fill is too pale for a line on white (SYC-783): its line takes the grey edge instead.
+      const colour = s.mark === "not_known" ? NOT_KNOWN_EDGE : s.mark ? MARK_COLOUR[s.mark] : INK;
       const opacity = s.mark ? "" : ` stroke-opacity="${NEUTRAL_OPACITY}"`;
       const d = s.points.map((pt, i) => `${i === 0 ? "M" : "L"}${r1(x(pt.at))} ${r1(y(pt.value))}`).join(" ");
       const path = `<path d="${d}" fill="none" stroke="${colour}" stroke-width="2" vector-effect="non-scaling-stroke"${opacity} stroke-linejoin="round"/>`;

@@ -347,7 +347,7 @@ export function CatPicker({
         <View
           style={[
             styles.searchBox,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.controlBorder },
           ]}
         >
           <Feather name="search" size={16} color={colors.mutedForeground} />

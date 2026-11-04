@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { ipKeyGenerator } from "express-rate-limit";
 
 /**
  * The app's one keyed fingerprint of an email address (SYC-3 plan, Decision 4;
@@ -60,8 +61,15 @@ export function addressFingerprint(label: Exclude<FingerprintLabel, "ip">, addre
   return fingerprint(label, normaliseAddress(address));
 }
 
+/**
+ * An address, grouped the way every rate limit groups it (`addressKey` in
+ * lib/limits.ts) BEFORE the hash: an IPv6 address by its /56, an IPv4-mapped
+ * one as the IPv4 address (SYC-667). The keep-safe and reporter-email counts
+ * compare these hashes; hashing the raw address would let anyone with IPv6
+ * pick a fresh address from their block for every request.
+ */
 export function ipFingerprint(ip: string): string {
-  return fingerprint("ip", ip);
+  return fingerprint("ip", !ip || ip === "unknown" ? "unknown" : ipKeyGenerator(ip));
 }
 
 export function deviceFingerprint(deviceId: string): string {

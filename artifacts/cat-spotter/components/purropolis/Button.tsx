@@ -60,7 +60,7 @@ export function Button({
   const variantStyle = (): { backgroundColor: string; color: string; borderColor: string } => {
     switch (variant) {
       case 'primary':
-        return { backgroundColor: colors.primary, color: colors.primaryForeground, borderColor: 'transparent' };
+        return { backgroundColor: colors.primaryFill, color: colors.primaryForeground, borderColor: 'transparent' };
       case 'accent':
         return { backgroundColor: colors.accent, color: colors.accentForeground, borderColor: 'transparent' };
       case 'secondary':

@@ -393,7 +393,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
                   ? colors.primary
                   : taken
                     ? (colors.destructive ?? '#c0392b')
-                    : colors.border,
+                    : colors.controlBorder,
               },
             ]}
           >
@@ -484,7 +484,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
                       ? (colors.destructive ?? '#c0392b')
                       : savedFor !== null
                         ? colors.primary
-                        : colors.border,
+                        : colors.controlBorder,
                   },
                 ]}
               >

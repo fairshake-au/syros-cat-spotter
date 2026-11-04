@@ -20,7 +20,7 @@ import app from "../../app";
 import { settleOutbox } from "../mail/outbox";
 import { normaliseAddress } from "../mail/fingerprint";
 import { __setRestorePadForTest } from "../../routes/keepSafe";
-import { __setMoveHookForTest } from "./move";
+import { __setMoveHookForTest, choiceId } from "./move";
 import { installFakeResend, tokenFrom, type SentMail } from "../../test/fakeResend";
 
 const RUN = randomBytes(3).toString("hex");
@@ -139,7 +139,7 @@ describe("abandoning a spotter by getting your spots back", () => {
       .post("/api/restore/redeem")
       .set("X-Device-Secret", nikos.secret)
       .set("X-Forwarded-For", freshIp())
-      .send({ deviceId: nikos.id, token, spotterDeviceId: old.id, abandonCurrent: true });
+      .send({ deviceId: nikos.id, token, choice: choiceId(token, old.id), abandonCurrent: true });
     expect(r.status).toBe(200);
 
     expect(await db.select().from(badgeMomentsTable).where(eq(badgeMomentsTable.deviceId, nikos.id))).toEqual([]);
@@ -174,7 +174,7 @@ describe("abandoning a spotter by getting your spots back", () => {
       .post("/api/restore/redeem")
       .set("X-Device-Secret", nikos.secret)
       .set("X-Forwarded-For", freshIp())
-      .send({ deviceId: nikos.id, token, spotterDeviceId: old.id, abandonCurrent: true, deleteCurrent: true })
+      .send({ deviceId: nikos.id, token, choice: choiceId(token, old.id), abandonCurrent: true, deleteCurrent: true })
       .then((r) => r);
     await inMove;
     const deleting = request(app)

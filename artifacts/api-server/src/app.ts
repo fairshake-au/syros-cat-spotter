@@ -8,7 +8,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger, redactRequestUrl, safeError } from "./lib/logger";
 import { apiCors } from "./middlewares/apiCors";
-import { NUL_IN_BODY, NUL_MESSAGE, refuseNul } from "./middlewares/refuseNul";
+import { NUL_IN_BODY, NUL_IN_URL, NUL_MESSAGE, refuseNul, refuseNulInUrl } from "./middlewares/refuseNul";
 import { isPoolTimeout } from "./lib/poolTimeout";
 import { prelaunchGate } from "./middlewares/prelaunchGate";
 import { RESEND_WEBHOOK_PATH } from "./lib/mail/resendWebhook";
@@ -94,6 +94,9 @@ app.use(express.urlencoded({ extended: true }));
 // SYC-406: a NUL character anywhere in a JSON body is a 400 here,
 // before any route hands it to Postgres, which would answer 500.
 app.use(refuseNul);
+// SYC-691: and in the query string or a path parameter, outside the routes
+// that answer a NUL themselves (see refuseNulInUrl).
+app.use(refuseNulInUrl);
 
 // SYC-42 item 1.6, layer 2: after any API response, check for due mail.
 app.use("/api", opportunisticDrain);
@@ -185,6 +188,13 @@ export function jsonErrorHandler(
     req.log?.warn({ path: req.path }, "request body contains a NUL character");
     res.setHeader("Cache-Control", "no-store");
     if (sendTeamErrorPage(req, res, 400, "bad_request")) return;
+    res.status(400).json({ error: NUL_MESSAGE });
+    return;
+  }
+  if (typeof err === "object" && err !== null && "type" in err && err.type === NUL_IN_URL) {
+    // Never log the query or the raw path (either may hold a token).
+    req.log?.warn("request URL contains a NUL character");
+    res.setHeader("Cache-Control", "no-store");
     res.status(400).json({ error: NUL_MESSAGE });
     return;
   }

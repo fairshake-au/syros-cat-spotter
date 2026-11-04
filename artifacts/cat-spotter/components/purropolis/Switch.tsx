@@ -27,7 +27,7 @@ export function Switch({ checked, onChange, label, disabled }: SwitchProps) {
         style={[
           styles.track,
           {
-            backgroundColor: checked ? colors.primary : palette.stone400,
+            backgroundColor: checked ? colors.primaryFill : colors.controlBorder,
             justifyContent: checked ? 'flex-end' : 'flex-start',
           },
         ]}
