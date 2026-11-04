@@ -541,7 +541,7 @@ describe('the facts card and the cards under the main button', () => {
   });
 
   it('has no "Where" row for a cat with no place, even with a coat', () => {
-    page({}, cat({ description: null, coatColours: ['ginger'] } as Partial<Cat>));
+    page({}, cat({ description: undefined, coatColours: ['ginger'] } as Partial<Cat>));
     expect(screen.queryByTestId('fact-where')).toBeNull();
     expect(screen.getByTestId('fact-coat').textContent).toContain('Ginger');
   });
