@@ -208,7 +208,7 @@ export default function NotificationsScreen() {
           <View style={styles.dotSlot} />
         ) : (
           <View style={styles.dotSlot}>
-            <View style={[styles.dot, { backgroundColor: colors.accent }]} />
+            <View style={[styles.dot, { backgroundColor: colors.accentMark }]} />
           </View>
         )}
         <View style={[styles.iconCircle, { backgroundColor: iconStyle.bg }]}>

@@ -4,10 +4,8 @@ import colors, { toneColors } from '@/constants/colors';
 /**
  * SYC-766: every colour pair the app draws text or controls with meets
  * WCAG 2.2 AA in both themes: 4.5:1 for text, 3:1 for outlines (1.4.11).
- *
- * Left out on purpose: white on the brand pink (`accentForeground` on
- * `accent`, 3.4:1). Samuel chose on 23 Oct 2026 to keep the pink as it is
- * (SYC-142, closed as won't do).
+ * SYC-811: this now includes white on the brand pink, made deeper on
+ * 4 Nov 2026.
  */
 
 function luminance(hex: string): number {
@@ -58,6 +56,7 @@ describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
     ['primaryForeground on primaryFill', c.primaryForeground, c.primaryFill],
     ['destructiveForeground on destructiveFill', c.destructiveForeground, c.destructiveFill],
     ['secondaryForeground on secondary', c.secondaryForeground, c.secondary],
+    ['accentForeground on accent', c.accentForeground, c.accent],
     // Badge labels on their soft fills.
     ['success on successSoft', c.success, c.successSoft],
     ['warningText on warningSoft', c.warningText, c.warningSoft],

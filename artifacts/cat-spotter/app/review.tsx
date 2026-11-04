@@ -1105,7 +1105,7 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LinearGradient
-          colors={[palette.bougain500, palette.terra600]}
+          colors={[palette.bougain700, palette.terra800]}
           style={[styles.celebrateHero, { paddingTop: insets.top + bannerReserve + 8 }]}
         >
           <View style={styles.celebrateHeaderRow}>

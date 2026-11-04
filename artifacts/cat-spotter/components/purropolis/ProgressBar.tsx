@@ -24,7 +24,7 @@ export function ProgressBar({ value, max = 100, tone = 'aegean', label, hideValu
 
   const tones: Record<ProgressTone, string> = {
     aegean: colors.primary,
-    bougain: colors.accent,
+    bougain: colors.accentMark,
     sun: palette.sun600,
     olive: palette.olive600,
   };
