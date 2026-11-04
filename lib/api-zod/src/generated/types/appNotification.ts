@@ -7,6 +7,7 @@
  */
 import type { AppNotificationKind } from './appNotificationKind';
 import type { AppNotificationUpdateType } from './appNotificationUpdateType';
+import type { AppNotificationWording } from './appNotificationWording';
 
 /**
  * A bell entry. News about a cat has catId, catUpdateId and catName. A weekly result (a place in last week's top three) has no cat: those three and catPhotoUrl are null, updateType is general, and message never names an area or a place.
@@ -29,6 +30,10 @@ export interface AppNotification {
   survivorCatId?: number | null;
   survivorCatName?: string | null;
   mergedCatName?: string | null;
+  /** Which cat news this is, so the app words it in its own language (SYC-221). Null for staff text, weekly results, merge lines and entries written before this field existed: those show message. */
+  wording?: AppNotificationWording;
+  /** The Syros calendar day (YYYY-MM-DD) for seen_weekday and seen_date; null otherwise. */
+  wordingDay?: Date | null;
   read: boolean;
   createdAt: string;
 }

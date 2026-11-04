@@ -10,6 +10,7 @@ export * from './apiErrorBody';
 export * from './appNotification';
 export * from './appNotificationKind';
 export * from './appNotificationUpdateType';
+export * from './appNotificationWording';
 export * from './appSettings';
 export * from './appSettingsFeedNudge';
 export * from './badgeMoment';
