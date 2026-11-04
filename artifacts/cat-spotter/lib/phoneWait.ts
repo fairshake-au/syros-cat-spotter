@@ -7,8 +7,12 @@
 /** A wait longer than this is not a wait we trust (a phone left asleep). */
 export const MAX_PHONE_WAIT_MS = 600_000;
 
+/**
+ * The wall clock, so a phone that sleeps mid-wait passes the cap and is left
+ * out. A clock set back mid-wait comes out negative, and is left out too.
+ */
 export function startPhoneWait(
-  clock: () => number = () => performance.now(),
+  clock: () => number = Date.now,
 ): () => number | null {
   const startedAt = clock();
   return () => {

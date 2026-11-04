@@ -21,7 +21,7 @@ import {
   type SuggestedMatch,
   type PICKED_FROM,
 } from "@workspace/db";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, not, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lte, not, or, sql, type SQL } from "drizzle-orm";
 import {
   PUBLIC_VIEWER,
   deriveCatStatuses,
@@ -980,6 +980,9 @@ router.post("/sightings/:sightingId/wait", phoneWaitLimiter, async (req, res) =>
 
   // Once, and only for a check that worked: a repeat, a missing record or a
   // failed check changes nothing, and the answer is the same 204 either way.
+  // The phone's wait holds the server's part, so one shorter than it (or a
+  // record with no server's part) timed a different trip: a stored answer
+  // after a lost reply. That counts as no phone wait.
   await db
     .update(sightingMatchesTable)
     .set({ phoneWaitMs: body.waitMs })
@@ -988,6 +991,7 @@ router.post("/sightings/:sightingId/wait", phoneWaitLimiter, async (req, res) =>
         eq(sightingMatchesTable.sightingId, sightingId),
         isNull(sightingMatchesTable.phoneWaitMs),
         eq(sightingMatchesTable.matcherFailed, false),
+        lte(sightingMatchesTable.serverWaitMs, body.waitMs),
       ),
     );
   res.status(204).end();

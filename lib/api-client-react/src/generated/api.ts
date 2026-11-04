@@ -1032,7 +1032,7 @@ export const getRecordPhoneWaitUrl = (sightingId: number,) => {
 }
 
 /**
- * The phone's whole-trip wait, in milliseconds, from the spotter sending the photo to the look-alikes showing. Only the sighting's own device. Stored once, beside the server's part of the wait, and only for a check that worked: a second report, a report with no match record, or one after a failed check changes nothing and still answers 204.
+ * The phone's whole-trip wait, in milliseconds, from the spotter sending the photo to the look-alikes showing. Only the sighting's own device. Stored once, beside the server's part of the wait, and only for a check that worked: a second report, a report with no match record, one after a failed check, or one shorter than the server's part changes nothing and still answers 204.
  * @summary Report how long the phone waited for look-alikes (SYC-795)
  */
 export const recordPhoneWait = async (sightingId: number,

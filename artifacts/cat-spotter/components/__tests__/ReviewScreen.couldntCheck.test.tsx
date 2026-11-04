@@ -231,6 +231,7 @@ describe('"Check again"', () => {
       expect(screen.getByTestId('couldnt-check-line').textContent).toBe(en.couldntCheckStill),
     );
     expect(screen.getByTestId('couldnt-check-again')).toBeTruthy();
+    expect(m.recordPhoneWait).not.toHaveBeenCalled();
   });
 
   it('at the limit says to try again in a few minutes', async () => {

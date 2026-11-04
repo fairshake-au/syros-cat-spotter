@@ -80,6 +80,7 @@ describe('where it is wired', () => {
   it('spot.tsx reports only for a sent, non-failed-check answer', () => {
     const src = read('../../app/(tabs)/spot.tsx');
     expect(src).toMatch(/startPhoneWait\(\)/);
+    expect(src).toMatch(/await createSighting\([\s\S]{0,400}phoneWaitMs = stopPhoneWait\(\)/);
     expect(src).toMatch(
       /outcome\.kind === 'sent' && waitOutcome\.kind !== 'couldntCheck'[\s\S]{0,200}reportPhoneWait/,
     );
@@ -88,6 +89,6 @@ describe('where it is wired', () => {
   it('review.tsx times the recheck', () => {
     const src = read('../../app/review.tsx');
     expect(src).toMatch(/startPhoneWait\(\)/);
-    expect(src).toMatch(/reportPhoneWait\(recordPhoneWait/);
+    expect(src).toMatch(/res\.matchCheck === "done"[\s\S]{0,120}reportPhoneWait\(recordPhoneWait[^\n]*stopPhoneWait\(\)/);
   });
 });

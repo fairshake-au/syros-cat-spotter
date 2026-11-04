@@ -79,6 +79,13 @@ async function phoneWait(sightingId: number): Promise<number | null | undefined>
   return row?.phoneWaitMs;
 }
 
+async function plantServerWait(sightingId: number, serverWaitMs: number | null) {
+  await db
+    .update(sightingMatchesTable)
+    .set({ serverWaitMs })
+    .where(eq(sightingMatchesTable.sightingId, sightingId));
+}
+
 async function cleanup() {
   const rows = await db
     .select({ id: sightingsTable.id, photoId: sightingsTable.photoId })
@@ -122,11 +129,35 @@ describe("POST /sightings/:id/wait (SYC-795 §4.4)", () => {
 
   it("accepts the bounds 0 and 600000", async () => {
     const a = await send(DEVICE);
+    await plantServerWait(a, 0);
     expect((await postWait(a, { deviceId: DEVICE, waitMs: 0 })).status).toBe(204);
     expect(await phoneWait(a)).toBe(0);
     const b = await send(DEVICE);
     expect((await postWait(b, { deviceId: DEVICE, waitMs: 600000 })).status).toBe(204);
     expect(await phoneWait(b)).toBe(600000);
+  });
+
+  it("a wait shorter than the server's part timed another trip: 204, nothing written", async () => {
+    const id = await send(DEVICE);
+    await plantServerWait(id, 405);
+    expect((await postWait(id, { deviceId: DEVICE, waitMs: 120 })).status).toBe(204);
+    expect(await phoneWait(id)).toBeNull();
+    expect((await postWait(id, { deviceId: DEVICE, waitMs: 405 })).status).toBe(204);
+    expect(await phoneWait(id)).toBe(405);
+  });
+
+  it("a record with no server's part: 204, nothing written", async () => {
+    const id = await send(DEVICE);
+    await plantServerWait(id, null);
+    expect((await postWait(id, { deviceId: DEVICE, waitMs: 4200 })).status).toBe(204);
+    expect(await phoneWait(id)).toBeNull();
+  });
+
+  it("refuses a post with no secret and writes nothing", async () => {
+    const id = await send(DEVICE);
+    const res = await request(app).post(`/api/sightings/${id}/wait`).send({ deviceId: DEVICE, waitMs: 4200 });
+    expect(res.status).toBe(401);
+    expect(await phoneWait(id)).toBeNull();
   });
 
   it("refuses a sighting that doesn't exist (404)", async () => {
