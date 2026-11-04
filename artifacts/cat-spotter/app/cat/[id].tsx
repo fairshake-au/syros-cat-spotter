@@ -34,7 +34,7 @@ import { mainPhotoCaption } from '@/lib/photoCaption';
 import { photoSource } from '@/lib/urls';
 import { IconButton } from '@/components/purropolis';
 import { formatDay, formatPublicDate } from '@/lib/catPageDates';
-import { lifeLine, sterilisedLineKey } from '@/lib/catStatusLines';
+import { lifeLine, sterilisedIcon, sterilisedLineKey } from '@/lib/catStatusLines';
 import { appearanceLine } from '@/lib/appearance';
 import { canSpotFromPage, spotRouteFor } from '@/lib/spotHint';
 import { homeActionFor, seenQuietLine, visiblePhotoCount } from '@/lib/catPageFacts';
@@ -157,10 +157,17 @@ export default function CatDetailScreen() {
     else router.replace('/(tabs)/cats');
   };
 
+  // SYC-809: on slow signal the wait can be long, so the way back is there
+  // from the start, in the same place as on the loaded page.
   if (!deviceKnown || query.isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} />
+        <View style={[styles.backWrap, { top: insets.top + 8 }]}>
+          <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
+            <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+          </IconButton>
+        </View>
       </View>
     );
   }
@@ -221,7 +228,8 @@ export default function CatDetailScreen() {
     line.key === 'notSeenSince'
       ? t('notSeenSince').replace('{date}', formatDay(line.date, language))
       : t(line.key);
-  const sterilisedLine = t(sterilisedLineKey(cat.sterilised));
+  const sterilisedKey = sterilisedLineKey(cat.sterilised);
+  const sterilisedLine = t(sterilisedKey);
   const heroCaption = mainPhotoCaption(cat, sightings, careTimeline, t);
   const heroCanOpen = !!cat.photoUrl && heroLoaded === cat.photoUrl && heroCaption !== null;
 
@@ -363,6 +371,7 @@ export default function CatDetailScreen() {
               storyAvailable={storyAvailable}
               lifeLineText={lifeLineText}
               sterilisedLine={sterilisedLine}
+              sterilisedIcon={sterilisedIcon(sterilisedKey)}
               seenQuiet={seenQuietLine(t, {
                 sightingsCount: cat.sightingsCount,
                 spottersCount: data.spottersCount,
