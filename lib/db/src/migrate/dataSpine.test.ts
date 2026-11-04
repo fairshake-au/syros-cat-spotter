@@ -328,7 +328,13 @@ describe("colonies and feeding sites", () => {
 // exactly as foldName does.
 describe("cats_normalised_name_unique (SYC-101)", () => {
   beforeEach(async () => {
+    // cats refuses TRUNCATE (SYC-759): off for this one statement, in one
+    // transaction, as for the other guarded tables above.
+    await c.query("begin");
+    await c.query(`alter table cats disable trigger cats_no_truncate`);
     await c.query(`truncate cats restart identity cascade`);
+    await c.query(`alter table cats enable trigger cats_no_truncate`);
+    await c.query("commit");
   });
   const addCat = (n: string) =>
     c.query(
