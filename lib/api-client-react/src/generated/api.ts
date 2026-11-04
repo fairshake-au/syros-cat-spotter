@@ -52,6 +52,7 @@ import type {
   MyOpenSightings,
   Profile,
   RecheckSightingRequest,
+  RecordPhoneWaitRequest,
   RegisterPushToken200,
   RegisterPushTokenRequest,
   ResolveConflictBody,
@@ -1020,6 +1021,79 @@ export const useRecheckSighting = <TError = ErrorType<void | ApiErrorBody>,
         TContext
       > => {
       return useMutation(getRecheckSightingMutationOptions(options));
+    }
+
+export const getRecordPhoneWaitUrl = (sightingId: number,) => {
+
+
+
+
+  return `/api/sightings/${sightingId}/wait`
+}
+
+/**
+ * The phone's whole-trip wait, in milliseconds, from the spotter sending the photo to the look-alikes showing. Only the sighting's own device. Stored once, beside the server's part of the wait, and only for a check that worked: a second report, a report with no match record, or one after a failed check changes nothing and still answers 204.
+ * @summary Report how long the phone waited for look-alikes (SYC-795)
+ */
+export const recordPhoneWait = async (sightingId: number,
+    recordPhoneWaitRequest: RecordPhoneWaitRequest, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRecordPhoneWaitUrl(sightingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordPhoneWaitRequest)
+  }
+);}
+
+
+
+
+
+export const getRecordPhoneWaitMutationOptions = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordPhoneWait>>, TError,{sightingId: number;data: BodyType<RecordPhoneWaitRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordPhoneWait>>, TError,{sightingId: number;data: BodyType<RecordPhoneWaitRequest>}, TContext> => {
+
+const mutationKey = ['recordPhoneWait'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordPhoneWait>>, {sightingId: number;data: BodyType<RecordPhoneWaitRequest>}> = (props) => {
+          const {sightingId,data} = props ?? {};
+
+          return  recordPhoneWait(sightingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordPhoneWaitMutationResult = NonNullable<Awaited<ReturnType<typeof recordPhoneWait>>>
+    export type RecordPhoneWaitMutationBody = BodyType<RecordPhoneWaitRequest>
+    export type RecordPhoneWaitMutationError = ErrorType<ApiErrorBody | void>
+
+    /**
+ * @summary Report how long the phone waited for look-alikes (SYC-795)
+ */
+export const useRecordPhoneWait = <TError = ErrorType<ApiErrorBody | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordPhoneWait>>, TError,{sightingId: number;data: BodyType<RecordPhoneWaitRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordPhoneWait>>,
+        TError,
+        {sightingId: number;data: BodyType<RecordPhoneWaitRequest>},
+        TContext
+      > => {
+      return useMutation(getRecordPhoneWaitMutationOptions(options));
     }
 
 export const getResolveSightingUrl = (sightingId: number,) => {

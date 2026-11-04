@@ -4,6 +4,7 @@ import {
   AnswerSightingQuestionsBody,
   CreateSightingBody,
   RecheckSightingBody,
+  RecordPhoneWaitBody,
   ResolveSightingBody,
 } from "@workspace/api-zod";
 import {
@@ -48,6 +49,7 @@ import {
   DEVICE_MATCH_WINDOW_MS,
 } from "../middlewares/rateLimit";
 import { safeError } from "../lib/logger";
+import { sharedLimiter } from "../lib/limits";
 import { selectCandidateCats } from "../lib/candidateSelection";
 import { canonicalCatOf, catsFeeding, liveCats, observationCatIn, type Feeding } from "../lib/catIdentity";
 import { awardPoints } from "../lib/pointsLedger";
@@ -938,6 +940,57 @@ router.post("/sightings/:sightingId/recheck", aiLimiter, async (req, res) => {
   } finally {
     recheckInFlight.delete(sightingId);
   }
+});
+
+// SYC-795 (launch measures §4.4): the phone's whole-trip wait for look-alikes,
+// kept once beside the server's part. A courtesy cap per network, generous
+// because a phone sends one a spot and a family shares a connection; it fails
+// open since a lost measurement costs nothing.
+const phoneWaitLimiter = sharedLimiter({
+  bucket: "sighting_phone_wait",
+  windowMs: 60 * 60 * 1000,
+  limit: 240,
+  message: { error: "Too many requests. Please try again later." },
+  failOpen: true,
+});
+
+router.post("/sightings/:sightingId/wait", phoneWaitLimiter, async (req, res) => {
+  const sightingId = Number(req.params.sightingId);
+  const body = RecordPhoneWaitBody.parse(req.body);
+  // The generated schema bounds the number but doesn't ask for a whole one,
+  // and the column is an integer: 1.5 would be a 500, not a refusal.
+  if (!Number.isInteger(body.waitMs)) {
+    res.status(400).json({ error: "waitMs must be a whole number of milliseconds" });
+    return;
+  }
+
+  // Same order as recheck and resolve: 404, then 403, then the device secret.
+  const [sighting] = Number.isInteger(sightingId)
+    ? await db.select().from(sightingsTable).where(eq(sightingsTable.id, sightingId))
+    : [];
+  if (!sighting) {
+    res.status(404).json({ error: "Sighting not found" });
+    return;
+  }
+  if (body.deviceId !== sighting.deviceId) {
+    res.status(403).json({ error: "Not your sighting" });
+    return;
+  }
+  if (!(await verifyDeviceSecret(req, res, sighting.deviceId))) return;
+
+  // Once, and only for a check that worked: a repeat, a missing record or a
+  // failed check changes nothing, and the answer is the same 204 either way.
+  await db
+    .update(sightingMatchesTable)
+    .set({ phoneWaitMs: body.waitMs })
+    .where(
+      and(
+        eq(sightingMatchesTable.sightingId, sightingId),
+        isNull(sightingMatchesTable.phoneWaitMs),
+        eq(sightingMatchesTable.matcherFailed, false),
+      ),
+    );
+  res.status(204).end();
 });
 
 router.post("/sightings/:sightingId/resolve", async (req, res) => {

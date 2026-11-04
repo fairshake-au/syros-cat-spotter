@@ -581,6 +581,28 @@ export const RecheckSightingResponse = zod.object({
 
 
 /**
+ * The phone's whole-trip wait, in milliseconds, from the spotter sending the photo to the look-alikes showing. Only the sighting's own device. Stored once, beside the server's part of the wait, and only for a check that worked: a second report, a report with no match record, or one after a failed check changes nothing and still answers 204.
+ * @summary Report how long the phone waited for look-alikes (SYC-795)
+ */
+export const RecordPhoneWaitParams = zod.object({
+  "sightingId": zod.coerce.number()
+})
+
+
+export const recordPhoneWaitBodyWaitMsMin = 0;
+export const recordPhoneWaitBodyWaitMsMax = 600000;
+
+
+
+export const RecordPhoneWaitBody = zod.object({
+  "deviceId": zod.string().min(1).describe('Device credential of the sighting owner; must match the sighting'),
+  "waitMs": zod.number().min(recordPhoneWaitBodyWaitMsMin).max(recordPhoneWaitBodyWaitMsMax).describe('Milliseconds the phone waited for the look-alikes')
+})
+
+export const RecordPhoneWaitResponse = zod.void()
+
+
+/**
  * @summary Confirm a match to an existing cat, or register a new named cat
  */
 export const ResolveSightingParams = zod.object({
