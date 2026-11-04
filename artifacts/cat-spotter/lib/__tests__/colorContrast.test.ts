@@ -76,6 +76,8 @@ describe.each(['light', 'dark'] as const)('%s theme', (scheme) => {
     ['focused or selected outline (primary) on background', c.primary, c.background],
     ['focused or selected outline (primary) on card', c.primary, c.card],
     ['error outline (danger) on card', c.danger, c.card],
+    ['dots and progress fills (accentMark) on background', c.accentMark, c.background],
+    ['dots and progress fills (accentMark) on card', c.accentMark, c.card],
   ];
   it.each(outlinePairs)('%s', (_name, fg, bg) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(OUTLINE);
