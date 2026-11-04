@@ -559,6 +559,14 @@ describe('the facts card and the cards under the main button', () => {
     page({}, cat({ sterilised: { value: true, confidence: 'confirmed', clippedTipSightings: 0 } } as Partial<Cat>));
     expect(screen.getByTestId('fact-sterilised').querySelector('[data-feather="check-circle"]')).toBeTruthy();
   });
+
+  it('a plain tick for "probably", a cross only for confirmed not sterilised', () => {
+    page({}, cat({ sterilised: { value: true, confidence: 'likely', clippedTipSightings: 2 } } as Partial<Cat>));
+    expect(screen.getByTestId('fact-sterilised').querySelector('[data-feather="check"]')).toBeTruthy();
+    cleanup();
+    page({}, cat({ sterilised: { value: false, confidence: 'confirmed', clippedTipSightings: 0 } } as Partial<Cat>));
+    expect(screen.getByTestId('fact-sterilised').querySelector('[data-feather="x-circle"]')).toBeTruthy();
+  });
 });
 
 describe('the Follow button on the page', () => {
