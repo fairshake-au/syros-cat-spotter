@@ -369,7 +369,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    // SYC-827: white on translucent white was 3.4:1.
+    backgroundColor: palette.aegean800,
   },
   streakChipNarrow: { alignSelf: 'flex-start', marginTop: spacing[3] },
   streakText: {

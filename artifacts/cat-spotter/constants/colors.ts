@@ -98,9 +98,12 @@ const colors = {
     muted: palette.stone200, // surface-sunk
     mutedForeground: palette.stone600, // text-muted
 
-    // Accent highlights (badges, selected items, focus rings)
-    accent: palette.bougain500,
+    // Accent highlights (badges, selected items, focus rings).
+    // SYC-811: bougain500 was 3.4:1 under white; bougain700 is 5.95:1.
+    accent: palette.bougain700,
     accentForeground: palette.stone000,
+    // Accent with nothing on it: dots and progress fills.
+    accentMark: palette.bougain700,
 
     // Highlight (marigold sun)
     highlight: palette.sun500,
@@ -162,9 +165,12 @@ const colors = {
     muted: palette.aegean800, // surface-sunk (dark)
     mutedForeground: palette.stone400, // text-muted (dark)
 
-    // Accent highlights (badges, selected items, focus rings)
-    accent: palette.bougain500,
+    // Accent highlights (badges, selected items, focus rings).
+    // SYC-811: fills stay dark enough for white, as primaryFill does.
+    accent: palette.bougain700,
     accentForeground: palette.stone000,
+    // Accent with nothing on it: bougain700 is too dark to see on navy.
+    accentMark: palette.bougain500,
 
     // Highlight (marigold sun)
     highlight: palette.sun500,

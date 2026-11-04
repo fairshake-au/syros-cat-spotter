@@ -10,6 +10,7 @@ import { SymbolView } from 'expo-symbols';
 import { useLanguage } from '@/context/LanguageContext';
 import { useOffline } from '@/context/OfflineContext';
 import { useAppearance } from '@/context/AppearanceContext';
+import { RaisedSpotIcon } from '@/components/RaisedSpotIcon';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 function NativeTabLayout() {
@@ -114,18 +115,15 @@ function ClassicTabLayout() {
         options={{
           title: t('tabSpot'),
           tabBarBadge: reviewReadyCount > 0 ? reviewReadyCount : undefined,
+          // White and out on the rim, so it shows against the raised camera.
           tabBarBadgeStyle: {
-            backgroundColor: colors.accent,
-            color: colors.accentForeground,
+            backgroundColor: colors.accentForeground,
+            color: colors.accent,
+            marginTop: -22,
             fontSize: 11,
             fontFamily: 'Inter_700Bold',
           },
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="camera" tintColor={color} size={24} />
-            ) : (
-              <Feather name="camera" size={22} color={color} />
-            ),
+          tabBarIcon: () => <RaisedSpotIcon isDark={isDark} />,
         }}
       />
       <Tabs.Screen

@@ -1574,7 +1574,7 @@ export default function SpotScreen() {
                   {t('photoAlreadyLoggedOpen')}
                 </Button>
               )}
-              <Button variant="primary" block onPress={() => void pickPhoto(false)}>
+              <Button variant="accent" block onPress={() => void pickPhoto(false)}>
                 {t('chooseFromLibrary')}
               </Button>
             </Card>
@@ -1686,7 +1686,7 @@ export default function SpotScreen() {
             </View>
 
             <Button
-              variant="primary"
+              variant="accent"
               size="lg"
               block
               disabled={!canCheckForMatches(mapStart, locationAsk) || !pickedCoords || submitting || !deviceId}

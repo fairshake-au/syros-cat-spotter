@@ -221,7 +221,7 @@ export function CatPicker({
             </Text>
           </View>
           <Button
-            variant="primary"
+            variant="accent"
             size="lg"
             block
             disabled={busy}
