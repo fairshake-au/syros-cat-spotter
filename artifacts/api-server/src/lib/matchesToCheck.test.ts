@@ -170,15 +170,17 @@ describe("edges of the list", () => {
   it("names the cat the sighting is filed under now, after a merge is undone with the sighting ticked", async () => {
     const a = await kit.cat();
     const b = await kit.cat();
+    // The spotter took cat a; b is merged into a, and the undo sends this sighting to b.
     const s = await suggested(a, at("2040-03-11T13:00:00Z"));
     await kit.sighting(a, device(), at("2040-03-11T13:30:00Z"));
     await kit.sighting(b, device(), at("2040-03-11T13:40:00Z"));
-    const merged = await libMerge(a, b);
+    const merged = await libMerge(b, a);
     await libUndo(merged.mergeId, [s]);
     const [now] = await db.select({ catId: sightingsTable.catId }).from(sightingsTable).where(eq(sightingsTable.id, s));
+    expect(now!.catId).toBe(b);
     const found = (await matchesToCheck(LAUNCH)).find((r) => r.sightingId === s);
     expect(found).toBeDefined();
-    expect(found!.catId).toBe(now!.catId);
+    expect(found!.catId).toBe(b);
   });
 });
 
