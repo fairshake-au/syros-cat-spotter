@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   cats: [] as unknown[],
   resolveSighting: vi.fn(),
   recheckSighting: vi.fn(),
+  recordPhoneWait: vi.fn(() => Promise.resolve()),
   setParams: vi.fn(),
   updateReview: vi.fn(async () => {}),
 }));
@@ -42,6 +43,7 @@ vi.mock('@workspace/api-client-react', () => ({
   RequestTimeoutError: class RequestTimeoutError extends Error {},
   resolveSighting: m.resolveSighting,
   recheckSighting: m.recheckSighting,
+  recordPhoneWait: m.recordPhoneWait,
   suggestCatNames: vi.fn(async () => ({ suggestions: [] })),
   answerSightingQuestions: vi.fn(),
   useGetCat: () => ({ data: undefined }),
@@ -192,6 +194,8 @@ describe('"Check again"', () => {
     fireEvent.click(screen.getByTestId('couldnt-check-again'));
     await waitFor(() => expect(text()).toContain(en.lookalikesFound));
     expect(m.recheckSighting).toHaveBeenCalledWith(503, { deviceId: 'device-1' });
+    expect(m.recordPhoneWait).toHaveBeenCalledTimes(1);
+    expect(m.recordPhoneWait).toHaveBeenCalledWith(503, { deviceId: 'device-1', waitMs: expect.any(Number) });
     expect(screen.queryByTestId('couldnt-check')).toBeNull();
     expect(m.updateReview).toHaveBeenCalledWith('local-503', expect.objectContaining({ matchCheck: 'done' }));
     const kept = parseReviewParams(m.setParams.mock.calls[0]![0].data);
