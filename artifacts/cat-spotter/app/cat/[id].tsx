@@ -157,10 +157,17 @@ export default function CatDetailScreen() {
     else router.replace('/(tabs)/cats');
   };
 
+  // SYC-809: on slow signal the wait can be long, so the way back is there
+  // from the start, in the same place as on the loaded page.
   if (!deviceKnown || query.isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} />
+        <View style={[styles.backWrap, { top: insets.top + 8 }]}>
+          <IconButton variant="solid" size="lg" label={t('backA11y')} onPress={close}>
+            <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
+          </IconButton>
+        </View>
       </View>
     );
   }

@@ -90,6 +90,7 @@ const h = vi.hoisted(() => ({
   isOnline: true,
   notifications: [] as unknown[],
   data: undefined as unknown,
+  isLoading: false,
   scrollTo: vi.fn(),
   replace: vi.fn(),
   markRead: vi.fn(),
@@ -110,7 +111,7 @@ vi.mock('@workspace/api-client-react', async (orig) => {
   const real = await orig<Record<string, unknown>>();
   return {
     ...real,
-    useGetCat: () => ({ isLoading: false, data: h.data }),
+    useGetCat: () => ({ isLoading: h.isLoading, data: h.isLoading ? undefined : h.data }),
     getGetCatQueryKey: (id: number) => [`/api/cats/${id}`],
   };
 });
@@ -179,6 +180,7 @@ const reportLinks = () => screen.queryAllByTestId('report-issue-link');
 
 beforeEach(() => {
   h.params = { id: '7' };
+  h.isLoading = false;
   h.isOnline = true;
   h.notifications = [];
 });
@@ -321,6 +323,18 @@ describe('the four tabs', () => {
     page();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     expect(screen.queryByLabelText(en.tabCatalog!)).toBeNull();
+  });
+});
+
+// SYC-809: on slow signal the page is never a blank spinner with no way out.
+describe('while the cat is loading', () => {
+  it('shows the back button, which leaves for the Cat-alogue', () => {
+    h.isLoading = true;
+    h.replace.mockClear();
+    render(<CatDetailScreen />);
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    fireEvent.click(screen.getByLabelText('Back'));
+    expect(h.replace).toHaveBeenCalledWith('/(tabs)/cats');
   });
 });
 
