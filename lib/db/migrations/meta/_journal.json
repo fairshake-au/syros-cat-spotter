@@ -407,6 +407,13 @@
       "when": 1793755537427,
       "tag": "0057_launch_measures_wait",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793757653824,
+      "tag": "0058_cats_no_truncate",
+      "breakpoints": true
     }
   ]
 }
