@@ -34,10 +34,10 @@
           "#e8f4fc"
         ]
       },
-      "bougainvillea-500-accent": {
+      "bougainvillea-700-accent": {
         "role": "secondary",
         "displayName": "Bougainvillea Pink",
-        "canonical": "#e8558a",
+        "canonical": "#b02f66",
         "tonalRamp": [
           "#b02f66",
           "#d64185",
@@ -223,7 +223,7 @@
       "refersTo": "button-accent",
       "description": "The pink pill, Home first-spot call to action.",
       "html": "<button class=\"ds-btn-accent\">Spot your first cat</button>",
-      "css": ".ds-btn-accent{background:#e8558a;color:#fefcf7;font:600 16px Inter,system-ui,sans-serif;min-height:48px;padding:12px 24px;border:0;border-radius:999px;box-shadow:0 2px 6px rgba(27,42,56,.08);cursor:pointer}.ds-btn-accent:hover{opacity:.85}.ds-btn-accent:focus-visible{outline:3px solid #135f92;outline-offset:2px}.ds-btn-accent:active{transform:scale(.98)}"
+      "css": ".ds-btn-accent{background:#b02f66;color:#fefcf7;font:600 16px Inter,system-ui,sans-serif;min-height:48px;padding:12px 24px;border:0;border-radius:999px;box-shadow:0 2px 6px rgba(27,42,56,.08);cursor:pointer}.ds-btn-accent:hover{opacity:.85}.ds-btn-accent:focus-visible{outline:3px solid #135f92;outline-offset:2px}.ds-btn-accent:active{transform:scale(.98)}"
     },
     {
       "name": "Secondary Button",
@@ -281,7 +281,7 @@
       "Aegean blue (#1c77c3) as the one brand colour, on a warm whitewash page (#f4f2ec) with paper-white cards (#fefcf7).",
       "One typeface family, Inter, for every language; Space Mono only for catalogue IDs, dates and numbers.",
       "Generous radii in the app (10 to 28px, pills for every control), tighter in the dashboard.",
-      "Bougainvillea pink (#e8558a) is the accent: the Button `accent` variant, notification dots, tab badges, the offline banner.",
+      "Bougainvillea pink (#b02f66) is the accent, and it means spotting: every button that starts or finishes a spot, plus banners and badges.",
       "Dark mode is a deep Aegean night (#071e30), not grey."
     ],
     "rules": [

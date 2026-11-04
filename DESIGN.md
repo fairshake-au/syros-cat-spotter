@@ -25,9 +25,9 @@ colors:
   stone-200-sunk: "#e9edf0"
   stone-100-whitewash: "#f4f2ec"
   stone-000-paper: "#fefcf7"
-  bougainvillea-700: "#b02f66"
+  bougainvillea-700-accent: "#b02f66"
   bougainvillea-600: "#d64185"
-  bougainvillea-500-accent: "#e8558a"
+  bougainvillea-500: "#e8558a"
   bougainvillea-300: "#f6a9c8"
   bougainvillea-100: "#fce4ee"
   sun-800: "#6b4a00"
@@ -102,7 +102,7 @@ components:
     padding: "8px 16px"
     height: "40px"
   button-accent:
-    backgroundColor: "{colors.bougainvillea-500-accent}"
+    backgroundColor: "{colors.bougainvillea-700-accent}"
     textColor: "{colors.stone-000-paper}"
     rounded: "{rounded.pill}"
     padding: "12px 24px"
@@ -165,7 +165,7 @@ There are two surfaces that share one palette and typeface but differ on purpose
 - Aegean blue (#1c77c3) as the one brand colour, on a warm whitewash page (#f4f2ec) with paper-white cards (#fefcf7).
 - One typeface family, Inter, for every language; Space Mono only for catalogue IDs, dates and numbers.
 - Generous radii in the app (10 to 28px, pills for every control), tighter in the dashboard.
-- Bougainvillea pink (#e8558a) is the accent: the Button `accent` variant, notification dots, tab badges, the offline banner.
+- Bougainvillea pink (#b02f66) is the accent, and it means spotting: every button that starts or finishes a spot, plus banners and badges.
 - Dark mode is a deep Aegean night (#071e30), not grey.
 
 ## Colors
@@ -180,8 +180,8 @@ A cool Aegean blue and warm stone-white base, with four warm accents (bougainvil
 - **Aegean 950 / 900** (#071e30 / #0a3350): dark-mode page and card.
 
 ### Secondary
-- **Bougainvillea 500** (#e8558a): `accent`. The pink pill (Button `accent`), notification dot, tab badge, offline banner, review-success icon, map pin colour. Always drawn with `stone-000` text on it, which measures 3.36:1 (see Named Rules).
-- **Bougainvillea 100 / 700** (#fce4ee / #b02f66): the bougain Tag and StatTile pair.
+- **Bougainvillea 700** (#b02f66): `accent`. Spot buttons (Button `accent`), banners, number badges, the review-success icon, map pins. Stone-000 on it is 5.95:1. Also the ink of the bougain Tag and StatTile pair on Bougainvillea 100 (#fce4ee).
+- **Bougainvillea 500** (#e8558a): confetti, and `accentMark` in dark mode (dots and progress fills, which Bougainvillea 700 is too dark to show on navy). Never behind text.
 
 ### Tertiary
 - **Sun 500** (#ffc94d): `highlight`; the Home progress fill. **Sun 100 / 800** (#fff5df / #6b4a00) are the warning soft fill and its ink; sun 600 (#f5b023) is the warning dot.
@@ -257,7 +257,7 @@ Border widths: `thin` 1.5px, `thick` 2.5px. Sterilisation marks are circles, a h
 ### Buttons
 - **Shape:** full pill (999px) in the app; 10px radius on the dashboard.
 - **Primary:** Aegean 600 fill, stone-000 label, SemiBold, sm shadow. Sizes sm/md/lg: 13/14/16px text, min height 32/40/48.
-- **Accent:** bougainvillea 500 fill, stone-000 label. Used for the Home first-spot call to action and the Help screen.
+- **Accent:** bougainvillea 700 fill, stone-000 label. The Spot action: any button that starts or finishes a spot. Also Donate and Welcome's "Get started".
 - **Secondary:** Aegean 100 fill, Aegean 800 label, 1.5px hairline border. **Ghost:** transparent, Aegean 700 label, no shadow.
 - **States:** pressed is 0.85 opacity and 0.98 scale; disabled is 0.5 opacity; busy blocks presses and announces "busy".
 - **Dashboard:** `button.primary` is Aegean 600 fill with 1px border, 44px min height, 10px radius; outlined variants use a card fill with Aegean 800 text. Focus is a 3px `--accent` outline with 2px offset.
@@ -275,7 +275,7 @@ Border widths: `thin` 1.5px, `thick` 2.5px. Sterilisation marks are circles, a h
 - Card fill, 14px radius, 1.5px control-outline border, 14px text, bold 13px label above. Focus: primary-coloured 2.5px border. Error: danger-coloured border and helper text. Dashboard fields: 1px `--line-strong`, 10px radius, 16px text, 44px min height.
 
 ### Navigation
-- App: five bottom tabs with Feather icons (SF Symbols on iOS), active tint `primary`, inactive muted, a bougainvillea badge for reviews waiting.
+- App: five bottom tabs with Feather icons (SF Symbols on iOS), active tint `primary`, inactive muted. Spot is a raised 56px accent circle (`RaisedSpotIcon`) with a page-coloured ring, or a white ring in dark mode, and a white badge on its rim for reviews waiting. iOS 26 Liquid Glass bars use Apple's own tab bar and can't draw it.
 - Dashboard: text links in a thin top bar, current page bold with a 3px Aegean underline; phone gets a "Menu" fold.
 
 ### Hero (signature)
@@ -303,9 +303,8 @@ Border widths: `thin` 1.5px, `thick` 2.5px. Sterilisation marks are circles, a h
 
 ## Drift and known issues (as of 4 Nov 2026)
 
-- **White on bougainvillea measures 3.36:1.** `accent` #e8558a with `accentForeground` stone-000 (#fefcf7) is below the 4.5:1 AA floor for normal text; it is the fill of the Button `accent` variant (16px SemiBold label on the Home call to action), tab badges (11px text) and the offline banner (text colour there not checked). Computed here, not previously recorded in code.
 - **"Purropolis" is the retired name** and still appears in 46 non-test source files (comments in `constants/colors.ts`, `constants/theme.ts`, every screen under `app/(tabs)/`, and the dashboard's `tokens.ts`). The component folder is still `components/purropolis/`.
 - **Spec 12.1 and 12.2 of `docs/specs/team-dashboard-redesign.md` still describe a teal palette** (#0b5c6b links, #f6f4ef page, #1d1d1b ink, marks #0a4d59 / #2f7884 / #6a949b / amber #a6540a). The dashboard shipped in Aegean (SYC-579, SYC-783); `tokens.ts` and `marks.ts` are the truth.
-- **Literal colours outside the tokens:** Home hero uses `#fff` and `rgba(255,255,255,0.18/0.24)`; 30px hero radius and 15px/9px/11px literal font sizes; `SpottedStamp` uses its own ink and `rgba(254,252,247,0.55)`; dark-mode status softs are unnamed literals; drawn illustrations (`photoTips/cartoons.tsx`, `waitingCats`, `coat`, onboarding) carry many hex values by design. The dashboard has a pure-black menu shadow literal.
+- **Literal colours outside the tokens:** Home hero uses `#fff` and `rgba(255,255,255,0.24)`; 30px hero radius and 15px/9px/11px literal font sizes; `SpottedStamp` uses its own ink and `rgba(254,252,247,0.55)`; dark-mode status softs are unnamed literals; drawn illustrations (`photoTips/cartoons.tsx`, `waitingCats`, `coat`, onboarding) carry many hex values by design. The dashboard has a pure-black menu shadow literal.
 - **Deliberate app/dashboard differences** (`tokens.ts` header): links and outlined buttons use Aegean 700 (#135f92, 6:1) where the app's older notes used 600; filled buttons stay Aegean 600 in dark mode on both. The dashboard also adds quiet-card, issue and trail colours the app does not have.
 - **Motion:** the app uses a 0.98 press scale and 2px card lift; the dashboard has almost none (one 0.2s opacity transition) and no `prefers-reduced-motion` rule.
