@@ -18,7 +18,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { consumeLeftUnfinished } from '@/lib/leftUnfinished';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createSighting } from '@workspace/api-client-react';
+import { createSighting, recordPhoneWait } from '@workspace/api-client-react';
+import { reportPhoneWait, startPhoneWait } from '@/lib/phoneWait';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { useDevice } from '@/context/DeviceContext';
@@ -928,10 +929,14 @@ export default function SpotScreen() {
         }));
         let extraNotKept = false;
         let keptRoles: ExtraRole[] = [];
+        // SYC-795: how long the phone waited on the live send. Set once per
+        // tap (a retry is a new tap), only by the live `send`, never `save`.
+        let phoneWaitMs: number | null = null;
         const outcome = await submitSighting({
           isOnline,
           canSaveForLater: !queueReadOnly,
           send: async () => {
+            const stopPhoneWait = startPhoneWait();
             void startWaitingCard(deviceId).catch(() => undefined);
             let uploadPhoto = photo;
             if (isConstrainedNetwork) {
@@ -942,7 +947,7 @@ export default function SpotScreen() {
               }
               setOptimizingUpload(false);
             }
-            return createSighting(
+            const answer = await createSighting(
               sightingRequest({
                 deviceId,
                 photoBase64: uploadPhoto.base64,
@@ -951,6 +956,8 @@ export default function SpotScreen() {
                 extraPhotos,
               }),
             );
+            phoneWaitMs = stopPhoneWait();
+            return answer;
           },
           save: () =>
             enqueue(
@@ -994,6 +1001,10 @@ export default function SpotScreen() {
         const waitOutcome: WaitOutcome = waitOutcomeForSend(
           outcome.kind === 'sent' ? outcome.result : null,
         );
+        // SYC-795: fire and forget. A failed check isn't a wait worth timing.
+        if (outcome.kind === 'sent' && waitOutcome.kind !== 'couldntCheck') {
+          reportPhoneWait(recordPhoneWait, outcome.result.sightingId, deviceId, phoneWaitMs);
+        }
         // SYC-186: a spot sent straight away is also kept in the phone's list,
         // written first (before the steps below), so leaving "Have we met?"
         // without choosing never loses it. If it can't be kept (no cat in the

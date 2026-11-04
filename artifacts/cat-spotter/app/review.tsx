@@ -21,6 +21,7 @@ import {
   getGetCatQueryKey,
   markMomentCelebrated,
   recheckSighting,
+  recordPhoneWait,
   resolveSighting,
   suggestCatNames,
   useGetCat,
@@ -60,6 +61,7 @@ import {
   type SightingAnswers,
 } from "@/lib/sightingAnswers";
 import { reviewReportHandoff } from "@/lib/reportHandoff";
+import { reportPhoneWait, startPhoneWait } from "@/lib/phoneWait";
 import { deleteReviewPhoto } from "@/lib/pendingPhotos";
 import { goToSpotTab } from "@/lib/goToSpotTab";
 import { markLeftUnfinished } from "@/lib/leftUnfinished";
@@ -417,7 +419,12 @@ export default function ReviewScreen() {
     try {
       // Ends after RECHECK_REQUEST_TIMEOUT_MS (custom-fetch.ts) with a
       // RequestTimeoutError, never "Checking…" forever.
+      const stopPhoneWait = startPhoneWait();
       const res = await recheckSighting(routeData.sightingId, { deviceId });
+      // SYC-795: only a recheck that got a real answer counts as a wait.
+      if (res.matchCheck === "done") {
+        reportPhoneWait(recordPhoneWait, routeData.sightingId, deviceId, stopPhoneWait());
+      }
       const next: RecheckAnswer = {
         isCatPhoto: res.isCatPhoto,
         candidates: res.candidates,
