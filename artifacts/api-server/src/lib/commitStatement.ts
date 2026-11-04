@@ -114,12 +114,14 @@ export async function commitStatement(
     .limit(1);
   if (already) return row;
 
+  const push: NewsPush = { kind: "sterilised", name: cat.name };
   const update = await insertCatUpdate(tx, {
     cat,
     updateType: "desexed",
     message: sterilisedNewsMessage(cat.name),
+    push,
   });
-  news.push({ cat, update, push: { kind: "sterilised", name: cat.name } });
+  news.push({ cat, update, push });
   return row;
 }
 

@@ -113,6 +113,10 @@ describe("POST /api/cats/:catId/updates (admin, OWNER_SECRET)", () => {
 
     expect(res.status).toBe(201);
 
+    // SYC-221 PR 2: staff-typed news is unlabelled, and the typed text is stored as is.
+    const [stored] = await db.select().from(catUpdatesTable).where(eq(catUpdatesTable.id, res.body.id));
+    expect([stored!.wording, stored!.wordingDay, stored!.message]).toEqual([null, null, "Done at the clinic"]);
+
     const obs = await observationsFor(cat.id, "sterilised");
     expect(obs).toHaveLength(1);
     expect(obs[0]).toMatchObject({

@@ -134,6 +134,9 @@ async function expectAnnouncedOnce(cat: { id: number; device: string; name: stri
   const updates = await updatesOf(cat.id);
   expect(updates).toHaveLength(1);
   expect(updates[0]!.message).toBe(sterilisedNewsMessage(cat.name));
+  // SYC-221 PR 2: the kind is stored for the bell; no day for this kind.
+  expect(updates[0]!.wording).toBe("sterilised");
+  expect(updates[0]!.wordingDay).toBeNull();
   const rows = await notificationsOf(cat.id);
   expect(rows.map((r) => r.deviceId)).toEqual([cat.device]);
   expect(await pushesFor(cat.id, 1)).toBe(1);

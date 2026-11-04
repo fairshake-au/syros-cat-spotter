@@ -43,16 +43,36 @@ export const catUnfollowsTable = pgTable(
   (t) => [primaryKey({ columns: [t.deviceId, t.catId] })],
 );
 
-export const catUpdatesTable = pgTable("cat_updates", {
-  id: serial("id").primaryKey(),
-  catId: integer("cat_id").notNull(),
-  updateType: catUpdateTypeEnum("update_type").notNull(),
-  message: text("message").notNull(),
-  triggerSightingId: integer("trigger_sighting_id"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const catUpdatesTable = pgTable(
+  "cat_updates",
+  {
+    id: serial("id").primaryKey(),
+    catId: integer("cat_id").notNull(),
+    updateType: catUpdateTypeEnum("update_type").notNull(),
+    message: text("message").notNull(),
+    triggerSightingId: integer("trigger_sighting_id"),
+    // SYC-221: the bell words news in the reader's language, so each piece of
+    // news records what kind it is. `wording_day` is the Syros day for the
+    // "seen on..." kinds: "seen on Tuesday" is decided when the news is
+    // written, and the photo can later move, so it can't be worked out again.
+    // Null for news written before these columns, and for staff-typed news.
+    wording: text("wording"),
+    wordingDay: date("wording_day", { mode: "string" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "cat_updates_wording_check",
+      sql`${t.wording} is null or ${t.wording} in ('sterilised', 'spotted_again', 'seen_weekday', 'seen_date', 'new_cat')`,
+    ),
+    check(
+      "cat_updates_wording_day_check",
+      sql`(${t.wordingDay} is not null) = coalesce(${t.wording} in ('seen_weekday', 'seen_date'), false)`,
+    ),
+  ],
+);
 
 /**
  * The bell's entries. `kind 'cat'` is news about a cat (`cat_update_id` set,

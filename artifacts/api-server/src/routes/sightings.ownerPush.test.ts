@@ -203,6 +203,17 @@ describe("the owner's push for a sighting, and the evening round-up", () => {
     });
     expect(freshRes.status).toBe(200);
 
+    // SYC-221 PR 2: each update records its kind (and the Syros day for
+    // "seen on...") for the bell; the English message above is unchanged.
+    const stored = async (catId: number) => {
+      const [u] = await db.select().from(catUpdatesTable).where(eq(catUpdatesTable.catId, catId));
+      return u!;
+    };
+    const oldStored = await stored(oldCat.id);
+    expect([oldStored.wording, oldStored.wordingDay]).toEqual(["seen_weekday", athensDate(threeDaysAgo)]);
+    const freshStored = await stored(freshCat.id);
+    expect([freshStored.wording, freshStored.wordingDay]).toEqual(["spotted_again", null]);
+
     // The owner's live push (fired without waiting, so wait for it).
     await vi.waitFor(() => expect(pushesTo(owner)).toHaveLength(2));
     const ownerBodies = Object.fromEntries(pushesTo(owner).map((c) => [c[1], c[2]]));
@@ -279,6 +290,7 @@ describe("the owner's push for a sighting, and the evening round-up", () => {
       .from(catUpdatesTable)
       .where(eq(catUpdatesTable.catId, res.body.cat.id));
     expect(update!.message).toBe(`${CAT_PREFIX}-New was just discovered on Syros!`);
+    expect([update!.wording, update!.wordingDay]).toEqual(["new_cat", null]);
     const rows = await db
       .select()
       .from(notificationsTable)
