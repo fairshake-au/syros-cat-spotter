@@ -254,6 +254,24 @@ describe('AppMap.web areas and strip', () => {
     expect(screen.queryByText('3 cats')).toBeNull();
   });
 
+  it('far out, a shared square keeps a 24px target, its number and its pressed state', async () => {
+    render(
+      <AppMap
+        {...base}
+        areas={[area('x', 37.44, 24.94, { accessibilityLabel: 'X', label: '3 cats', count: 3, selected: true })]}
+      />,
+    );
+    const map = await theMap();
+    act(() => {
+      map.setZoom(10);
+    });
+    await waitFor(() => expect(px(square('X').style.width)).toBe(24));
+    expect(px(square('X').style.height)).toBe(24);
+    expect(screen.queryByText('3 cats')).toBeNull();
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(square('X').getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('cell box follows map.project after move and zoom', async () => {
     const c = { latitude: 37.44, longitude: 24.94 };
     render(<AppMap {...base} areas={[area('a', c.latitude, c.longitude, { accessibilityLabel: 'A' })]} />);
@@ -265,10 +283,13 @@ describe('AppMap.web areas and strip', () => {
       const se = map.project([c.longitude + dLng, c.latitude - dLat]);
       await waitFor(() => {
         const s = square('A').style;
-        expect(px(s.left)).toBeCloseTo(nw.x, 1);
-        expect(px(s.top)).toBeCloseTo(nw.y, 1);
-        expect(px(s.width)).toBeCloseTo(se.x - nw.x, 1);
-        expect(px(s.height)).toBeCloseTo(se.y - nw.y, 1);
+        // A far-out square grows to the 24px target, from its centre.
+        const width = Math.max(se.x - nw.x, 24);
+        const height = Math.max(se.y - nw.y, 24);
+        expect(px(s.left)).toBeCloseTo((nw.x + se.x - width) / 2, 1);
+        expect(px(s.top)).toBeCloseTo((nw.y + se.y - height) / 2, 1);
+        expect(px(s.width)).toBeCloseTo(width, 1);
+        expect(px(s.height)).toBeCloseTo(height, 1);
       });
       return { nw, se };
     };
@@ -648,8 +669,10 @@ describe('AppMap.web squares stay in step with their areas', () => {
     const dLat = 250 / 2 / METRES_PER_DEGREE_LAT;
     const dLng = dLat / Math.cos((37.441 * Math.PI) / 180);
     const nw = map.project([24.94 - dLng, 37.441 + dLat]);
-    expect(px(square('X').style.top)).toBeCloseTo(nw.y, 1);
-    expect(px(square('X').style.left)).toBeCloseTo(nw.x, 1);
+    const se = map.project([24.94 + dLng, 37.441 - dLat]);
+    const side = Math.max(se.x - nw.x, 24);
+    expect(px(square('X').style.top)).toBeCloseTo((nw.y + se.y - side) / 2, 1);
+    expect(px(square('X').style.left)).toBeCloseTo((nw.x + se.x - side) / 2, 1);
     rerender(<AppMap {...base} areas={mk(37.441)} />);
     expect(map.callsTo('on').length).toBe(subscriptions);
     expect(map.callsTo('off')).toHaveLength(0);

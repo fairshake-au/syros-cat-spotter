@@ -9,9 +9,12 @@ export interface SwitchProps {
   onChange: (checked: boolean) => void;
   label?: string;
   disabled?: boolean;
+  /** For a switch whose visible label sits elsewhere in its row. */
+  accessibilityLabel?: string;
+  testID?: string;
 }
 
-export function Switch({ checked, onChange, label, disabled }: SwitchProps) {
+export function Switch({ checked, onChange, label, disabled, accessibilityLabel, testID }: SwitchProps) {
   const colors = useColors();
 
   return (
@@ -20,7 +23,9 @@ export function Switch({ checked, onChange, label, disabled }: SwitchProps) {
       disabled={disabled}
       accessibilityRole="switch"
       accessibilityState={{ checked, disabled }}
-      accessibilityLabel={label}
+      aria-checked={checked}
+      accessibilityLabel={accessibilityLabel ?? label}
+      testID={testID}
       style={[styles.wrap, { opacity: disabled ? 0.5 : 1 }]}
     >
       <View
@@ -43,6 +48,7 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     gap: spacing[2],
   },
   track: {

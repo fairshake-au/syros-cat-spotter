@@ -10,11 +10,15 @@ import {
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import type { AppMapArea, AppMapProps } from './AppMap';
+import { palette } from '@/constants/colors';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
 import { CORNER_SHARE, LABEL_MIN_PX, fitRegion, roundedCellPolygon } from '@/lib/cellShape';
 import { clampZoom, toMapLibreZoom } from '@/lib/mercator';
 import { useMapLibre, type MaplibreMap } from './map/useMapLibre.web';
+
+/** WCAG 2.2's smallest tap target. */
+const MIN_TARGET_PX = 24;
 
 /** The app zoom that shows roughly `latitudeDelta` degrees top to bottom. */
 export function zoomForDelta(latitudeDelta: number): number {
@@ -243,6 +247,10 @@ export function AppMap({
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {areas.map((a, i) => {
               const box = boxes[i]!;
+              // SYC-815: a far-out square still gets a 24px target. It grows
+              // from its centre, so it only ever says less about the spot.
+              const width = Math.max(box.width, MIN_TARGET_PX);
+              const height = Math.max(box.height, MIN_TARGET_PX);
               return (
                 <Pressable
                   key={a.id}
@@ -250,9 +258,15 @@ export function AppMap({
                   onPress={a.onPress}
                   accessibilityRole={a.onPress ? 'button' : undefined}
                   accessibilityLabel={a.accessibilityLabel ?? a.label}
+                  aria-pressed={a.count ? !!a.selected : undefined}
                   style={[
                     styles.area,
-                    { left: box.left, top: box.top, width: box.width, height: box.height },
+                    {
+                      left: box.left - (width - box.width) / 2,
+                      top: box.top - (height - box.height) / 2,
+                      width,
+                      height,
+                    },
                   ]}
                 >
                   {/* The square turns with the map; the label stays upright. */}
@@ -261,9 +275,11 @@ export function AppMap({
                     style={[
                       styles.areaSquare,
                       {
-                        borderRadius: Math.min(box.width, box.height) * CORNER_SHARE,
-                        borderColor: colors.primary,
-                        backgroundColor: `${colors.primary}33`,
+                        borderRadius: Math.min(width, height) * CORNER_SHARE,
+                        // The map stays light in dark mode, so the square does too (SYC-828).
+                        borderColor: palette.aegean700,
+                        borderWidth: a.selected ? 4 : 2,
+                        backgroundColor: `${palette.aegean700}${a.selected ? '66' : '33'}`,
                       },
                       box.angle !== 0 ? { transform: [{ rotate: `${box.angle}rad` }] } : null,
                     ]}
@@ -278,6 +294,18 @@ export function AppMap({
                         style={[styles.areaLabelText, { color: colors.cardForeground }]}
                       >
                         {a.label}
+                      </Text>
+                    </View>
+                  ) : a.count ? (
+                    <View
+                      pointerEvents="none"
+                      style={[styles.areaCount, { backgroundColor: colors.card }]}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.areaLabelText, { color: colors.cardForeground }]}
+                      >
+                        {a.count}
                       </Text>
                     </View>
                   ) : null}
@@ -395,6 +423,7 @@ const styles = StyleSheet.create({
   },
   areaSquare: { ...StyleSheet.absoluteFillObject, borderWidth: 2 },
   areaLabel: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  areaCount: { borderRadius: 9, minWidth: 18, paddingHorizontal: 4, alignItems: 'center' },
   areaLabelText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   zoomControls: { position: 'absolute', right: 8, top: 8, gap: 4, zIndex: 1 },
   zoomBtn: {

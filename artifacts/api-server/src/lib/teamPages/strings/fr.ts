@@ -162,6 +162,7 @@ export const fr: Record<StringKey, string> = {
   "gcat.life.in_care": "Pris en charge par Syros Cats",
   "gcat.life.deceased": "N’est plus parmi nous",
   "gcat.photos": "Photos",
+  "gcat.photoAlt": "{name}, photo {n} sur {total}",
   "gcat.public.note": "Ce chat n’est pas dans une de tes colonies, donc tu vois ce que tout le monde voit dans l’appli.",
   "gcat.say.heading": "Ce que tu sais de ce chat",
   "gcat.say.intro": "Ce que tu nous dis est pris en compte tout de suite, enregistré à ton nom. L’équipe peut le corriger. Tu peux annuler ton changement pendant {days} jours.",

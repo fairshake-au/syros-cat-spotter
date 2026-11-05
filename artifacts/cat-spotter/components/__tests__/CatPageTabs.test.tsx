@@ -540,6 +540,12 @@ describe('the facts card and the cards under the main button', () => {
     expect(coat.querySelector('[data-feather="map-pin"]')).toBeNull();
   });
 
+  // SYC-815: the icon is hidden, so a screen reader needs the word.
+  it('says the row is the coat, out of sight', () => {
+    page({}, cat({ coatColours: ['ginger'] } as Partial<Cat>));
+    expect(screen.getByTestId('fact-coat').textContent).toContain('Coat:');
+  });
+
   it('has no "Where" row for a cat with no place, even with a coat', () => {
     page({}, cat({ description: undefined, coatColours: ['ginger'] } as Partial<Cat>));
     expect(screen.queryByTestId('fact-where')).toBeNull();

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useFonts } from 'expo-font';
 import { fontSources } from '@/lib/fontSources';
+import { WebFocusRing } from '@/components/WebFocusRing';
 import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setPrelaunchKey } from '@workspace/api-client-react';
@@ -197,6 +198,7 @@ export default function RootLayout() {
                               <GestureHandlerRootView>
                                 <KeyboardProvider>
                                   <AppColumn>
+                                    <WebFocusRing />
                                     <OnboardingGate />
                                   </AppColumn>
                                   <TurnstileHost />

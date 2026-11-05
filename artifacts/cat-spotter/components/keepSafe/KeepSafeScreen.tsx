@@ -96,32 +96,35 @@ export function KeepSafeScreen({
         </Text>
 
         {isOnline ? (
-          <View
-            style={[
-              styles.inputWrap,
-              { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
-            ]}
-          >
-            <TextInput
-              testID="keep-safe-email"
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                setError(null);
-              }}
-              placeholder={t('keepSafePlaceholder')}
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              inputMode="email"
-              returnKeyType="done"
-              onSubmitEditing={save}
-              editable={!saving}
-              accessibilityLabel={t('keepSafePlaceholder')}
-              style={[styles.input, { color: colors.foreground }]}
-            />
+          <View style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{t('keepSafeEmailLabel')}</Text>
+            <View
+              style={[
+                styles.inputWrap,
+                { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
+              ]}
+            >
+              <TextInput
+                testID="keep-safe-email"
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  setError(null);
+                }}
+                placeholder={t('keepSafePlaceholder')}
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                inputMode="email"
+                returnKeyType="done"
+                onSubmitEditing={save}
+                editable={!saving}
+                accessibilityLabel={t('keepSafeEmailLabel')}
+                style={[styles.input, { color: colors.foreground }]}
+              />
+            </View>
           </View>
         ) : (
           <Text testID="keep-safe-offline" style={[styles.note, { color: colors.mutedForeground }]}>
@@ -169,6 +172,8 @@ const styles = StyleSheet.create({
   body: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 21 },
   strong: { fontFamily: fonts.bodyExtraBold },
   note: { fontFamily: fonts.bodyExtraBold, fontSize: fontSizes['2xs'] },
+  field: { gap: spacing[1] },
+  fieldLabel: { fontFamily: fonts.bodyBold, fontSize: fontSizes.xs },
   inputWrap: {
     borderRadius: radii.md,
     borderWidth: borderWidths.thin,

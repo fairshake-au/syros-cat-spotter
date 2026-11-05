@@ -70,6 +70,8 @@ describe("the grid's links and styles", () => {
   it("uses its own class, so the colony page's 'Add cats' link keeps its look", () => {
     const html = render();
     expect(html).toContain('class="catcardlink"');
+    // SYC-815: the link's name is a sentence, not the card's parts run together.
+    expect(html).toMatch(/class="catcardlink" href="[^"]+" aria-label="[^"]+\. [^"]+"/);
     expect(html).not.toContain('class="cardlink"');
     // The old rule is untouched: one a.cardlink rule, a row, teal, with padding.
     const rules = html.match(/a\.cardlink\{[^}]*\}/g) ?? [];
