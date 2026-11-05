@@ -26,6 +26,8 @@ describe("renderCatActions", () => {
     expect(update).toBeGreaterThan(vet);
     expect(note).toBeGreaterThan(html.indexOf("</details>", update));
     expect(died).toBeGreaterThan(note);
+    // SYC-814: the rarest, gravest action comes last, after the routine ones.
+    expect(died).toBeGreaterThan(html.indexOf("Same cat as"));
   });
 
   it("Add a note is a team-only outlined button that opens a short form, drawn only with add_team_note", () => {

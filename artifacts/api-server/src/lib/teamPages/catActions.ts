@@ -104,7 +104,7 @@ function takeOutForm(v: TeamCatView): string {
 
 /**
  * The buttons, each drawn only for someone who may: Log a vet visit, then the
- * "Update this cat" list, then "This cat has died" set apart. `done` and
+ * "Update this cat" list, then "This cat has died" last and set apart. `done` and
  * `notice` say where the page has just come back from.
  */
 export function renderCatActions(
@@ -244,8 +244,8 @@ export function renderCatActions(
     vet +
     list +
     note +
-    died +
     same +
+    died +
     changeHelp +
     "</div>"
   );
