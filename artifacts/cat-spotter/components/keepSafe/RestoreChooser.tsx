@@ -336,7 +336,7 @@ export function RestoreChooser({
             accessibilityLabel={t('back')}
             hitSlop={10}
           >
-            <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
           </Pressable>
         </View>
       ) : null}

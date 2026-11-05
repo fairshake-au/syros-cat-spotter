@@ -340,9 +340,9 @@ export function NameStep({ onBack }: { onBack: () => void }) {
           hitSlop={10}
         >
           <Feather
-            name="chevron-left"
-            size={24}
-            color={colors.mutedForeground}
+            name="arrow-left"
+            size={22}
+            color={colors.foreground}
             style={saving ? styles.backDisabled : undefined}
           />
         </Pressable>

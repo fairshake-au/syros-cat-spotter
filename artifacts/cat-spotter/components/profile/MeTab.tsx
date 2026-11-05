@@ -41,6 +41,9 @@ export function MeTab({
   const { t } = useLanguage();
   const earned = views ? earnedCount(views) : null;
   const next = views ? nextBadge(views) : null;
+  // SYC-816: the whole set lives on the Badges tab. The server sends no dates,
+  // so these are the last three earned in the catalogue's order.
+  const latest = views ? views.filter((v) => v.earned).slice(-3) : [];
   const total = BADGE_IDS.length;
   const card = [sharedStyles.card, { backgroundColor: colors.card, borderColor: colors.border }];
 
@@ -153,19 +156,21 @@ export function MeTab({
             </Text>
           )}
 
-          <Pressable
-            testID="profile-badge-row"
-            accessibilityRole="button"
-            accessibilityLabel={t('profileBadgesRowLabel')
-              .replace('{earned}', String(earned))
-              .replace('{total}', String(total))}
-            onPress={onSeeAllBadges}
-            style={[styles.medalRow, { borderTopColor: colors.border }]}
-          >
-            {views.map((v) => (
-              <BadgeMedal key={v.id} id={v.id} earned={v.earned} size={36} />
-            ))}
-          </Pressable>
+          {latest.length > 0 && (
+            <Pressable
+              testID="profile-badge-row"
+              accessibilityRole="button"
+              accessibilityLabel={t('profileBadgesRowLabel')
+                .replace('{earned}', String(earned))
+                .replace('{total}', String(total))}
+              onPress={onSeeAllBadges}
+              style={[styles.medalRow, { borderTopColor: colors.border }]}
+            >
+              {latest.map((v) => (
+                <BadgeMedal key={v.id} id={v.id} earned size={36} />
+              ))}
+            </Pressable>
+          )}
         </View>
       )}
     </View>

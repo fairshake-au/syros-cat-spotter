@@ -144,7 +144,7 @@ export function CatPicker({
   const header = (onBack: () => void) => (
     <View style={[styles.header, { paddingTop: insetTop + 8 }]}>
       <IconButton variant="ghost" label={t('back')} onPress={onBack}>
-        <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+        <Feather name="arrow-left" size={22} color={colors.foreground} />
       </IconButton>
       <Text style={[styles.title, { color: colors.foreground }]}>
         {t('pickerTitle')}

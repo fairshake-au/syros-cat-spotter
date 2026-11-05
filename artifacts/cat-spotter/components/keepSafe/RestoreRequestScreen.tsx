@@ -187,7 +187,7 @@ export function RestoreRequestScreen({
     <View testID="restore-request-screen" style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel={t('back')} hitSlop={10}>
-          <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
       </View>
       <KeyboardAwareScrollViewCompat

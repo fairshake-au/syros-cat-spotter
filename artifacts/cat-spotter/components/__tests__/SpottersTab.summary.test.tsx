@@ -10,6 +10,7 @@ vi.mock('@/hooks/useColors', () => ({
 }));
 vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
 vi.mock('@/components/purropolis', () => ({ Button: () => null }));
+vi.mock('expo-router', () => ({ router: { push: () => undefined } }));
 vi.mock('@/context/OfflineContext', () => ({ useOffline: () => ({ isOnline: true }) }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k, language: 'en' }) }));
 
