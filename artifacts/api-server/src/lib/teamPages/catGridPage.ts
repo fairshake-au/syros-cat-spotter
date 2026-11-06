@@ -319,9 +319,22 @@ function card(c: CatListItem, o: CatGridOptions): string {
   else if (c.lives === "in_care") tag = "In care";
   else if (c.lives === "gone") tag = c.notSeenSince ? `Not seen since ${monthYear(c.notSeenSince)}` : "No longer with us";
   const tie = o.tie && o.tie.report ? tieAction(c, { ...o.tie, report: o.tie.report }) : "";
+  // SYC-815: the card's parts have no gaps between them for a screen reader,
+  // so the link says them once, in order, as a sentence.
+  const spoken = [
+    `${shownName(c)} ${c.syr}`,
+    c.alsoKnownAs ? `${c.alsoKnownAs} (now part of ${shownName(c)})` : null,
+    coat,
+    colonyLine || null,
+    MARK_WORD[c.mark],
+    `${lastSeenWords(c.lastSeenAt, o.now)} · ${c.place}`,
+    tag || null,
+  ]
+    .filter((part) => part !== null)
+    .join(". ");
   return (
     '<li class="catcard">' +
-    `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
+    `<a class="catcardlink" href="${PATH}/${c.id}" aria-label="${esc(spoken)}">${photo}` +
     `<span class="cardname"><strong>${esc(shownName(c))}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
     // Found by a merged-in cat's name (which-cat-is-which.md §4.3).
     (c.alsoKnownAs ? `<span class="cardfact">${esc(`${c.alsoKnownAs} (now part of ${shownName(c)})`)}</span>` : "") +

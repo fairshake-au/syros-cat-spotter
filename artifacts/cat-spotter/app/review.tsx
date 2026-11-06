@@ -981,6 +981,7 @@ export default function ReviewScreen() {
               </Text>
               <Image
                 source={photoSource(nameTakenCat.photoUrl)}
+                accessibilityLabel={nameTakenCat.name}
                 style={[styles.pickerPhoto, { borderColor: colors.border }]}
                 contentFit="cover"
               />
@@ -1359,6 +1360,7 @@ export default function ReviewScreen() {
               <View style={styles.candidateRow}>
                 <Image
                   source={photoSource(c.photoUrl)}
+                  accessibilityLabel={catDisplayName(c, t)}
                   style={styles.candidatePhoto}
                   contentFit="cover"
                 />

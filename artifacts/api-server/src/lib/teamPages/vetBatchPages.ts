@@ -428,12 +428,12 @@ const catChip = (line: CatLine | undefined, id: number) => {
   return `${esc(name)}${syr ? ` <span class="syr">${esc(syr)}</span>` : ""}`;
 };
 
-function thumbs(c: BatchCat, n: number): string {
+function thumbs(c: BatchCat, name: string): string {
   if (c.photos.length === 0) return "";
   return (
     '<p class="thumbs">' +
     c.photos
-      .map((ph, i) => `<img class="thumb" src="${thumbUrl(ph.publicId)}" alt="${esc(`Photo ${i + 1} of ${c.photos.length} for cat ${n}`)}" loading="lazy">`)
+      .map((ph, i) => `<img class="thumb" src="${thumbUrl(ph.publicId)}" alt="${esc(`${name}, photo ${i + 1} of ${c.photos.length}`)}" loading="lazy">`)
       .join("") +
     "</p>"
   );
@@ -598,7 +598,7 @@ function card(p: BatchPage, c: BatchCat, n: number): string {
     (c.newCat && c.newCat.description !== "" ? `<p class="meta">${esc(c.newCat.description)}</p>` : "") +
     (said ? `<p class="notice" role="status">${esc(said)}</p>` : "") +
     cardProblems +
-    thumbs(c, n) +
+    thumbs(c, line ? shownName(line) : (c.newCat?.name ?? `Cat ${n}`)) +
     finding +
     answers +
     `<form method="post" action="${action}/remove" class="batchremove"><button type="submit" class="risky">Remove from batch</button></form>` +

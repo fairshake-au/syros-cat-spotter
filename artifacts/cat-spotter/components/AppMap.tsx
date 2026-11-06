@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import MapView, { Marker, Polygon } from 'react-native-maps';
 import { Image, type ImageSource } from 'expo-image';
+import { palette } from '@/constants/colors';
 import { OsmTiles } from './OsmTiles';
 import { useColors } from '@/hooks/useColors';
 import {
@@ -36,6 +37,10 @@ export interface AppMapArea {
   label?: string;
   /** Spoken label, e.g. "Agatha's area" or "Area with 3 cats". */
   accessibilityLabel?: string;
+  /** Cats sharing this cell. On web, the number stays on a cell too small for `label`. */
+  count?: number;
+  /** On web, the cell the strip under the map is narrowed to. */
+  selected?: boolean;
   onPress?: () => void;
 }
 
@@ -131,8 +136,8 @@ export function AppMap({
         <Polygon
           key={`area-${a.id}`}
           coordinates={roundedCellPolygon(a, a.sizeMetres)}
-          fillColor={`${colors.primary}33`}
-          strokeColor={colors.primary}
+          fillColor={`${palette.aegean700}33`}
+          strokeColor={palette.aegean700}
           strokeWidth={2}
           tappable={!!a.onPress}
           onPress={a.onPress}

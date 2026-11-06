@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type TextStyle } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { fonts, fontSizes, radii, spacing, borderWidths } from '@/constants/theme';
 
@@ -12,7 +12,7 @@ export interface InputProps extends TextInputProps {
   style?: StyleProp<TextStyle>;
 }
 
-export function Input({ label, helper, error, iconLeft, style, onFocus, onBlur, ...rest }: InputProps) {
+export function Input({ label, helper, error, iconLeft, style, onFocus, onBlur, accessibilityLabel, ...rest }: InputProps) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
 
@@ -43,6 +43,7 @@ export function Input({ label, helper, error, iconLeft, style, onFocus, onBlur, 
             setFocused(false);
             onBlur?.(e);
           }}
+          accessibilityLabel={accessibilityLabel ?? label}
           placeholderTextColor={colors.mutedForeground}
           style={[styles.input, { color: colors.foreground }, style]}
           {...rest}
@@ -82,6 +83,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,
     padding: 0,
+    // The field's own thick border is the focus cue (SYC-644).
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   },
   helper: {
     fontSize: fontSizes['2xs'],

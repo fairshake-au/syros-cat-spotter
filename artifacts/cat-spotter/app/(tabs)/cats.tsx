@@ -65,6 +65,7 @@ export default function CatalogScreen() {
   const { deviceId } = useDevice();
   const { isOnline } = useOffline();
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [filter, setFilter] = useState<CatalogueFilter>('all');
   const [showMap, setShowMap] = useState(false);
 
@@ -187,13 +188,20 @@ export default function CatalogScreen() {
         <View
           style={[
             styles.searchBox,
-            { backgroundColor: colors.card, borderColor: colors.controlBorder },
+            {
+              backgroundColor: colors.card,
+              borderColor: searchFocused ? colors.primary : colors.controlBorder,
+              borderWidth: searchFocused ? borderWidths.thick : borderWidths.thin,
+            },
           ]}
         >
           <Feather name="search" size={16} color={colors.mutedForeground} />
           <TextInput
             value={search}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            accessibilityLabel={t('catalogSearchLabel')}
             placeholder={t('catalogSearchPlaceholder')}
             placeholderTextColor={colors.mutedForeground}
             style={[styles.searchInput, { color: colors.foreground }]}
@@ -291,6 +299,8 @@ export default function CatalogScreen() {
                 // "3 cats" on a shared square (decision D6); the map hides it
                 // while the square is narrower than 40 px.
                 label: shared ? t('catsInArea').replace('{n}', String(group.length)) : undefined,
+                count: shared ? group.length : undefined,
+                selected: !!stripIds && group.every((c) => stripIds.includes(c.id)),
                 accessibilityLabel: shared
                   ? t('areaWithCats').replace('{n}', String(group.length))
                   : t('areaOfCat').replace('{name}', catNameInSentence(group[0]!)),
@@ -402,12 +412,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[2],
     borderRadius: radii.pill,
-    borderWidth: borderWidths.thin,
     paddingHorizontal: spacing[4],
-    paddingVertical: Platform.OS === 'web' ? 10 : 9,
   },
+  // The whole 44px box is the text box, not a thin strip inside it (SYC-815).
   searchInput: {
     flex: 1,
+    minHeight: 44,
     fontSize: fontSizes.sm,
     fontFamily: fonts.body,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),

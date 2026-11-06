@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useLanguage } from '@/context/LanguageContext';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
 
 interface NewSpotIntroProps {
@@ -35,10 +36,12 @@ export function NewSpotIntro({
   disabled = false,
 }: NewSpotIntroProps) {
   const colors = useColors();
+  const { t } = useLanguage();
   return (
     <View style={styles.row}>
       <Image
         source={{ uri: photoUri }}
+        accessibilityLabel={t('dupYourPhotoAlt')}
         style={[styles.thumb, { borderColor: colors.border }]}
         contentFit="cover"
       />

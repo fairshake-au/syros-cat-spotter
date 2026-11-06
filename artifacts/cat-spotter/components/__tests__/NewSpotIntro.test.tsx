@@ -21,6 +21,8 @@ vi.mock('expo-image', () => ({
   Image: () => null,
 }));
 
+vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
+
 vi.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     foreground: '#111',

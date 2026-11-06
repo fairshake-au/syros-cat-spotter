@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Switch } from '@/components/purropolis/Switch';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -172,11 +173,9 @@ export default function SettingsScreen() {
             </Text>
             <Switch
               testID="celebration-sounds-switch"
-              value={soundsOn}
-              onValueChange={setSoundsOn}
+              checked={soundsOn}
+              onChange={setSoundsOn}
               accessibilityLabel={t('settingsCelebrationSounds')}
-              trackColor={{ false: colors.controlBorder, true: colors.primaryFill }}
-              style={styles.switchControl}
             />
           </View>
         </View>
@@ -249,7 +248,6 @@ const styles = StyleSheet.create({
   },
   switchLabel: { flex: 1, fontFamily: fonts.bodyBold, fontSize: fontSizes.md },
   // 44pt hit area around the track.
-  switchControl: { minHeight: 44, minWidth: 44 },
   deleteRow: {
     flexDirection: 'row',
     alignItems: 'center',

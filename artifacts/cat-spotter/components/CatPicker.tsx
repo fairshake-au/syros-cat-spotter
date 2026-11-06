@@ -190,6 +190,7 @@ export function CatPicker({
               </Text>
               <Image
                 source={photoSource(selected.photoUrl)}
+                accessibilityLabel={catDisplayName(selected, t)}
                 style={[styles.comparePhoto, { borderColor: colors.border }]}
                 contentFit="cover"
               />
@@ -201,6 +202,7 @@ export function CatPicker({
                 <Image
                   key={url}
                   source={photoSource(url)}
+                  accessibilityLabel={catDisplayName(selected, t)}
                   style={[styles.morePhoto, { borderColor: colors.border }]}
                   contentFit="cover"
                 />

@@ -337,6 +337,7 @@ function galleryItem(
   p: TeamPhoto,
   i: number,
   total: number,
+  catName: string,
   catId: number,
   may: (c: Capability) => boolean,
   notice: string,
@@ -369,7 +370,7 @@ function galleryItem(
   const why = p.hidden?.reason ? `<p class="hiddenby"><span class="why">${esc(p.hidden.reason)}</span></p>` : "";
   return (
     `<figure id="p-${esc(p.publicId)}"${p.hidden ? ' class="ishidden"' : ""}>` +
-    `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="${esc(`Photo ${i + 1} of ${total}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy"></a>` +
+    `<a href="${esc(p.url)}"><img src="${esc(p.url)}" alt="${esc(`${catName}, photo ${i + 1} of ${total}${p.hidden ? ", hidden from the public" : ""}`)}" loading="lazy"></a>` +
     `<figcaption><span class="capt">${caption}</span>${menu}</figcaption>` +
     (roleWords ? `<p class="role">${roleWords}</p>` : "") +
     why +
@@ -569,7 +570,7 @@ export function renderCatPage(
           .map((p, i) =>
             {
               const here = landed && p.publicId === opts.photo;
-              return galleryItem(p, i, v.photos.length, cat.id, may, here ? photoNotice : "", here, now);
+              return galleryItem(p, i, v.photos.length, v.cat.namePending ? v.cat.syr : v.cat.name, cat.id, may, here ? photoNotice : "", here, now);
             }
           )
           .join("") +

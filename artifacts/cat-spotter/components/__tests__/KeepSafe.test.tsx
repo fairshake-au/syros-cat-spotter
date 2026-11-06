@@ -159,6 +159,12 @@ describe('"Don\'t lose your spots" (§3.0)', () => {
     expect(style('keep-safe-save-wrap').flexGrow).toBe('1');
   });
 
+  it('names the email box with a visible label, not just a hint that vanishes (SYC-815)', () => {
+    const { getByText, getByTestId } = render(<KeepSafeScreen surface="onboarding" onSaved={() => {}} onSkip={() => {}} />);
+    expect(getByText('Your email')).toBeTruthy();
+    expect(getByTestId('keep-safe-email').getAttribute('aria-label')).toBe('Your email');
+  });
+
   it('Skip goes straight on and sends nothing', () => {
     const onSkip = vi.fn();
     const { getByText } = render(<KeepSafeScreen surface="onboarding" onSaved={() => {}} onSkip={onSkip} />);

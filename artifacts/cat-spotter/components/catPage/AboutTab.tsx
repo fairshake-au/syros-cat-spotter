@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/context/LanguageContext';
@@ -22,7 +22,14 @@ export type UpdateBanner = {
   message: string;
 };
 
-type FactRow = { key: string; icon: React.ComponentProps<typeof Feather>['name']; bold: string; quiet?: string | null };
+type FactRow = {
+  key: string;
+  icon: React.ComponentProps<typeof Feather>['name'];
+  bold: string;
+  quiet?: string | null;
+  /** Said by a screen reader before `bold`, where the hidden icon is all that names the row. */
+  spokenPrefix?: string;
+};
 
 /** The tinted round icon beside a facts-card row. */
 function FactIcon({ name }: { name: FactRow['icon'] }) {
@@ -119,7 +126,7 @@ export function AboutTab({
   ];
   // SYC-809: the coat is not a place, so it gets its own row and never sits
   // under the map pin.
-  if (appearance) rows.push({ key: 'coat', icon: 'droplet', bold: appearance });
+  if (appearance) rows.push({ key: 'coat', icon: 'droplet', bold: appearance, spokenPrefix: t('catCoatPrefix') });
   if (area) rows.push({ key: 'where', icon: 'map-pin', bold: area, quiet: place });
   else if (place) rows.push({ key: 'where', icon: 'map-pin', bold: place });
 
@@ -200,7 +207,18 @@ export function AboutTab({
           >
             <FactIcon name={row.icon} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.factBold, { color: colors.foreground }]}>{row.bold}</Text>
+              <Text
+                accessibilityLabel={
+                  row.spokenPrefix && Platform.OS !== 'web' ? `${row.spokenPrefix} ${row.bold}` : undefined
+                }
+                style={[styles.factBold, { color: colors.foreground }]}
+              >
+                {/* Web reads no label on plain text, so the words sit there, out of sight. */}
+                {row.spokenPrefix && Platform.OS === 'web' ? (
+                  <Text style={styles.srOnly}>{`${row.spokenPrefix} `}</Text>
+                ) : null}
+                {row.bold}
+              </Text>
               {row.quiet ? <Text style={[styles.factQuiet, { color: quiet }]}>{row.quiet}</Text> : null}
             </View>
           </View>
@@ -246,6 +264,13 @@ export function AboutTab({
 }
 
 const styles = StyleSheet.create({
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? ({ clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as object) : {}),
+  },
   stack: { gap: 14 },
   editBtn: {
     flexDirection: 'row',

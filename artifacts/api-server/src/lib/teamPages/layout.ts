@@ -291,10 +291,10 @@ li.statement.routine>details>summary::before,.hownote>summary::before{content:"�
 li.statement.routine>details>summary::-webkit-details-marker,.hownote>summary::-webkit-details-marker{display:none}
 li.statement.routine>details[open]>summary::before,.hownote[open]>summary::before{content:"▾"}
 /* Folds look like folds (SYC-619 §2.6): the same marker, with empty alternative text so a screen reader does not read the triangle. */
-.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before,details.planfold>summary::before,details.filters>summary::before{content:"▸" / "";flex:none;width:1.2em;color:var(--accent-strong)}
-.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before,details.planfold[open]>summary::before,details.filters[open]>summary::before{content:"▾" / ""}
-.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary,details.planfold>summary,details.filters>summary{display:flex;align-items:center;list-style:none}
-.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker,details.planfold>summary::-webkit-details-marker,details.filters>summary::-webkit-details-marker{display:none}
+.fixes summary::before,.typedfold summary::before,details.hist>summary::before,details.notdescribed>summary::before,details.invitefold>summary::before,details.method>summary::before,details.planfold>summary::before,details.filters>summary::before,.mapmove>summary::before{content:"▸" / "";flex:none;width:1.2em;color:var(--accent-strong)}
+.fixes details[open]>summary::before,.typedfold[open]>summary::before,details.hist[open]>summary::before,details.notdescribed[open]>summary::before,details.invitefold[open]>summary::before,details.method[open]>summary::before,details.planfold[open]>summary::before,details.filters[open]>summary::before,.mapmove[open]>summary::before{content:"▾" / ""}
+.fixes summary,.typedfold summary,details.hist>summary,details.notdescribed>summary,details.invitefold>summary,details.method>summary,details.planfold>summary,details.filters>summary,.mapmove>summary{display:flex;align-items:center;list-style:none}
+.fixes summary::-webkit-details-marker,.typedfold summary::-webkit-details-marker,details.hist>summary::-webkit-details-marker,details.notdescribed>summary::-webkit-details-marker,details.invitefold>summary::-webkit-details-marker,details.method>summary::-webkit-details-marker,details.planfold>summary::-webkit-details-marker,details.filters>summary::-webkit-details-marker,.mapmove>summary::-webkit-details-marker{display:none}
 /* Buttons with their own look keep no marker (SYC-619 §2.6). */
 .fixes details>summary.risky::before,.fixes details[open]>summary.risky::before,.fixes details.update>summary::before,.fixes details.update[open]>summary::before,.fixes details.addnote>summary::before,.fixes details.addnote[open]>summary::before{content:none}
 details.method>summary{cursor:pointer;min-height:44px;font-weight:700;color:var(--accent-strong)}
@@ -620,6 +620,9 @@ a.hrow:hover{border-color:var(--accent)}
 .hwhere strong{color:var(--accent-text);text-decoration:underline}
 .hnote{font-size:14px;color:var(--ink-2)}
 a.hlink{display:inline-flex;align-items:center;min-height:44px;padding:0;font-weight:700}
+.reportcard h2 a{display:inline-flex;align-items:center;min-height:44px}
+/* A link in running words stays inline, so it doesn't open a gap between lines (SYC-815). */
+p.hint a.hlink,p.empty a.hlink{display:inline;min-height:0}
 a.hrow.urgent{border-left:6px solid var(--danger)}
 .hgrid{display:grid;gap:0 32px}
 .hgrid>*{min-width:0}
