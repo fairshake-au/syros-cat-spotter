@@ -27,6 +27,15 @@ const links = (html: string) =>
     m[1]!,
   ]);
 
+describe("dashboard details from the 3 Nov critique (SYC-815)", () => {
+  it("gives the Go to an area fold a marker, the Figures links a full target, and keeps links in running words inline", () => {
+    const css = page({ active: "cats" });
+    expect(css).toContain('.mapmove>summary::before{content:"▸" / ""');
+    expect(css).toContain(".reportcard h2 a{display:inline-flex;align-items:center;min-height:44px}");
+    expect(css).toContain("p.hint a.hlink,p.empty a.hlink{display:inline;min-height:0}");
+  });
+});
+
 describe("the team's menu (spec §3.1)", () => {
   it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Reports · Settings", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
@@ -433,13 +442,14 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     "details.invitefold>summary",
     "details.method>summary",
     "details.planfold>summary",
+    ".mapmove>summary",
   ];
   const ruleFor = (css: string, tail: string) => {
     const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
     return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
   };
 
-  it("the marker rule lists exactly the seven summaries", () => {
+  it("the marker rule lists exactly the eight summaries", () => {
     const r = ruleFor(sheet(), "::before");
     const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
     expect(marker).toBeTruthy();
@@ -462,6 +472,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
       "details.planfold[open]>summary::before",
+      ".mapmove[open]>summary::before",
     ]);
   });
 
