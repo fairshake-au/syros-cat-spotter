@@ -4,7 +4,14 @@
   // Deploy with: npx wrangler deploy  (from this directory)
   "name": "fairshake-proposals",
   "compatibility_date": "2026-07-01",
-  "assets": { "directory": "./public" },
+  "main": "src/worker.js",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/catspotters/questions/*"]
+  },
+  // Answers from the Syros Cats questions page (src/worker.js).
+  "kv_namespaces": [{ "binding": "ANSWERS", "id": "bd4bf2ed474c4b7bb37e077fbfd5beff" }],
   "routes": [
     { "pattern": "proposals.fairshake.au", "custom_domain": true }
   ]
