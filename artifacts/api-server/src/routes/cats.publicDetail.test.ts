@@ -38,6 +38,10 @@ import app from "../app";
 // "followersCount":0` right after `"fansCount"` (never `isFollowing`: no
 // proven phone asked). No other byte changed.
 //
+// Regenerated again, on purpose, by SYC-810: `"areaKey":...,"areaName":...`
+// right after `"namePending"` on the cat (the area of its published cell
+// centre). No other byte changed.
+//
 // Only the database's own serial ids are swapped for placeholders; every other
 // byte, including key order, is compared as sent.
 
