@@ -172,7 +172,9 @@ describe("the area on the routes that send a cat", () => {
 
     it("GET /cats gives the cell's area and position", async () => {
       const res = await request(app).get(`/api/cats?lat=${SPOT.cell.lat}&lng=${SPOT.cell.lng}&pageSize=200`);
-      const cat = (res.body.cats as { id: number; lat: number; lng: number }[]).find((c) => c.id === ownedId);
+      const cat = (res.body.cats as { id: number; lat: number; lng: number; areaKey: string | null; areaName: string | null }[]).find(
+        (c) => c.id === ownedId,
+      );
       expect(cat).toBeTruthy();
       expectCellArea(cat!);
       expect([cat!.lat, cat!.lng]).toEqual([SPOT.cell.lat, SPOT.cell.lng]);
