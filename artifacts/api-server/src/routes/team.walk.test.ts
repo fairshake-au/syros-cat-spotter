@@ -224,6 +224,8 @@ const TABLE: Record<string, Row> = {
   "GET /api/team/duplicates": { why: "Possible duplicates (SYC-59 PR 5.1): review_duplicates, island-only" },
   "POST /api/team/duplicates/decide": { why: "\"Different cats\" and \"Not sure yet\" (SYC-59 PR 5.1): review_duplicates, island-only; the walk's empty form is a 400 for the team" },
   "POST /api/team/new-cats-to-check/:id/checked": { why: "\"Checked, it's new\" (SYC-59 PR 5.1): review_duplicates, island-only; the walk's id is no cat, so the team gets a 404" },
+  "GET /api/team/matches-to-check": { why: "Matches to check (SYC-795): move_sighting, island-only (team.matchCheck.test.ts)" },
+  "POST /api/team/matches-to-check/:sightingId/looks-right": { why: "\"Looks right\" (SYC-795): move_sighting, island-only; Origin checked by formRoute (team.matchCheck.test.ts)" },
   "POST /api/team/cats/merge": { why: "merging two records (SYC-59 PR 4.1): merge_cats, island-only; the walk's empty body is a 400 for the team" },
   "POST /api/team/cats/merge/:id/undo": { why: "undoing a merge (SYC-59 PR 4.1): merge_cats, island-only; the walk's empty body is a 400 for the team" },
   "GET /api/team/cats/merge": { why: "the merge screen (SYC-59 PR 4.2): merge_cats, island-only; the walk's address names no cat, so the team gets a 404 page" },
