@@ -47,6 +47,6 @@ describe("help on the Map, Cat has died and Log a vet visit", () => {
     });
     expect(html).toContain("Ticking Sterilised records the cat as sterilised.");
     expect(html).toContain("overrules that, and undoing the visit puts it back");
-    expect(html).toContain("If the owner paid, the cost is not counted in Syros Cats&#39; spend in Reports.");
+    expect(html).toContain("If the owner paid, the cost is not counted in Syros Cats&#39; spend in Figures.");
   });
 });

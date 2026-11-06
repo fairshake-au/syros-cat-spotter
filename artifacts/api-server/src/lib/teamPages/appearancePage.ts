@@ -170,7 +170,7 @@ function confirmForm(
     `<input type="hidden" name="kind" value="${kind}">` +
     expectedFields(kind, value, coat) +
     backField(back) +
-    `<button type="submit" class="save">${label}</button>` +
+    `<button type="submit" class="save calm">${label}</button>` +
     `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}` +
     (guardianDecides ? ` ${esc(tr(lang, "appearance.confirmHintGuardian"))}` : "") +
     "</p></form>"
@@ -593,16 +593,24 @@ export function renderCorrectAgain(
 
 // ── The Colour check list ───────────────────────────────────────────────────
 
+const CHECK_CSS = `<style>
+li.colourcheck a.catrow{flex-direction:column;align-items:flex-start}
+li.colourcheck .thumb{width:min(100%,240px);height:auto;aspect-ratio:1}
+</style>`;
+
 function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean): string {
+  // SYC-814: the page asks you to look at this photo, so it has to be big
+  // enough to look at, and it says who it is and what's on record.
+  const recorded = `${tr(lang, "appearance.colour")}: ${coatWordsFor(lang, { colours: c.coatColours, pattern: c.coatPattern })}`;
   const thumb = c.photoUrl
-    ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="" loading="lazy">`
+    ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="${esc(`Photo of ${c.name}`)}" width="240" height="240" loading="lazy">`
     : `<span class="thumb nothumb">${esc(tr(lang, "appearance.noPhoto"))}</span>`;
   // The coat's two parts (SYC-398 §4): its colours, then its pattern.
   const coatCodes = [...(c.coatColours ?? []), ...(c.coatPattern ? [c.coatPattern] : [])];
   const coat = coatCodes.length > 0 ? coatCodes : null;
   const line = [
     // "Coat: Ginger tabby" (SYC-443 §15.1).
-    `${tr(lang, "appearance.colour")}: ${coatWordsFor(lang, { colours: c.coatColours, pattern: c.coatPattern })}`,
+    recorded,
     `${tr(lang, "appearance.markings")}: ${valueText(lang, "markings", c.markings)}`,
   ].join(" · ");
   const confirms = [
@@ -674,6 +682,6 @@ export function renderColourCheckPage(
     personName,
     lang,
     beforeTitle: backLink(HOME_PATH, tr(lang, "colourCheck.back")),
-    body,
+    body: CHECK_CSS + body,
   });
 }

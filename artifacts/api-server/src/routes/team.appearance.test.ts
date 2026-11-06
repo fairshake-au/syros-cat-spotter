@@ -880,6 +880,7 @@ describe("the Appearance section on the team cat page", () => {
     expect(html).toContain("Read from the photo on");
     expect(html).not.toContain("model gpt-test-1");
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/confirm"`);
+    expect(html).toContain('<button type="submit" class="save calm">');
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/correct"`);
     expect(html).toContain(`action="/api/team/statements/${reading.id}/wrong"`);
     // The team never states Not sure on colour.
@@ -979,6 +980,8 @@ describe("the Appearance section on the team cat page", () => {
     const row = page.text.slice(page.text.indexOf(`id="c-${catId}"`));
     const next = row.indexOf('<li class="report colourcheck"', 1);
     const end = next === -1 ? row.length : next;
+    // SYC-814: the photo names the cat and what's on record.
+    expect(row.slice(0, end)).toMatch(/<img class="thumb"[^>]*alt="Photo of [^"]+"[^>]*width="240"/);
     expect(row.slice(0, end)).toContain("Saving replaces their answer with yours");
     expect(row.slice(0, end)).toContain(`name="shownAbove" value="${g.id}"`);
   });

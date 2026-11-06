@@ -112,7 +112,7 @@ const ROWS: [string, () => string, string, string][] = [
   [
     "A report",
     () => renderHealthPage({ rows: [], anyColonies: false, areasVersion: 1, workedOutAt: NOW, ms: 0 }, { personName: "Susan", range: parseRange(undefined, NOW), sort: "name", dir: "asc", canExport: false }),
-    "← Reports",
+    "← Figures",
     "/api/team/insights",
   ],
 ];

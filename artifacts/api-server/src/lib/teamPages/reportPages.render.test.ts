@@ -77,8 +77,8 @@ describe("the Reports index (§8.1)", () => {
   const html = renderReportsList({ personName: "Test", vetCosts: true });
   const card = (h: string, key: string) => new RegExp(`<li class="card reportcard" id="report-${key}">([\\s\\S]*?)</li>`).exec(h)![1]!;
 
-  it("says in plain words what Reports is for (SYC-739)", () => {
-    expect(html).toContain("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.");
+  it("says in plain words what Figures is for (SYC-739)", () => {
+    expect(html).toContain("How the work is going. Pick one, then choose the dates at the top. Nothing here changes any records.");
   });
   it("has no intro line", () => {
     expect(html).not.toContain("worked out from the records when you open it");

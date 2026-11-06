@@ -75,8 +75,8 @@ describe("the Reports list", () => {
     expect(card("donations")).toContain("Coming once donations are set up");
     expect(card("impact")).not.toContain("<a ");
     expect(card("impact")).toContain("Coming soon");
-    // Reports is in the menu, underlined here.
-    expect(res.text).toContain('<a class="here" href="/api/team/insights" aria-current="page">Reports</a>');
+    // Figures is in the menu, underlined here.
+    expect(res.text).toContain('<a class="here" href="/api/team/insights" aria-current="page">Figures</a>');
   });
 
   it("a report not built yet is a 404, not a page", async () => {

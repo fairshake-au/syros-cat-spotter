@@ -33,9 +33,9 @@ import {
 } from "../lib/teamPages/reportPages";
 import { launchRange, launchRangeQuery, launchTables, renderLaunchPage } from "../lib/teamPages/launchPage";
 
-// The Reports area (SYC-396 PR 3.3a; spec §9.3). At /insights, because
+// The Figures area (SYC-396 PR 3.3a; spec §9.3). At /insights, because
 // /api/team/reports is already the welfare queue's JSON and report pages
-// (routes/teamReports.ts); the menu's label is still "Reports".
+// (routes/teamReports.ts); the menu's label is "Figures" (SYC-814).
 //
 // **Team-only at launch** (Samuel, 18 Oct, Q1). A cat guardian holds
 // view_reports for her colonies, but every route here names it with no

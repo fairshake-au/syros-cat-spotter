@@ -21,7 +21,7 @@ import { pageIntro, howFold } from "./help";
 import { markBar } from "./marks";
 import { foldLine, methodFold } from "./methodFold";
 
-// The Reports area and its first two reports (SYC-396 PR 3.3a; spec §9.3).
+// The Figures area (the menu's word since SYC-814) and its first two reports (SYC-396 PR 3.3a; spec §9.3).
 // Server-drawn, no scripts: every chart is an SVG picture with its numbers in
 // "Show as table", and every table downloads as a spreadsheet file whose
 // columns are the table's own (the same TableColumn list feeds both).
@@ -85,10 +85,10 @@ export function renderReportsList(o: { personName: string; vetCosts: boolean }):
     return `<li class="card reportcard" id="report-${r.key}">${head}<p${open ? "" : ' class="muted"'}>${esc(r.about)}</p>${status}</li>`;
   }).join("");
   return renderPage({
-    title: "Reports",
+    title: "Figures",
     active: "reports",
     personName: o.personName,
-    body: pageIntro("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.") + `<ul class="reportlist">${cards}</ul>`,
+    body: pageIntro("How the work is going. Pick one, then choose the dates at the top. Nothing here changes any records.") + `<ul class="reportlist">${cards}</ul>`,
   });
 }
 
@@ -166,7 +166,7 @@ function download(key: string, range: Range, words: string, extra = ""): string 
   return `<p><a class="tap" href="${INSIGHTS}/${key}.csv?${rangeQuery(range)}${extra}" download>${esc(words)}</a></p>`;
 }
 
-export const back = backLink(INSIGHTS, "Reports");
+export const back = backLink(INSIGHTS, "Figures");
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 // ─── Sterilisation progress ─────────────────────────────────────────────
