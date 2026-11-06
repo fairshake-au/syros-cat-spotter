@@ -231,6 +231,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     `<form class="catfilters" id="catfilters" method="get" action="${PATH}" role="search">` +
     tieField +
     (map ? '<input type="hidden" name="view" value="map">' : "") +
+    // Sort means nothing on a map: kept as a hidden field so Grid keeps it (SYC-812).
+    (map && f.sort ? `<input type="hidden" name="sort" value="${esc(f.sort)}">` : "") +
     // Spoken by the label, shown by the placeholder: the row's height goes to the map (SYC-812).
     '<label class="sr" for="q">Name or SYR number</label>' +
     `<div class="searchrow"><input id="q" name="q" type="search" placeholder="Name or SYR number" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
@@ -246,7 +248,7 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     `<fieldset><legend>Sterilised</legend><div class="choices">${marks}</div></fieldset>` +
     `<fieldset><legend>Lives</legend><div class="choices">${lives}</div></fieldset>` +
     `<fieldset><legend>Last seen</legend><select class="text" id="f-seen" name="lastSeen" aria-label="Last seen">${lastSeen}</select></fieldset>` +
-    `<fieldset><legend>Sort</legend><select class="text" id="f-sort" name="sort" aria-label="Sort">${sort}</select></fieldset>` +
+    (map ? "" : `<fieldset><legend>Sort</legend><select class="text" id="f-sort" name="sort" aria-label="Sort">${sort}</select></fieldset>`) +
     "</div></details></form>"
   );
 }

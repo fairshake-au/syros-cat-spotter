@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CatListItem } from "../teamCatList";
-import { renderCatGridPage, withoutDefaultLives } from "./catGridPage";
+import { filterForm, renderCatGridPage, withoutDefaultLives } from "./catGridPage";
 
 // SYC-396 PR 1.3: pure render tests for the Cats grid (review fixes).
 
@@ -268,5 +268,36 @@ describe("help on the Cats list (SYC-739)", () => {
   it("the empty state with no filters says those cats are hidden", () => {
     const html = render({ items: [], total: 0 });
     expect(html).toContain("are hidden unless you ask for them");
+  });
+});
+
+describe("Sort (SYC-812 §3.3)", () => {
+  it("the Map has no Sort control and keeps a chosen sort as a hidden field", () => {
+    const html = filterForm({ filters: { sort: "name" }, colonies: [] }, true);
+    expect(html).not.toContain('id="f-sort"');
+    expect(html).not.toContain("<legend>Sort</legend>");
+    expect(html).toContain('<input type="hidden" name="sort" value="name">');
+    expect(html).toContain('<input type="hidden" name="view" value="map">');
+  });
+
+  it("the Map adds no sort field when none was chosen", () => {
+    const html = filterForm({ filters: {}, colonies: [] }, true);
+    expect(html).not.toContain('name="sort"');
+  });
+
+  it("the Grid keeps its Sort control", () => {
+    const html = filterForm({ filters: { sort: "name" }, colonies: [] });
+    expect(html).toContain('id="f-sort"');
+    expect(html).toContain('<option value="name" selected>');
+  });
+
+  it("choosing a cat for a report keeps Sort", () => {
+    const tie = {
+      publicId: "r1",
+      report: { id: "r1", severity: "attention", isLitter: false, at: "2026-10-15T10:00:00Z", cat: null } as never,
+      canTie: true,
+    };
+    const html = render({ tie });
+    expect(html).toContain('id="f-sort"');
   });
 });
