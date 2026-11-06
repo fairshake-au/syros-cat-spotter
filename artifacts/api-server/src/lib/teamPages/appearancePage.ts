@@ -603,7 +603,7 @@ function checkRow(lang: string | undefined, c: ColourCheckCat, inline: boolean):
   // enough to look at, and it says who it is and what's on record.
   const recorded = `${tr(lang, "appearance.colour")}: ${coatWordsFor(lang, { colours: c.coatColours, pattern: c.coatPattern })}`;
   const thumb = c.photoUrl
-    ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="${esc(`${c.name}. ${recorded}`)}" width="240" height="240" loading="lazy">`
+    ? `<img class="thumb" src="${esc(c.photoUrl)}" alt="${esc(`Photo of ${c.name}`)}" width="240" height="240" loading="lazy">`
     : `<span class="thumb nothumb">${esc(tr(lang, "appearance.noPhoto"))}</span>`;
   // The coat's two parts (SYC-398 §4): its colours, then its pattern.
   const coatCodes = [...(c.coatColours ?? []), ...(c.coatPattern ? [c.coatPattern] : [])];
