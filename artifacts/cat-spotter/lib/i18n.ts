@@ -1146,7 +1146,7 @@ const el: Dict = {
   photoTipsGotIt: 'Κατάλαβα',
   photoTipsLink: 'Συμβουλές φωτογραφίας',
   photoTipGiveSpace: 'Άφησέ της χώρο',
-  photoTipGiveSpaceLine: 'Γέμισε το κάδρο από ένα βήμα απόσταση. Σκύψε στο ύψος της γάτας.',
+  photoTipGiveSpaceLine: 'Γέμισε το κάδρο από ένα βήμα πίσω. Σκύψε στο ύψος της γάτας.',
   photoTipFace: 'Δείξε το πρόσωπο',
   photoTipFaceLine: 'Περίμενε να κοιτάξει προς το μέρος σου.',
   photoTipBody: 'Δείξε ολόκληρο το σώμα',
