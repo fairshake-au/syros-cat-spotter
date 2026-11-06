@@ -1,7 +1,7 @@
 import type { CatListFilters, CatListItem } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
 import { currentAreas } from "../areas/namedAreas";
-import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
+import { activeChips, catsAddress, filterForm, hiddenCatsNote, viewRow } from "./catGridPage";
 import { escapeHtml as esc } from "./escape";
 import { pageIntro } from "./help";
 import { renderPage } from "./layout";
@@ -83,14 +83,16 @@ function countLine(o: CatMapOptions): string {
   const filtered = Object.keys(o.filters).some((k) => k !== "page" && k !== "sort");
   const clear = filtered ? ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>` : "";
   if (o.cats.length === 0 && o.catCount === 0) {
-    return '<p class="empty" id="mapcount" role="status">No cats recorded yet. Cats appear here once spotters send sightings.</p>';
+    return '<p class="empty" id="mapcount">No cats recorded yet. Cats appear here once spotters send sightings.</p>';
   }
   if (o.cats.length === 0) {
-    return `<p class="count" id="mapcount" role="status">No cats match these filters${clear || ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>`}</p>`;
+    return `<p class="count" id="mapcount">No cats match these filters${clear || ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>`}</p>`;
   }
   const n = o.cats.length === 1 ? "1 cat on the map" : `${o.cats.length} cats on the map`;
-  return `<p class="count" id="mapcount" role="status"><span id="mapcountn">${n}</span>${clear}</p>`;
+  return `<p class="count" id="mapcount"><span id="mapcountn">${n}</span>${clear}</p>`;
 }
+
+const FAILED_WORDS = "Couldn't update the map. Tap Show cats to try again.";
 
 /** The island Map page. Trusted HTML: fixed text, numbers, assetUrl() addresses and escapeHtml only. */
 export function renderCatMapPage(o: CatMapOptions): string {
@@ -98,12 +100,14 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "Each dot is a cat, placed where it was last seen. A circle with a number is a group of cats: zoom in to split it. These places are for the team only.",
   );
   const top =
-    intro +
     // Same order as the grid (search and Filters, then Grid/Map), so the
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
     viewRow(o, "map") +
-    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>`;
+    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}${hiddenCatsNote(o.filters, undefined, true)}</div>` +
+    // Outside #mapresults, which is swapped: a live region has to stay put to be heard.
+    '<p class="sr" id="mapsaid" role="status"></p>' +
+    `<p class="warn" id="mapfailed" hidden>${esc(FAILED_WORDS)}</p>`;
 
   const focus = o.focus
     ? {
@@ -129,11 +133,6 @@ export function renderCatMapPage(o: CatMapOptions): string {
   const gridHref = catsAddress({ ...o.filters, page: undefined });
   const body =
     top +
-    // Shown by the script once the map is up; with no script it stays hidden.
-    '<fieldset class="maplayers" id="maplayers" hidden><legend>Show on the map</legend>' +
-    '<label class="choicechip"><input type="checkbox" id="layer-cats" checked> Cats</label>' +
-    '<label class="choicechip"><input type="checkbox" id="layer-sites"> Feeding sites</label>' +
-    "</fieldset>" +
     '<div class="mapwrap">' +
     box +
     legend() +
@@ -141,6 +140,13 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "</div>" +
     // No script, or the map can't start: the same cats as the grid.
     `<p class="mapfallback" id="mapgrid"><a class="tap" id="map-gridlink" href="${esc(gridHref)}">${esc(tr("en", "map.catsAsGrid"))}</a></p>` +
+    // Below the map, so the map starts within the first screen (SYC-812).
+    intro +
+    // Shown by the script once the map is up; with no script it stays hidden.
+    '<fieldset class="maplayers" id="maplayers" hidden><legend>Show on the map</legend>' +
+    '<label class="choicechip"><input type="checkbox" id="layer-cats" checked> Cats</label>' +
+    '<label class="choicechip"><input type="checkbox" id="layer-sites"> Feeding sites</label>' +
+    "</fieldset>" +
     // Every named area is a lot of buttons on a phone: folded until opened.
     `<details class="mapmove" id="mapmove" hidden><summary>${esc(tr("en", "map.goToArea"))}</summary>` +
     '<div class="arearow" id="mapgoto" role="group" aria-label="Go to">' +

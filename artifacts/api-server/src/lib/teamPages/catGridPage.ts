@@ -51,8 +51,8 @@ const LIVES_WORD: Record<Lives, string> = {
 };
 
 const LAST_SEEN_WORD: Record<(typeof LAST_SEEN)[number], string> = {
-  week: "This week",
-  month: "This month",
+  week: "In the last week",
+  month: "1 week to 1 month",
   "1to3": "1–3 months",
   over3: "Over 3 months",
   quiet: notSeenWords(),
@@ -121,6 +121,20 @@ export function catsAddress(f: CatListFilters, tie?: TieMode, map = false): stri
 }
 
 const address = catsAddress;
+
+/**
+ * Who the page is leaving out (SYC-812 §3.6): only cats marked "No longer with
+ * us" are hidden by default. Empty once that box is ticked. The Show them link
+ * keeps the filters and stays on the same view.
+ */
+export function hiddenCatsNote(f: CatListFilters, tie?: TieMode, map = false): string {
+  const livesNow = f.lives?.length ? f.lives : defaultLives(Boolean(tie));
+  if (livesNow.includes("gone")) return "";
+  return (
+    '<p class="hint">Not showing cats who are no longer with us. ' +
+    `<a href="${esc(address({ ...f, lives: [...LIVES], page: undefined }, tie, map))}">Show them</a></p>`
+  );
+}
 
 /**
  * The one switch between Grid and Map (spec §6.1): the same filters either
@@ -220,7 +234,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
   ).join("");
   const lastSeen =
     '<option value="">Any time</option>' +
-    LAST_SEEN.map(
+    // "quiet" overlaps two others, so it's offered only to someone who arrives with it (SYC-812).
+    LAST_SEEN.filter((l) => l !== "quiet" || f.lastSeen === "quiet").map(
       (l) => `<option value="${l}"${sel(f.lastSeen === l)}>${esc(LAST_SEEN_WORD[l])}</option>`,
     ).join("");
   const sort = SORTS.map(
@@ -231,8 +246,11 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     `<form class="catfilters" id="catfilters" method="get" action="${PATH}" role="search">` +
     tieField +
     (map ? '<input type="hidden" name="view" value="map">' : "") +
-    '<label class="label" for="q">Name or SYR number</label>' +
-    `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
+    // Sort means nothing on a map: kept as a hidden field so Grid keeps it (SYC-812).
+    (map && f.sort ? `<input type="hidden" name="sort" value="${esc(f.sort)}">` : "") +
+    // Spoken by the label, shown by the placeholder: the row's height goes to the map (SYC-812).
+    '<label class="sr" for="q">Name or SYR number</label>' +
+    `<div class="searchrow"><input id="q" name="q" type="search" placeholder="Name or SYR number" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
     '<button type="submit">Show cats</button></div>' +
     `<details class="filters"><summary>Filters (${n})</summary>` +
     '<div class="fpanel">' +
@@ -245,7 +263,7 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     `<fieldset><legend>Sterilised</legend><div class="choices">${marks}</div></fieldset>` +
     `<fieldset><legend>Lives</legend><div class="choices">${lives}</div></fieldset>` +
     `<fieldset><legend>Last seen</legend><select class="text" id="f-seen" name="lastSeen" aria-label="Last seen">${lastSeen}</select></fieldset>` +
-    `<fieldset><legend>Sort</legend><select class="text" id="f-sort" name="sort" aria-label="Sort">${sort}</select></fieldset>` +
+    (map ? "" : `<fieldset><legend>Sort</legend><select class="text" id="f-sort" name="sort" aria-label="Sort">${sort}</select></fieldset>`) +
     "</div></details></form>"
   );
 }
@@ -301,9 +319,22 @@ function card(c: CatListItem, o: CatGridOptions): string {
   else if (c.lives === "in_care") tag = "In care";
   else if (c.lives === "gone") tag = c.notSeenSince ? `Not seen since ${monthYear(c.notSeenSince)}` : "No longer with us";
   const tie = o.tie && o.tie.report ? tieAction(c, { ...o.tie, report: o.tie.report }) : "";
+  // SYC-815: the card's parts have no gaps between them for a screen reader,
+  // so the link says them once, in order, as a sentence.
+  const spoken = [
+    `${shownName(c)} ${c.syr}`,
+    c.alsoKnownAs ? `${c.alsoKnownAs} (now part of ${shownName(c)})` : null,
+    coat,
+    colonyLine || null,
+    MARK_WORD[c.mark],
+    `${lastSeenWords(c.lastSeenAt, o.now)} · ${c.place}`,
+    tag || null,
+  ]
+    .filter((part) => part !== null)
+    .join(". ");
   return (
     '<li class="catcard">' +
-    `<a class="catcardlink" href="${PATH}/${c.id}">${photo}` +
+    `<a class="catcardlink" href="${PATH}/${c.id}" aria-label="${esc(spoken)}">${photo}` +
     `<span class="cardname"><strong>${esc(shownName(c))}</strong> <span class="syr">${esc(c.syr)}</span></span>` +
     // Found by a merged-in cat's name (which-cat-is-which.md §4.3).
     (c.alsoKnownAs ? `<span class="cardfact">${esc(`${c.alsoKnownAs} (now part of ${shownName(c)})`)}</span>` : "") +
@@ -362,7 +393,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
     // Cats exist, but the usual choice of "Lives" hides every one of them.
     results =
       '<p class="notice" role="status">No cats match these filters</p>' +
-      '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden unless you ask for them.</p>' +
+      '<p class="hint">Cats who are no longer with us are hidden unless you ask for them.</p>' +
       `<p><a class="tap" href="${esc(address({ lives: [...LIVES] }, tie))}">Also show cats who are no longer with us</a></p>`;
   } else if (o.total === 0) {
     results =
@@ -386,16 +417,11 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // Grid/Map switch (so the Map link keeps the filters), the chips, the
   // count, the grid and "Show more", and nothing else. No switch while
   // choosing a cat for a report.
-  const hiddenNote =
-    '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden by default. ' +
-    `<a href="${esc(address({ ...o.filters, lives: [...LIVES], page: undefined }, tie))}">Show them</a></p>`;
-  const livesNow = o.filters.lives?.length ? o.filters.lives : defaultLives(Boolean(tie));
   const body =
     (tie ? "" : pageIntro("Every cat the app knows about, with the most recently seen first. Tap a cat for its full record. Each cat's SYR number is its ID in the app.")) +
     filterForm(o) +
-    (livesNow.includes("gone") ? "" : hiddenNote) +
-    sterilisedKey() +
-    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${results}</div>`;
+    // Everything after the form is redrawn on a filter change, so the note's link stays true (SYC-812).
+    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${hiddenCatsNote(o.filters, tie)}${sterilisedKey()}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

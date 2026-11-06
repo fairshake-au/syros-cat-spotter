@@ -290,33 +290,36 @@ export function RestoreRequestScreen({
         ) : (
           <>
             <Text style={[styles.body, { color: colors.foreground }]}>{t('restoreAskBody')}</Text>
-            <View
-              style={[
-                styles.inputWrap,
-                { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
-              ]}
-            >
-              <TextInput
-                testID="restore-email"
-                value={email}
-                onChangeText={(v) => {
-                  setEmail(v);
-                  setError(null);
-                  setAskedThrice(false);
-                }}
-                placeholder={t('keepSafePlaceholder')}
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                inputMode="email"
-                returnKeyType="send"
-                onSubmitEditing={send}
-                editable={!sending}
-                accessibilityLabel={t('keepSafePlaceholder')}
-                style={[styles.input, { color: colors.foreground }]}
-              />
+            <View style={styles.field}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{t('keepSafeEmailLabel')}</Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: colors.card, borderColor: error ? danger : colors.controlBorder },
+                ]}
+              >
+                <TextInput
+                  testID="restore-email"
+                  value={email}
+                  onChangeText={(v) => {
+                    setEmail(v);
+                    setError(null);
+                    setAskedThrice(false);
+                  }}
+                  placeholder={t('keepSafePlaceholder')}
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  inputMode="email"
+                  returnKeyType="send"
+                  onSubmitEditing={send}
+                  editable={!sending}
+                  accessibilityLabel={t('keepSafeEmailLabel')}
+                  style={[styles.input, { color: colors.foreground }]}
+                />
+              </View>
             </View>
             {error ? <Text style={[styles.note, { color: danger }]}>{error}</Text> : null}
             {askedThrice ? (
@@ -350,6 +353,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.displayBold, fontSize: 26, lineHeight: 30 },
   body: { fontFamily: fonts.body, fontSize: fontSizes.sm, lineHeight: 21 },
   note: { fontFamily: fonts.bodyExtraBold, fontSize: fontSizes['2xs'] },
+  field: { gap: spacing[1] },
+  fieldLabel: { fontFamily: fonts.bodyBold, fontSize: fontSizes.xs },
   inputWrap: {
     borderRadius: radii.md,
     borderWidth: borderWidths.thin,

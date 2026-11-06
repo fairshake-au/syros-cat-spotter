@@ -23,6 +23,8 @@ const CSS = `<style>
 .person.left{border-left-color:var(--line-strong);background:var(--card-quiet)}
 details.person>summary{cursor:pointer;min-height:56px;box-sizing:border-box;padding:6px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;list-style:none}
 details.person>summary::-webkit-details-marker{display:none}
+details.person>summary::before{content:"▸" / "";flex:none;width:1.2em;color:var(--accent-strong)}
+details.person[open]>summary::before{content:"▾" / ""}
 details.person>summary strong{font-size:17px}
 details.person .prole{color:var(--muted);font-size:14px}
 details.person .pbody{padding:0 12px 12px}

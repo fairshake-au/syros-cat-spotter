@@ -182,6 +182,7 @@ export const en = {
   "gcat.life.in_care": "In Syros Cats’ care",
   "gcat.life.deceased": "No longer with us",
   "gcat.photos": "Photos",
+  "gcat.photoAlt": "{name}, photo {n} of {total}",
   "gcat.public.note": "This cat isn’t in one of your colonies, so you see what everyone sees in the app.",
   "gcat.say.heading": "What you know about this cat",
   "gcat.say.intro": "What you tell us goes live straight away, recorded under your name. The team may correct it. You can undo your change for {days} days.",

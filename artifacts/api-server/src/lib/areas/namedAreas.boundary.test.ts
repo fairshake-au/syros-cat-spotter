@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // Pins the "<=" in the 2 km rule: a floating-point offset can't land on exactly
 // 2 km, so the distance itself is stubbed.
 const km = vi.hoisted(() => ({ value: 0 }));
-vi.mock("../catHelpers", () => ({ haversineKm: () => km.value }));
+vi.mock("@workspace/geo", () => ({ haversineKm: () => km.value }));
 
 import { areaFor, SEED_AREAS, OFF_SYROS } from "./namedAreas";
 

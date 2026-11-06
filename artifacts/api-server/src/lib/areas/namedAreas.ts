@@ -1,6 +1,6 @@
 import { db, namedAreasTable } from "@workspace/db";
 import { asc, isNotNull, isNull } from "drizzle-orm";
-import { haversineKm } from "../catHelpers";
+import { haversineKm } from "@workspace/geo";
 import { logger } from "../logger";
 import { areaEventCount } from "./areaHistory";
 import { SEED_AREAS, type NamedArea } from "./seedAreas";
@@ -122,7 +122,7 @@ export function areaForIn(
   let best: NamedArea | null = null;
   let bestKm = Infinity;
   for (const a of areas) {
-    const km = haversineKm(lat, lng, a.lat, a.lng);
+    const km = haversineKm({ lat, lng }, { lat: a.lat, lng: a.lng });
     if (km < bestKm) {
       best = a;
       bestKm = km;

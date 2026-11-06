@@ -64,14 +64,22 @@ describe("the Areas page", () => {
     expect(res.text).toMatch(/<span class="meta">\d+ cats?<\/span>/);
   });
 
-  it("says under the name boxes that area names are shown to cat guardians", async () => {
+  it("says under the name boxes that area names are public", async () => {
     const res = await page(team.cookie);
-    const hint = "Area names are shown to cat guardians. Use the place&#39;s name, never a person&#39;s.";
+    const hint = "Area names are public. Use the place&#39;s name, never a person&#39;s.";
     // Under the Add form's Name box and under each area's Rename box.
     const count = res.text.split(hint).length - 1;
     expect(count).toBeGreaterThan(1);
     expect(res.text).toMatch(/id="add-name"[\s\S]*?<\/form>/);
     expect(res.text.indexOf(hint)).toBeLessThan(res.text.indexOf('id="add-name"'));
+  });
+
+  // SYC-810: area names now show on cats in the public app.
+  it("warns above the add form that names show in the public app", async () => {
+    const res = await page(team.cookie);
+    const line = "These names show in the public app. Use places only, never people or feeding sites.";
+    expect(res.text).toContain(line);
+    expect(res.text.indexOf(line)).toBeLessThan(res.text.indexOf("<summary>Add an area</summary>"));
   });
 
   it("a team member can add, rename, move and retire an area, and each change is in the history", async () => {

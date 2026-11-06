@@ -82,8 +82,8 @@ describe("the Reports index (§8.1)", () => {
     expect(html).toContain("@media (min-width:900px){ul.reportlist{grid-template-columns:repeat(2,minmax(0,1fr))}}");
   });
 
-  it("says in plain words what Reports is for (SYC-739)", () => {
-    expect(html).toContain("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.");
+  it("says in plain words what Figures is for (SYC-739)", () => {
+    expect(html).toContain("How the work is going. Pick one, then choose the dates at the top. Nothing here changes any records.");
   });
   it("has no intro line", () => {
     expect(html).not.toContain("worked out from the records when you open it");

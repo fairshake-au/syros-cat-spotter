@@ -30,7 +30,7 @@ import { PhotoTips } from '../photoTips/PhotoTips';
 
 const KEYS = [
   'photoTipsTitle', 'photoTipsGotIt', 'photoTipsLink',
-  'photoTipGetClose', 'photoTipGetCloseLine', 'photoTipFace', 'photoTipFaceLine',
+  'photoTipGiveSpace', 'photoTipGiveSpaceLine', 'photoTipFace', 'photoTipFaceLine',
   'photoTipBody', 'photoTipBodyLine', 'photoTipLight', 'photoTipLightLine',
   'cartoonGoodLabel', 'cartoonPoorLabel', 'cartoonFaceLabel', 'cartoonBodyLabel',
 ] as const;
@@ -51,12 +51,23 @@ describe('PhotoTips', () => {
   it('speaks to the reader in the informal singular in Greek, like the Spot screen around it', () => {
     const el = (TRANSLATIONS as any).el;
     expect(el.photoTipsTitle).toBe('Πώς να τραβήξεις μια υπέροχη φωτογραφία γάτας');
-    expect(el.photoTipGetClose).toBe('Πλησίασε');
+    expect(el.photoTipGiveSpace).toBe('Άφησέ της χώρο');
     expect(el.photoTipFace).toBe('Δείξε το πρόσωπο');
     expect(el.photoTipFaceLine).toBe('Περίμενε να κοιτάξει προς το μέρος σου.');
     expect(el.photoTipBody).toBe('Δείξε ολόκληρο το σώμα');
     expect(el.photoTipLight).toBe('Φως ημέρας και μείνε ακίνητος');
     expect(el.photoTipLightLine).toBe('Μπες στο φως και, αν γίνεται, μην κάνεις ζουμ.');
+  });
+
+  // SYC-813: onboarding says keep a step or two back, so no tip may send a spotter closer.
+  it('keeps the spotter a step back in every language', () => {
+    const { en, el, fr } = TRANSLATIONS as any;
+    expect(en.photoTipGiveSpaceLine).toBe('Fill the frame from a step back. Crouch to its level.');
+    expect(el.photoTipGiveSpaceLine).toMatch(/βήμα/);
+    expect(fr.photoTipGiveSpaceLine).toMatch(/un pas/);
+    expect(en.photoTipGiveSpace).not.toMatch(/close/i);
+    expect(el.photoTipGiveSpace).not.toMatch(/Πλησία/);
+    expect(fr.photoTipGiveSpace).not.toMatch(/Rapproche/);
   });
 
   it('never says "snapper" or "colony carer" in any language', () => {
@@ -70,7 +81,7 @@ describe('PhotoTips', () => {
 
   it('shows four tips and both cartoons with spoken descriptions', () => {
     const { container, getByText } = render(<PhotoTips />);
-    for (const k of ['photoTipGetClose', 'photoTipFace', 'photoTipBody', 'photoTipLight']) {
+    for (const k of ['photoTipGiveSpace', 'photoTipFace', 'photoTipBody', 'photoTipLight']) {
       expect(getByText(k)).toBeTruthy();
     }
     expect(container.querySelector('[aria-label="cartoonGoodLabel"]')).not.toBeNull();

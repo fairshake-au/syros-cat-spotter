@@ -227,6 +227,7 @@ export function ReportWizard({
                         ? `data:image/jpeg;base64,${flow.photo.base64}`
                         : flow.photo.uri,
                     }}
+                    accessibilityLabel={t('dupYourPhotoAlt')}
                     style={styles.photo}
                     contentFit="cover"
                   />

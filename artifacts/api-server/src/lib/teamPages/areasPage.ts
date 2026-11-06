@@ -106,7 +106,7 @@ export const MOVE_WHAT = "Moving the centre can change which area nearby cats sh
 export const RETIRE_WHAT =
   "Retiring takes this area off the list. Its places go to the nearest area that is left, or Off Syros. You can bring it back later from the list of retired areas below.";
 
-const NAME_HINT = "Area names are shown to cat guardians. Use the place's name, never a person's.";
+const NAME_HINT = "Area names are public. Use the place's name, never a person's.";
 
 function input(
   id: string,
@@ -189,13 +189,13 @@ function addForm(o: AreasPageOptions): string {
     }) +
     problem(again, "add", undefined, "key") +
     input("add-key", "Short key", "key", kept(again, "add", undefined, "key", ""), {
-      hint: "Used in the Cats filters' web address. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
+      hint: "Used in the Cats filters' web address, and sent with cats to the public app, so use the place's name. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
       invalid: bad("key"),
     }) +
     // A centre that came back from the map's save and was refused shows here.
     problem(again, "add", undefined, "lat") +
     problem(again, "add", undefined, "lng") +
-    `<p class="hint">Next you tap the area's centre on a map. You see the spot before anything is saved.</p>` +
+    `<p class="hint">Next you tap the area's centre on a map, on the place itself, never a home or feeding site. You see the spot before anything is saved.</p>` +
     `<button type="submit">Choose the centre on the map</button></form></details></div>`
   );
 }
@@ -278,6 +278,8 @@ export function renderAreasPage(o: AreasPageOptions): string {
       pageIntro(
         "Areas are the place names shown on cats, sightings and the Cats filters, like Ermoupoli. Each place takes the name of the area whose centre is nearest.",
       ) +
+      // SYC-810: area names show on cats in the public app.
+      `<p class="warn">These names show in the public app. Use places only, never people or feeding sites.</p>` +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
       `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +
@@ -287,7 +289,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
       methodFold([
         "A place belongs to the area whose centre is nearest. More than 2 km from every centre is Off Syros. " +
           "Place labels and the Cats filters use this list within a minute of a change.",
-        `Each change makes a new version. Reports name the version they used. This is version ${o.version}.`,
+        `Each change makes a new version. Figures pages name the version they used. This is version ${o.version}.`,
       ]),
   });
 }

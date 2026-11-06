@@ -91,6 +91,7 @@ vi.mock('@/components/onboarding/OnboardingFlow', () => ({ OnboardingFlow: stubC
 // three banners individually (see components/BannerStack.tsx) — stub the
 // stack itself rather than each banner.
 vi.mock('@/components/AppColumn', () => ({ AppColumn: stubComponent('AppColumn') }));
+vi.mock('@/components/WebFocusRing', () => ({ WebFocusRing: stubComponent('WebFocusRing') }));
 vi.mock('@/components/BannerStack', () => ({ BannerStack: stubComponent('BannerStack') }));
 vi.mock('@/components/TurnstileHost', () => ({ TurnstileHost: stubComponent('TurnstileHost') }));
 // SYC-3: the keep-safe step and the "moved" screen.

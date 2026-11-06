@@ -61,6 +61,8 @@ export const ListCatsResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -123,6 +125,8 @@ export const GetCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -215,6 +219,8 @@ export const UpdateCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -295,6 +301,8 @@ export const ClaimCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -362,6 +370,8 @@ export const NameCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -424,6 +434,8 @@ export const LetGoCatResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({
@@ -639,6 +651,8 @@ export const ResolveSightingResponse = zod.object({
   "discovererNickname": zod.string().nullish(),
   "discovererUsername": zod.string().nullish(),
   "namePending": zod.boolean().optional().describe('True while Syros Cats has left this cat for spotters to name.\n`name` is then the cat\'s SYR number; the app shows \"No name yet\"\nwith it, and offers \"Name this cat\" (POST \/cats\/{catId}\/name).\nAlways sent; optional so a copy cached by an older app still reads.\n'),
+  "areaKey": zod.string().nullish().describe('The key of the named area the cat\'s published cell centre is in\n(SYC-810). Null when the centre is more than 2 km from every\narea. Never worked out from the exact position or the owner\'s\nhome pin, so every viewer gets the same one. Always sent;\noptional so a copy cached by an older app still reads.\n'),
+  "areaName": zod.string().nullish().describe('The named area\'s name, in the team\'s own language. Null with areaKey. Optional like areaKey.'),
   "ownerName": zod.string().nullish().describe('Display name of the cat\'s owner. Only in the owner\'s own view; null for everyone else (claiming-a-cat.md D9).'),
   "homeDescription": zod.string().nullish().describe('Where the cat lives, as described by its owner. Only in the owner\'s own view; null for everyone else (D9).'),
   "homePin": zod.object({

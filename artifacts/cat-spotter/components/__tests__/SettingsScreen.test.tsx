@@ -111,11 +111,11 @@ describe('Settings screen (SYC-628)', () => {
   it('sounds switch defaults on and persists off', async () => {
     renderSettings();
     expect(screen.getByText('Celebrations')).toBeTruthy();
-    const sw = screen.getByRole('switch', { name: 'Celebration sounds' }) as HTMLInputElement;
-    expect(sw.checked).toBe(true);
+    const sw = screen.getByRole('switch', { name: 'Celebration sounds' });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
     fireEvent.click(sw);
     await waitFor(() => expect(h.setItem).toHaveBeenCalledWith('cat-spotter/celebration-sounds', 'false'));
-    expect((screen.getByRole('switch', { name: 'Celebration sounds' }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByRole('switch', { name: 'Celebration sounds' }).getAttribute('aria-checked')).toBe('false');
   });
 
   it('has the name, Keep my spots safe, language, appearance and Delete my data', () => {
