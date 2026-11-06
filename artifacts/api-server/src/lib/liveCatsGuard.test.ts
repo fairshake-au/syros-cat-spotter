@@ -54,6 +54,9 @@ const ALLOWLIST: Record<string, readonly string[]> = {
   "artifacts/api-server/src/lib/duplicateSweep.ts": [
     "decidedPairScores: the cats of pairs the team decided, by id; a merged pair's merged-away cat is exactly what calibration must read (spec 9.6)",
   ],
+  "artifacts/api-server/src/lib/matchesToCheck.ts": [
+    "matchesToCheck: the name and main photo of the cat each listed sighting is filed under now, by id; the sighting's cat is already the survivor after a merge",
+  ],
   "artifacts/api-server/src/lib/moveSightings.ts": [
     "moveSightingsIn: the two cats of a move, locked by id (§9.7 lock 4)",
     "moveSightingsIn: the cat the sightings leave, by id, under its lock",

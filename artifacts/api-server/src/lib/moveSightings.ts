@@ -64,7 +64,7 @@ import { kickRow } from "./mail/outbox";
  */
 
 export const MOVE_REASONS_FROM_SCREEN = ["different_markings", "two_cats", "wrong_pick", "other"] as const;
-export const MOVE_SOURCES_FROM_SCREEN = ["cat_page", "matched_by_hand", "report", "game"] as const;
+export const MOVE_SOURCES_FROM_SCREEN = ["cat_page", "matched_by_hand", "report", "game", "match_check"] as const;
 
 export interface MoveInput {
   sightingIds: number[];

@@ -299,6 +299,12 @@ describe("renderHomePage", () => {
     expect(page(full())).not.toContain(NOTHING_WAITING);
   });
 
+  it("matches to check shows its tile but doesn't count as waiting (SYC-795)", () => {
+    const html = renderHomePage(full({ needs: needsOf(noNeeds), toCheck: checkOf(0, 0) }), { personName: "Maria", now: NOW, costs: false, matchChecks: 3 });
+    expect(html).toContain("matches to check");
+    expect(between(html, "today", "trap")).toContain(NOTHING_WAITING);
+  });
+
   it("trap rows: name links to the colony, to do, up to €, bar, kittens flag", () => {
     const trap = between(page(full()), "trap", "progress");
     expect(trap).toContain('<a href="/api/team/colonies/12"><strong>Galissas beach</strong></a>');
