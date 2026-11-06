@@ -527,6 +527,10 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(css).toMatch(/\ndetails\.filters>summary\{[^}]*display:inline-flex[^}]*\}/);
   });
 
+  it("the Map's chips, count and note share a row where they fit", () => {
+    expect(sheet()).toMatch(/\n#mapresults\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*\}/);
+  });
+
   it("Invite someone hugs its text: inline-flex, not a full-width row", () => {
     expect(sheet()).toMatch(/\ndetails\.invitefold>summary\{[^}]*display:inline-flex[^}]*\}/);
   });

@@ -729,6 +729,9 @@ ${HELP_CSS}
 .viewswitch a[aria-current="page"]{background:var(--accent);color:var(--on-accent)}
 .maplayers{display:flex;flex-wrap:wrap;gap:8px;border:0;padding:0;margin:8px 0;min-width:0}
 .maplayers legend{font-weight:700;font-size:14px;padding:0 0 4px}
+/* Chips, count and the note share a row where they fit, so the map stays high (SYC-812). */
+#mapresults{display:flex;flex-wrap:wrap;align-items:center;gap:0 16px}
+#mapresults>*{margin:4px 0}
 .mapwrap{position:relative;margin:8px 0}
 #island-map{height:min(70vh,640px);min-height:320px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);line-height:normal}
 #island-map.tilesfailed{background:var(--accent-soft)}
