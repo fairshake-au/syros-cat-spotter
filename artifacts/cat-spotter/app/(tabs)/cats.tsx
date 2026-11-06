@@ -257,7 +257,7 @@ export default function CatalogScreen() {
             paddingBottom: insets.bottom + (Platform.OS === 'web' ? 100 : 90),
           }}
         >
-          {filtered.length === 0 && emptyKey === 'filterNotSpottedAllDone' && (
+          {filtered.length === 0 && (emptyKey === 'filterNotSpottedAllDone' || emptyKey === 'filterNoHomeEmpty') && (
             <View
               style={[styles.mapMessage, { backgroundColor: colors.card }]}
               pointerEvents="none"

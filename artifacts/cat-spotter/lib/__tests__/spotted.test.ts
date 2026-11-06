@@ -138,6 +138,13 @@ describe('SYC-810: catalogueMatches', () => {
     expect(catalogueMatches(kini, args({ filter: 'noHome' }))).toBe(true);
     expect(catalogueMatches(kiniHomed, args({ filter: 'noHome' }))).toBe(false);
   });
+  it('a search typed without accents still finds the cat', () => {
+    const greek = { language: 'el' as const };
+    expect(catalogueMatches(kini, args({ ...greek, query: 'κινι' }))).toBe(true);
+    expect(catalogueMatches(kini, args({ ...greek, query: 'κίνι' }))).toBe(true);
+    expect(catalogueMatches({ ...kini, name: 'Zoë' }, args({ query: 'zoe' }))).toBe(true);
+    expect(catalogueMatches(kini, args({ ...greek, query: 'βαρη' }))).toBe(false);
+  });
   it('a cat in care or a cat who has died is not in No home', () => {
     for (const lifeStatus of ['in_care', 'deceased'] as const) {
       expect(catalogueMatches({ ...kini, lifeStatus }, args({ filter: 'noHome' }))).toBe(false);

@@ -71,7 +71,7 @@ With no area and no description, there's no row. With a description only, it sho
 
 The Catalogue's search box already says "Search by name, ID, or area", but only looks at the name, description and ID. `app/(tabs)/cats.tsx` adds the area to what it searches, in both the shown name and the server's name, so "Kini" and "Κίνι" both find a Kini cat in Greek. Then the box does what it says.
 
-**A new filter, "No home",** joins the Catalogue's filters. It shows only cats where `c.hasHome === false`, on the list and on the map. Search and filters already work together, so typing "Kini" and tapping No home shows the cats in Kini without a home. That gives Samuel's option without a separate area picker. A cat from an old phone cache with no `hasHome` field is left out. With nothing to show and no search typed, the screen says "No cats without a home here." With a search typed, it keeps today's no-match message. That needs `noHome` in the `CatalogueFilter` type and a new case in `catalogueEmptyKey`, both in `lib/spotted.ts`.
+**A new filter, "No home",** joins the Catalogue's filters. It shows only cats where `c.hasHome === false`, leaving out cats in care and cats who have died, on the list and on the map. Search and filters already work together, so typing "Kini" and tapping No home shows the cats in Kini without a home. That gives Samuel's option without a separate area picker. A cat from an old phone cache with no `hasHome` field is left out. With nothing to show and no search typed, the screen says "No cats without a home here." With a search typed, it keeps today's no-match message. That needs `noHome` in the `CatalogueFilter` type and a new case in `catalogueEmptyKey`, both in `lib/spotted.ts`.
 
 ### 4.5 Cats with a home
 

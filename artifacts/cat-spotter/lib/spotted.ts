@@ -55,6 +55,11 @@ export function catalogueEmptyKey(args: {
   return 'noCatsSearch';
 }
 
+/** Lower-case with accents removed, so "κινι" finds "Κίνι" and "ano" finds "Áno". */
+export function foldSearch(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 /**
  * Whether a cat shows under the typed search and the chosen filter. The
  * search looks at the name, description, id and the cat's area (SYC-810),
@@ -76,10 +81,10 @@ export function catalogueMatches(
   args: { query: string; filter: CatalogueFilter; spottedIds: ReadonlySet<number>; language: Language },
 ): boolean {
   if (args.query) {
-    const haystack = [cat.name, cat.description, String(cat.id), areaSearchText(cat, args.language)]
-      .join(' ')
-      .toLowerCase();
-    if (!haystack.includes(args.query)) return false;
+    const haystack = foldSearch(
+      [cat.name, cat.description, String(cat.id), areaSearchText(cat, args.language)].join(' '),
+    );
+    if (!haystack.includes(foldSearch(args.query))) return false;
   }
   switch (args.filter) {
     case 'nearby':
