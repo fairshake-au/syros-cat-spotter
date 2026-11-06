@@ -129,6 +129,7 @@ describe("the page's requests, watched", () => {
     const t = await catMapRig();
     await t.answer(0, []);
     t.change(() => (t.document.querySelector('#catfilters input[name="colours"][value="ginger"]').checked = true));
+    await t.answer(1, []);
     const u = new URL(t.window.location.href);
     expect(u.pathname).toBe("/api/team/cats");
     const formNames = new Set([...t.form().elements].map((e: any) => e.name).filter(Boolean));

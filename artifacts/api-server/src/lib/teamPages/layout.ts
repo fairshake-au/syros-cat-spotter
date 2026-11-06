@@ -225,6 +225,7 @@ h3{font-size:16px;margin:16px 0 4px}
 .hint{color:var(--muted);font-size:14px;margin:0 0 8px}
 .search{margin:8px 0 16px}
 .searchrow{display:flex;gap:8px}
+.searchrow input::placeholder{color:var(--muted);opacity:1}
 .searchrow input{flex:1;min-width:0;font:inherit;font-size:16px;min-height:44px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px}
 button.primary{margin-top:8px}
 button.primary,.searchrow button,.search button{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);cursor:pointer}
@@ -658,7 +659,7 @@ details.filters>summary{cursor:pointer;display:inline-flex;align-items:center;mi
 a.fchip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 12px;border:1px solid var(--accent);border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);text-decoration:none;font-size:15px}
 .count{margin:8px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:0 12px}
 .count .meta{font-weight:400}
-#catresults[aria-busy="true"]{opacity:.6;transition:opacity .2s}
+#catresults[aria-busy="true"],#mapresults[aria-busy="true"]{opacity:.6;transition:opacity .2s}
 .catgrid{list-style:none;margin:8px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .catcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0;display:flex;flex-direction:column;gap:6px}
 a.catcardlink{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:left;font-weight:400;color:inherit;text-decoration:none;padding:0;overflow-wrap:anywhere}
@@ -686,7 +687,8 @@ li.catcard .tiebtn{font:inherit;font-size:15px;min-height:44px;padding:8px 12px;
 .findwhere fieldset{border:0;padding:0;margin:8px 0 12px;min-width:0}
 .findwhere legend{font-weight:700;font-size:14px;padding:0 0 4px}
 button.secondary{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
-.viewrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 12px}
+.viewrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+#catresults>.viewrow{margin-bottom:8px}
 .viewrow .viewswitch,.viewrow .findentrylink{margin:0}
 a.findentrylink{display:inline-flex;align-items:center;min-height:44px;background:var(--card);border:1px solid var(--accent);border-radius:10px;padding:0 16px;font-weight:700;color:var(--accent-strong);text-decoration:none}
 a.findentrylink:hover{background:var(--accent-soft)}

@@ -23,14 +23,17 @@ describe("the map's photo link follows the filters", () => {
       t.document.querySelector('select[name="colony"]').value = "5";
       t.document.querySelector('input[name="q"]').value = "Mimi";
     });
+    await t.answer(t.asks.length - 1, []);
     expect(find()).toBe("/api/team/cats/find?colours=ginger&area=ermoupoli&colony=5");
   });
 
   it("goes back to the bare address when the filters are cleared", async () => {
     const { t, find, box } = await setUp();
     t.change(() => (box("colours", "black").checked = true));
+    await t.answer(t.asks.length - 1, []);
     expect(find()).toBe("/api/team/cats/find?colours=black");
     t.change(() => (box("colours", "black").checked = false));
+    await t.answer(t.asks.length - 1, []);
     expect(find()).toBe("/api/team/cats/find");
   });
 });

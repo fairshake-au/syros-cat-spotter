@@ -527,6 +527,15 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(css).toMatch(/\ndetails\.filters>summary\{[^}]*display:inline-flex[^}]*\}/);
   });
 
+  it("the search placeholder is full-strength, and the Map dims while it waits", () => {
+    expect(sheet()).toContain(".searchrow input::placeholder{color:var(--muted);opacity:1}");
+    expect(sheet()).toContain('#mapresults[aria-busy="true"]');
+  });
+
+  it("Grid's chips keep clear of the Grid/Map row", () => {
+    expect(sheet()).toContain("#catresults>.viewrow{margin-bottom:8px}");
+  });
+
   it("the Map's chips, count and note share a row where they fit", () => {
     expect(sheet()).toMatch(/\n#mapresults\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*\}/);
   });

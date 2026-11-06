@@ -83,7 +83,6 @@ describe("the Map's results follow the filters", () => {
     expect(u.pathname).toBe("/api/team/cats");
     expect(u.searchParams.get("view")).toBe("map");
     expect(u.searchParams.get("colours")).toBe("black");
-    expect(u.search).toBe(t.window.location.search);
     expect(u.search).not.toMatch(/lat|lng/);
     expect(t.pages[0]!.init.method).toBe("GET");
     expect(t.pages[0]!.init.credentials).toBe("same-origin");
@@ -215,6 +214,38 @@ describe("several quick changes", () => {
     expect(t.document.getElementById("mapresults").hasAttribute("aria-busy")).toBe(false);
   });
 
+  it("the address and links wait for the answer, then follow it", async () => {
+    const t = await setUp();
+    tick(t, "colours", "black");
+    expect(t.window.location.search).toBe("?view=map");
+    await t.answer(1, someCats(1));
+    await t.answerPage(0, { count: 1 });
+    expect(t.window.location.search).toBe(new URL(t.pages[0]!.url).search);
+    expect(t.document.getElementById("view-grid").getAttribute("href")).toContain("colours=black");
+  });
+
+  it("a screen reader hears the new count from a region that stays on the page", async () => {
+    const t = await setUp();
+    const said = t.document.getElementById("mapsaid");
+    expect(said.getAttribute("role")).toBe("status");
+    expect(said.closest("#mapresults")).toBeNull();
+    expect(t.document.querySelector('#mapresults [role="status"]')).toBeNull();
+    tick(t, "colours", "black");
+    await t.answer(1, someCats(3));
+    await t.answerPage(0, { count: 3 });
+    expect(t.document.getElementById("mapsaid")).toBe(said);
+    expect(said.textContent).toBe("3 cats on the map");
+  });
+
+  it("the same filters asked twice send one ask", async () => {
+    const t = await setUp();
+    box(t, "colours", "black").checked = true;
+    t.change(() => {});
+    t.change(() => {});
+    expect(t.pages).toHaveLength(1);
+    expect(t.asks).toHaveLength(2);
+  });
+
   it("a change before the page's first cats arrive overtakes them", async () => {
     const t = await catMapRig({ heldPages: true });
     tick(t, "colours", "black");
@@ -240,12 +271,43 @@ describe("when an answer doesn't come", () => {
   ])("a failed fetch leaves the page as it was: %s", async (_what, fail) => {
     const t = await setUp({ page: { filters: { colours: ["ginger"] } } });
     const shown = results(t);
+    const address = t.window.location.search;
     tick(t, "colours", "black");
     await fail(t);
     expect(results(t)).toBe(shown);
     expect(label(t)).toBe("Filters (1)");
     expect(dots(t)).toBe(2);
     expect(t.document.getElementById("island-map").hasAttribute("aria-busy")).toBe(false);
+    // The address and links stay with what's shown, and the person is told.
+    expect(t.window.location.search).toBe(address);
+    expect(t.document.getElementById("view-grid").getAttribute("href")).not.toContain("colours=black");
+    const note = t.document.getElementById("mapfailed");
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toBe("Couldn't update the map. Tap Show cats to try again.");
+    expect(t.document.getElementById("mapsaid").textContent).toBe(note.textContent);
+  });
+
+  it("the note goes once a later change works, and the same change can be tried again", async () => {
+    const t = await setUp();
+    tick(t, "colours", "black");
+    await t.answer(1, someCats(1));
+    await t.failPage(0);
+    expect(t.document.getElementById("mapfailed").hidden).toBe(false);
+    t.change(() => {});
+    await t.answer(2, someCats(1));
+    await t.answerPage(1, { count: 1 });
+    expect(chips(t)).toEqual(["Black"]);
+    expect(t.document.getElementById("mapfailed").hidden).toBe(true);
+  });
+
+  it("a failed change before the first cats came asks for the cats again", async () => {
+    const t = await catMapRig({ heldPages: true });
+    tick(t, "colours", "black");
+    await t.answer(1, someCats(2));
+    await t.failPage(0);
+    expect(dots(t)).toBe(0);
+    await t.answer(2, someCats(2));
+    expect(dots(t)).toBe(2);
   });
 
   it("a redirected answer is not swapped in, even a whole page with results in it", async () => {

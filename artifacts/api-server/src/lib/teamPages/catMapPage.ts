@@ -83,14 +83,16 @@ function countLine(o: CatMapOptions): string {
   const filtered = Object.keys(o.filters).some((k) => k !== "page" && k !== "sort");
   const clear = filtered ? ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>` : "";
   if (o.cats.length === 0 && o.catCount === 0) {
-    return '<p class="empty" id="mapcount" role="status">No cats recorded yet. Cats appear here once spotters send sightings.</p>';
+    return '<p class="empty" id="mapcount">No cats recorded yet. Cats appear here once spotters send sightings.</p>';
   }
   if (o.cats.length === 0) {
-    return `<p class="count" id="mapcount" role="status">No cats match these filters${clear || ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>`}</p>`;
+    return `<p class="count" id="mapcount">No cats match these filters${clear || ` <a class="tap" id="mapclear" href="${esc(catsAddress({}, undefined, true))}">Clear filters</a>`}</p>`;
   }
   const n = o.cats.length === 1 ? "1 cat on the map" : `${o.cats.length} cats on the map`;
-  return `<p class="count" id="mapcount" role="status"><span id="mapcountn">${n}</span>${clear}</p>`;
+  return `<p class="count" id="mapcount"><span id="mapcountn">${n}</span>${clear}</p>`;
 }
+
+const FAILED_WORDS = "Couldn't update the map. Tap Show cats to try again.";
 
 /** The island Map page. Trusted HTML: fixed text, numbers, assetUrl() addresses and escapeHtml only. */
 export function renderCatMapPage(o: CatMapOptions): string {
@@ -102,7 +104,10 @@ export function renderCatMapPage(o: CatMapOptions): string {
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
     viewRow(o, "map") +
-    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}${hiddenCatsNote(o.filters, undefined, true)}</div>`;
+    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}${hiddenCatsNote(o.filters, undefined, true)}</div>` +
+    // Outside #mapresults, which is swapped: a live region has to stay put to be heard.
+    '<p class="sr" id="mapsaid" role="status"></p>' +
+    `<p class="warn" id="mapfailed" hidden>${esc(FAILED_WORDS)}</p>`;
 
   const focus = o.focus
     ? {

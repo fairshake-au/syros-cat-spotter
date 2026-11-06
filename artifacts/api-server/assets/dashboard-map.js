@@ -634,6 +634,11 @@
    * If either fails, everything stays as it was and "Show cats" sends the form.
    * The map itself isn't touched, and with no map there are no cats to wait for.
    */
+  var said = document.getElementById("mapsaid");
+  var failedNote = document.getElementById("mapfailed");
+  var requested = null;
+  var retryCats = false;
+
   function refreshResults(qs) {
     var mine = newAsk();
     var withCats = mapState !== "failed";
@@ -648,6 +653,11 @@
         var moved = document.importNode(fresh, true);
         region.replaceWith(moved);
         region = moved;
+        followFilters(qs);
+        // #mapsaid stays on the page, so a screen reader hears the new count.
+        var count = region.querySelector("#mapcount");
+        if (said && count && count.firstChild) said.textContent = count.firstChild.textContent.trim();
+        if (failedNote) failedNote.hidden = true;
         var label = form.querySelector("summary");
         var freshLabel = doc.querySelector("#catfilters summary");
         if (label && freshLabel) label.textContent = freshLabel.textContent;
@@ -655,16 +665,27 @@
         refreshFailed = false;
       })
       .catch(function () {
-        if (controller === mine) refreshFailed = true;
+        if (controller !== mine) return;
+        refreshFailed = true;
+        requested = null;
+        if (failedNote) {
+          failedNote.hidden = false;
+          if (said) said.textContent = failedNote.textContent;
+        }
+        // A filter tapped before the first cats came: don't leave the map empty.
+        if (!fittedOrSkipped && mapState !== "failed") retryCats = true;
       })
       .then(function () {
         finish(mine);
+        if (retryCats) {
+          retryCats = false;
+          loadCats();
+        }
       });
   }
 
-  function applyFilters() {
-    window.clearTimeout(typing);
-    var qs = query();
+  /** The address and the links, once the page shows these filters. */
+  function followFilters(qs) {
     var gridQs = qs
       .split("&")
       .filter(function (p) {
@@ -689,6 +710,14 @@
     if (window.history && typeof window.history.replaceState === "function") {
       window.history.replaceState(window.history.state, "", path + (qs ? "?" + qs : ""));
     }
+  }
+
+  function applyFilters() {
+    window.clearTimeout(typing);
+    var qs = query();
+    // The same filters already asked for: a change and a submit often come together.
+    if (qs === requested) return;
+    requested = qs;
     refreshResults(qs);
   }
 
