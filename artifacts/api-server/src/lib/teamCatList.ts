@@ -129,17 +129,17 @@ export function livesOf(s: CatSnapshot): Lives {
 const DAY = 86_400_000;
 
 /**
- * Does a last-seen time fall in this band? The first two add up: a cat seen 3
- * days ago is in "This week" and in "This month". "1–3 months" is 31 to 90
- * days and "Over 3 months" is more than 90. "Quiet" is NOT_SEEN_LATELY_DAYS or
- * more (it overlaps the two above).
+ * Does a last-seen time fall in this band? The bands don't overlap (SYC-812):
+ * "week" is 0 to 7 days, "month" 8 to 30, "1to3" 31 to 90 and "over3" more
+ * than 90. "Quiet" is NOT_SEEN_LATELY_DAYS or more; it overlaps the others, so
+ * the dropdown no longer offers it, but old links keep working.
  */
-function inLastSeenBand(band: (typeof LAST_SEEN)[number], at: Date | null, now: Date): boolean {
+export function inLastSeenBand(band: (typeof LAST_SEEN)[number], at: Date | null, now: Date): boolean {
   if (band === "never") return at === null;
   if (at === null) return false;
   const days = (now.getTime() - at.getTime()) / DAY;
   if (band === "week") return days <= 7;
-  if (band === "month") return days <= 30;
+  if (band === "month") return days > 7 && days <= 30;
   if (band === "1to3") return days > 30 && days <= 90;
   if (band === "quiet") return days >= NOT_SEEN_LATELY_DAYS;
   return days > 90;

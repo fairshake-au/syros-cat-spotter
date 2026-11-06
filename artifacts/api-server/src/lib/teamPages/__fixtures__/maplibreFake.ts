@@ -458,6 +458,10 @@ export function makePmtilesFake(): FakePmtiles {
 export interface FakeAnswer {
   status: number;
   body?: unknown;
+  /** The answer's Content-Type, when it isn't the JSON a non-string body gets. */
+  type?: string;
+  /** The fetch followed a redirect to get here (a signed-out request does). */
+  redirected?: boolean;
 }
 
 export interface FetchCall {
@@ -488,8 +492,12 @@ function makeResponse(w: any, url: string, a: FakeAnswer): any {
     ok: a.status >= 200 && a.status < 300,
     status: a.status,
     url,
+    redirected: a.redirected === true,
     // A JSON body answers as application/json (the cats' positions route checks it).
-    headers: { get: (name: string) => (/^content-type$/i.test(name) && typeof a.body !== "string" ? "application/json; charset=utf-8" : null) },
+    headers: {
+      get: (name: string) =>
+        /^content-type$/i.test(name) ? (a.type ?? (typeof a.body !== "string" ? "application/json; charset=utf-8" : null)) : null,
+    },
     json: async () => JSON.parse(text),
     text: async () => text,
     blob: async () => new w.Blob([text]),
@@ -581,6 +589,8 @@ export function mapScriptRig(
     fetch?: boolean;
     importFails?: boolean;
     routes?: Record<string, () => FakeAnswer | Promise<FakeAnswer>>;
+    /** Answers an address with a query, which `routes` never does. Undefined means no such route. */
+    queryRoute?: (url: URL) => FakeAnswer | Promise<FakeAnswer> | undefined;
     /** Replace the page's setTimeout/clearTimeout with recorded ones the test runs (rig.timers). */
     fakeTimers?: boolean;
   } = {},
@@ -602,7 +612,8 @@ export function mapScriptRig(
       fetches.push({ url, init });
       const u = new w.URL(url);
       const route = u.origin === w.location.origin && u.search === "" ? routes[u.pathname] : undefined;
-      return makeResponse(w, url, route ? await route() : { status: 404, body: "not found" });
+      const answer = route ? route() : u.search !== "" ? opts.queryRoute?.(u) : undefined;
+      return makeResponse(w, url, (await answer) ?? { status: 404, body: "not found" });
     };
   } else {
     delete w.fetch;
