@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 import { catMapRig, POSITIONS } from "./__fixtures__/catMapRig";
 
 // SYC-396 PR 1.5 (spec §6.3, §10.4); SYC-705 Task 2b.6: the island map's
-// script asks our server for one thing only: the cats, by a POST to a fixed
-// address with the filters in the body. The map file, its style and fonts are
-// map-core.js's to fetch, from the fixed map-data addresses. No position, no
-// filter ever goes into an address it builds. The first part reads the
+// script asks our server for two things only: the cats, by a POST to a fixed
+// address with the filters in the body, and, after a filter change, this same
+// page at the address the form gives it (SYC-812). The map file, its style and
+// fonts are map-core.js's to fetch, from the fixed map-data addresses. No
+// position ever goes into an address it builds, and the only filters in one
+// are the page's own form fields. The first part reads the
 // script itself, so a change that puts something in a query string fails here
 // before any browser runs it; the second runs it on the fake MapLibre and
 // watches every request the page makes.
@@ -40,8 +42,9 @@ describe("the island map's script asks for fixed addresses only", () => {
     expect(urls).toEqual(['"/api/team/cats/positions"']);
   });
 
-  it("fetch is called only inside the POST helper", () => {
-    expect(firstArgs("fetch")).toEqual(["url"]);
+  it("fetch is called only inside the two request helpers, and the page's address is the only GET", () => {
+    expect(firstArgs("fetch")).toEqual(["url", "url"]);
+    expect(firstArgs("askPage").filter((a) => a !== "url")).toEqual(['path + (qs ? "?" + qs : "")']);
     expect(src).not.toMatch(/XMLHttpRequest|navigator\.sendBeacon|new\s+WebSocket|EventSource|import\(/);
   });
 
@@ -84,12 +87,20 @@ const MAP_DATA = new Set([
 ]);
 
 describe("the page's requests, watched", () => {
-  it("the script fetches only /api/team/cats/positions and map-data addresses", async () => {
+  it("the script fetches only /api/team/cats/positions, map-data addresses and its own page", async () => {
     const t = await catMapRig({ page: { filters: { colours: ["ginger"], sterilised: ["not_known"] } } });
     await t.answer(0, []);
     t.change(() => (t.document.querySelector('#catfilters input[name="q"]').value = "Mimi"));
     await t.answer(1, []);
-    const paths = t.fetches.map((f) => new URL(f.url));
+    const all = t.fetches.map((f) => new URL(f.url));
+    // After the change, its own page with the form's fields, and nothing else.
+    const own = all.filter((u) => u.pathname === "/api/team/cats");
+    expect(own).toHaveLength(1);
+    expect(own[0]!.origin).toBe("https://team.example");
+    expect(own[0]!.search).toBe(t.window.location.search);
+    const formNames = new Set([...t.form().elements].map((e: any) => e.name).filter(Boolean));
+    for (const k of own[0]!.searchParams.keys()) expect(formNames.has(k), k).toBe(true);
+    const paths = all.filter((u) => u.pathname !== "/api/team/cats");
     for (const u of paths) {
       expect(u.origin, u.href).toBe("https://team.example");
       expect(u.search, u.href).toBe("");

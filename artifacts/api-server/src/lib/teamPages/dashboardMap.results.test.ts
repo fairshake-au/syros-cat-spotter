@@ -117,7 +117,7 @@ describe("the Map's results follow the filters", () => {
     await t.answerPage(1, { count: 1 });
     const href = (id: string) => t.document.getElementById(id).getAttribute("href");
     expect(t.document.querySelector("#mapresults #view-grid, #mapresults #view-map, #mapresults .findentrylink")).toBeNull();
-    expect(href("view-map")).toMatch(/^\/api\/team\/cats\?colours=black&colours=ginger&.*view=map/);
+    expect(href("view-map")).toMatch(/^\/api\/team\/cats\?view=map&colours=black&colours=ginger&/);
     expect(href("view-grid")).toMatch(/^\/api\/team\/cats\?colours=black&colours=ginger&/);
     expect(href("view-grid")).not.toContain("view=");
     expect(href("map-gridlink")).toBe(href("view-grid"));
