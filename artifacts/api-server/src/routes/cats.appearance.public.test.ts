@@ -75,7 +75,7 @@ beforeAll(async () => {
     ...staff,
     catId: d,
     kind: "vaccinated",
-    value: { vaccines: ["rabies", "cat_flu_enteritis", { other: "feline leukaemia" }], clinic: "Ermoupoli" },
+    value: { vaccines: ["rabies", "cat_flu_enteritis", { other: "feline leukaemia" }], clinic: "Pelican Vets" },
   });
   await writeObservation(db, { ...staff, catId: d, kind: "team_note", value: { text: "Rabies booster due; watch for enteritis" } });
   await writeObservation(db, { ...staff, catId: cats.oneColour, kind: "coat", value: { colours: ["black"] } });
@@ -147,6 +147,8 @@ const NEVER_PUBLIC = [
  * cat must carry no key an undescribed one lacks: the byte-for-byte
  * snapshots only see undescribed cats (review of PR 2.1, minor 1). */
 const PUBLIC_CAT_KEYS = [
+  "areaKey",
+  "areaName",
   "coat",
   "coatColours",
   "coatPattern",
@@ -327,7 +329,7 @@ describe("T-rabies: no vaccine is named in any public payload, app string or gen
       expect(vaccineWordsIn(text)).toEqual([]);
       // The free text seeded above: a typed vaccine name, the clinic and the
       // team note's words (review of PR 2.1, minor 2).
-      expect(plain(text)).not.toMatch(/leukaemia|ermoupoli|booster|watch for/);
+      expect(plain(text)).not.toMatch(/leukaemia|pelican vets|booster|watch for/);
     }
   });
 

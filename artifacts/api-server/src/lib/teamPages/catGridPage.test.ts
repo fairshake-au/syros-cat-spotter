@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CatListItem } from "../teamCatList";
-import { renderCatGridPage, withoutDefaultLives } from "./catGridPage";
+import { filterForm, renderCatGridPage, withoutDefaultLives } from "./catGridPage";
 
 // SYC-396 PR 1.3: pure render tests for the Cats grid (review fixes).
 
@@ -70,6 +70,8 @@ describe("the grid's links and styles", () => {
   it("uses its own class, so the colony page's 'Add cats' link keeps its look", () => {
     const html = render();
     expect(html).toContain('class="catcardlink"');
+    // SYC-815: the link's name is a sentence, not the card's parts run together.
+    expect(html).toMatch(/class="catcardlink" href="[^"]+" aria-label="[^"]+\. [^"]+"/);
     expect(html).not.toContain('class="cardlink"');
     // The old rule is untouched: one a.cardlink rule, a row, teal, with padding.
     const rules = html.match(/a\.cardlink\{[^}]*\}/g) ?? [];
@@ -261,12 +263,115 @@ describe("help on the Cats list (SYC-739)", () => {
     const html = render();
     expect(html).toContain("Every cat the app knows about");
     expect(html).toContain("Probably (ear clip seen)");
-    expect(html).toContain("hidden by default");
+    expect(html).toContain("Not showing cats who are no longer with us.");
     expect(html).toContain("Show them");
   });
 
   it("the empty state with no filters says those cats are hidden", () => {
     const html = render({ items: [], total: 0 });
     expect(html).toContain("are hidden unless you ask for them");
+  });
+});
+
+describe("the honest note (SYC-812 §3.6)", () => {
+  const WORDS = "Not showing cats who are no longer with us.";
+
+  it("says only who is left out, with a Show them link that keeps the filters", () => {
+    const html = render({ filters: { colours: ["black"] } });
+    expect(html).toContain(WORDS);
+    const link = /<p class="hint">Not showing cats who are no longer with us\. <a href="([^"]*)">Show them<\/a><\/p>/.exec(html);
+    expect(link).not.toBeNull();
+    expect(link![1]).toContain("colours=black");
+    expect(link![1]).toContain("lives=gone");
+  });
+
+  it("sits inside #catresults, and the old words are gone", () => {
+    const html = render();
+    const results = html.slice(html.indexOf('<div id="catresults">'));
+    expect(results).toContain(WORDS);
+    expect(html).not.toContain("haven't been seen for a long time");
+    expect(html).not.toContain("haven&#39;t been seen for a long time");
+    expect(html).not.toContain("hidden by default");
+  });
+
+  it("is gone when No longer with us is ticked", () => {
+    const html = render({ filters: { lives: ["street", "gone"] } });
+    expect(html).not.toContain(WORDS);
+  });
+
+  it("the empty state's hint uses the same true words", () => {
+    const html = render({ items: [], total: 0, catCount: 5 });
+    expect(html).not.toContain("haven't been seen for a long time");
+    expect(html).not.toContain("haven\\'t been seen");
+    expect(html).toContain("Cats who are no longer with us are hidden unless you ask for them.");
+  });
+});
+
+describe("Last seen (SYC-812 §3.5)", () => {
+  const optionsOf = (html: string) =>
+    [...(/id="f-seen"[^>]*>([\s\S]*?)<\/select>/.exec(html)![1]!).matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(
+      (m) => [m[1]!, m[2]!],
+    );
+
+  it("the dropdown has no quiet option by default, and the words don't overlap", () => {
+    expect(optionsOf(render())).toEqual([
+      ["", "Any time"],
+      ["week", "In the last week"],
+      ["month", "1 week to 1 month"],
+      ["1to3", "1–3 months"],
+      ["over3", "Over 3 months"],
+      ["never", "Never seen since first recorded"],
+    ]);
+  });
+
+  it("arriving with lastSeen=quiet shows it selected, with its chip", () => {
+    const html = render({ filters: { lastSeen: "quiet" } });
+    expect(optionsOf(html)).toContainEqual(["quiet", "6 weeks or more"]);
+    expect(html).toContain('<option value="quiet" selected>6 weeks or more</option>');
+    expect(html).toContain("Filters (1)");
+    expect(html).toMatch(/class="fchip"[^>]*>Last seen: 6 weeks or more /);
+  });
+
+  it("a chosen month shows its new words in the chip", () => {
+    const html = render({ filters: { lastSeen: "month" } });
+    expect(html).toMatch(/class="fchip"[^>]*>Last seen: 1 week to 1 month /);
+    expect(html).not.toContain("This month");
+    expect(html).not.toContain("This week");
+  });
+
+  it("the Map's form behaves the same", () => {
+    expect(optionsOf(filterForm({ filters: {}, colonies: [] }, true)).map((o) => o[0])).not.toContain("quiet");
+    expect(optionsOf(filterForm({ filters: { lastSeen: "quiet" }, colonies: [] }, true)).map((o) => o[0])).toContain("quiet");
+  });
+});
+
+describe("Sort (SYC-812 §3.3)", () => {
+  it("the Map has no Sort control and keeps a chosen sort as a hidden field", () => {
+    const html = filterForm({ filters: { sort: "name" }, colonies: [] }, true);
+    expect(html).not.toContain('id="f-sort"');
+    expect(html).not.toContain("<legend>Sort</legend>");
+    expect(html).toContain('<input type="hidden" name="sort" value="name">');
+    expect(html).toContain('<input type="hidden" name="view" value="map">');
+  });
+
+  it("the Map adds no sort field when none was chosen", () => {
+    const html = filterForm({ filters: {}, colonies: [] }, true);
+    expect(html).not.toContain('name="sort"');
+  });
+
+  it("the Grid keeps its Sort control", () => {
+    const html = filterForm({ filters: { sort: "name" }, colonies: [] });
+    expect(html).toContain('id="f-sort"');
+    expect(html).toContain('<option value="name" selected>');
+  });
+
+  it("choosing a cat for a report keeps Sort", () => {
+    const tie = {
+      publicId: "r1",
+      report: { id: "r1", severity: "attention", isLitter: false, at: "2026-10-15T10:00:00Z", cat: null } as never,
+      canTie: true,
+    };
+    const html = render({ tie });
+    expect(html).toContain('id="f-sort"');
   });
 });

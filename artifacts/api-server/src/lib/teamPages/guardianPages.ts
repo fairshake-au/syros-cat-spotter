@@ -297,7 +297,16 @@ export function renderGuardianCatPage(
       ? ""
       : `<h2>${esc(t("gcat.photos"))}</h2><div class="gphotos">` +
         others
-          .map((u) => `<a href="${esc(u)}"><img src="${esc(u)}" alt="" loading="lazy"></a>`)
+          .map(
+            (u, i) =>
+              `<a href="${esc(u)}"><img src="${esc(u)}" alt="${esc(
+                t("gcat.photoAlt", {
+                  name: cat.namePending ? t("cat.noNameYet") : cat.name,
+                  n: String(i + 1),
+                  total: String(others.length),
+                }),
+              )}" loading="lazy"></a>`,
+          )
           .join("") +
         "</div>";
   const savedKey = opts.saved && Object.hasOwn(SAVED_KEYS, opts.saved) ? SAVED_KEYS[opts.saved] : undefined;

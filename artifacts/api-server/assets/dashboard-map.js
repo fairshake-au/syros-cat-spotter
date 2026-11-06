@@ -11,7 +11,9 @@
 // Rules this keeps:
 // - **No position in any address.** Cats come from a signed-in POST with the
 //   filters in the body. The page's address only ever gets the filter form's
-//   own fields (history.replaceState). The map file is map-core's to fetch.
+//   own fields (history.replaceState), and the only other address asked for is
+//   that same one, for the chips, the count and "Filters (n)" (SYC-812). The
+//   map file is map-core's to fetch.
 // - **Never builds HTML from strings.** Every name, place and word goes in by
 //   textContent; elements are made with createElement.
 // - **Never prints a position.** The card gives the place in words; positions
@@ -105,6 +107,7 @@
   if (
     !window.CatMap ||
     typeof window.fetch !== "function" ||
+    typeof window.DOMParser !== "function" ||
     typeof window.AbortController !== "function" ||
     typeof window.URLSearchParams !== "function" ||
     typeof window.FormData !== "function" ||
@@ -224,7 +227,8 @@
 
   // The box is busy while the map starts (map-core's "Loading the map…") and,
   // once it is up, while the cats are being asked for. A map that can't start
-  // is never busy.
+  // is never busy. `controller` is the one thing being asked for now: the
+  // cats on page load, the cats and the page after a filter change.
   var controller = null;
   function syncBusy() {
     if (mapState === "starting" || (mapState === "live" && controller)) mapEl.setAttribute("aria-busy", "true");
@@ -525,12 +529,14 @@
   // ── Filters: the form's own fields, sent in the body ──────────────────────
 
   var path = new URL(form.action, window.location.href).pathname;
-  var count = document.getElementById("mapcount");
+  var region = document.getElementById("mapresults");
   var gridLink = document.getElementById("view-grid");
   var mapLink = document.getElementById("view-map");
   var asGridLink = document.getElementById("map-gridlink");
   var findLink = document.querySelector(".viewrow .findentrylink");
   var typing = 0;
+  /** The last filter change came to nothing, so "Show cats" sends the form for real. */
+  var refreshFailed = false;
 
   /** The form's choices as an address query (with view=map), leaving out empty boxes. */
   function query() {
@@ -555,75 +561,131 @@
     return body;
   }
 
-  /** Is any filter on? The usual "Lives" choice and the sort order aren't filters (as on the server). */
-  function isFiltered() {
-    var b = filterBody();
-    var lives = [].concat(b.lives || []).sort().join(",");
-    return Object.keys(b).some(function (k) {
-      if (k === "sort") return false;
-      if (k === "lives") return lives !== "homed,in_care,street";
-      return true;
-    });
-  }
-
-  function setCount(n) {
-    if (!count) return;
-    while (count.firstChild) count.removeChild(count.firstChild);
-    count.className = "count";
-    count.appendChild(
-      document.createTextNode(n === 0 ? "No cats match these filters" : n === 1 ? "1 cat on the map" : n + " cats on the map"),
-    );
-    if (isFiltered()) {
-      count.appendChild(document.createTextNode(" "));
-      var clear = make("a", "tap", "Clear filters");
-      clear.href = path + "?view=map";
-      count.appendChild(clear);
-    }
-  }
-
-  // The filters the server drew the page (and its count line) for. Any answer
-  // for other filters rewrites the count, whichever request it was.
-  var asDrawn = query();
-  var countRewritten = false;
-
-  function loadCats() {
+  /** Drop whatever is on its way: anything asked for from here on overtakes it. */
+  function newAsk() {
     if (controller) controller.abort();
-    var mine = new AbortController();
-    controller = mine;
-    var asked = query();
+    controller = new AbortController();
+    return controller;
+  }
+
+  /** Done with this ask, unless a newer one has taken over. */
+  function finish(mine) {
+    if (controller !== mine) return;
+    controller = null;
+    region.removeAttribute("aria-busy");
     syncBusy();
-    postJson("/api/team/cats/positions", filterBody(), mine.signal)
+  }
+
+  function askCats(signal) {
+    return postJson("/api/team/cats/positions", filterBody(), signal);
+  }
+
+  function showCats(answer) {
+    var list = answer && Array.isArray(answer.cats) ? answer.cats : [];
+    cats = list.map(cleanCat).filter(Boolean);
+    // The first answer only: open on the cats, not the whole island. Never
+    // again, so a filter change or typing doesn't jump the map.
+    if (!fittedOrSkipped) {
+      fittedOrSkipped = true;
+      fitPending = true;
+    }
+    render();
+  }
+
+  /** The cats for the filters the server drew the page with. */
+  function loadCats() {
+    var mine = newAsk();
+    syncBusy();
+    askCats(mine.signal)
       .then(function (answer) {
-        if (controller !== mine || mapState === "failed") return;
-        var list = answer && Array.isArray(answer.cats) ? answer.cats : [];
-        cats = list.map(cleanCat).filter(Boolean);
-        // The first answer only: open on the cats, not the whole island. Never
-        // again, so a filter change or typing doesn't jump the map.
-        if (!fittedOrSkipped) {
-          fittedOrSkipped = true;
-          fitPending = true;
-        }
-        render();
-        // Once rewritten, always rewritten (back to the drawn filters included).
-        if (asked !== asDrawn || countRewritten) {
-          countRewritten = true;
-          setCount(cats.length);
-        }
+        if (controller === mine && mapState !== "failed") showCats(answer);
       })
       .catch(function () {
         // The cats stay as they were; the form's button still works.
       })
       .then(function () {
-        if (controller === mine) {
-          controller = null;
-          syncBusy();
+        finish(mine);
+      });
+  }
+
+  function askPage(url, signal) {
+    return window
+      .fetch(url, {
+        method: "GET",
+        headers: { Accept: "text/html" },
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: signal,
+      })
+      .then(function (res) {
+        var type = res.headers.get("Content-Type") || "";
+        if (!res.ok || res.redirected || type.indexOf("text/html") !== 0) throw new Error("not the page");
+        return res.text();
+      });
+  }
+
+  /**
+   * After a filter change: the page with these filters, for the chips, the
+   * count and "Filters (n)", and the cats that go with them. As dashboard-grid.js
+   * does it (the answer is parsed, and its nodes moved in), with one difference.
+   * The two answers go on the page together or not at all: one ask, one
+   * `controller !== mine`, so whichever lands first, and whatever an older
+   * change's answers do, the words never describe other cats than the dots.
+   * If either fails, everything stays as it was and "Show cats" sends the form.
+   * The map itself isn't touched, and with no map there are no cats to wait for.
+   */
+  var said = document.getElementById("mapsaid");
+  var failedNote = document.getElementById("mapfailed");
+  var requested = null;
+  var retryCats = false;
+
+  function refreshResults(qs) {
+    var mine = newAsk();
+    var withCats = mapState !== "failed";
+    region.setAttribute("aria-busy", "true");
+    syncBusy();
+    Promise.all([askPage(path + (qs ? "?" + qs : ""), mine.signal), withCats ? askCats(mine.signal) : null])
+      .then(function (both) {
+        if (controller !== mine) return;
+        var doc = new DOMParser().parseFromString(both[0], "text/html");
+        var fresh = doc.getElementById("mapresults");
+        if (!fresh) throw new Error("no results in the answer");
+        var moved = document.importNode(fresh, true);
+        region.replaceWith(moved);
+        region = moved;
+        followFilters(qs);
+        // #mapsaid stays on the page, so a screen reader hears the new count.
+        var count = region.querySelector("#mapcount");
+        if (said && count && count.firstChild) said.textContent = count.firstChild.textContent.trim();
+        if (failedNote) failedNote.hidden = true;
+        var label = form.querySelector("summary");
+        var freshLabel = doc.querySelector("#catfilters summary");
+        if (label && freshLabel) label.textContent = freshLabel.textContent;
+        if (withCats && mapState !== "failed") showCats(both[1]);
+        refreshFailed = false;
+      })
+      .catch(function () {
+        if (controller !== mine) return;
+        refreshFailed = true;
+        requested = null;
+        if (failedNote) {
+          failedNote.hidden = false;
+          if (said) said.textContent = failedNote.textContent;
+        }
+        // A filter tapped before the first cats came: don't leave the map empty.
+        if (!fittedOrSkipped && mapState !== "failed") retryCats = true;
+      })
+      .then(function () {
+        finish(mine);
+        if (retryCats) {
+          retryCats = false;
+          loadCats();
         }
       });
   }
 
-  function applyFilters() {
-    window.clearTimeout(typing);
-    var qs = query();
+  /** The address and the links, once the page shows these filters. */
+  function followFilters(qs) {
     var gridQs = qs
       .split("&")
       .filter(function (p) {
@@ -645,15 +707,18 @@
       var findQs = findParams.toString();
       findLink.href = "/api/team/cats/find" + (findQs ? "?" + findQs : "");
     }
-    // The chips under the filters describe the page as it was drawn; once
-    // the filters change, the count line says what is shown.
-    var chips = document.querySelector("#mapresults .fchips");
-    if (chips) chips.parentNode.removeChild(chips);
     if (window.history && typeof window.history.replaceState === "function") {
       window.history.replaceState(window.history.state, "", path + (qs ? "?" + qs : ""));
     }
-    // With no map, the form sends itself as it would with no script.
-    if (mapState !== "failed") loadCats();
+  }
+
+  function applyFilters() {
+    window.clearTimeout(typing);
+    var qs = query();
+    // The same filters already asked for: a change and a submit often come together.
+    if (qs === requested) return;
+    requested = qs;
+    refreshResults(qs);
   }
 
   form.addEventListener("change", function (e) {
@@ -669,7 +734,9 @@
     }
   });
   form.addEventListener("submit", function (event) {
-    if (mapState === "failed") return;
+    // With no map, or after a change that came to nothing, the form sends
+    // itself as it would with no script.
+    if (mapState === "failed" || refreshFailed) return;
     event.preventDefault();
     applyFilters();
   });

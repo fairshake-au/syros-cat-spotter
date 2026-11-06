@@ -1424,6 +1424,17 @@ components:
             `name` is then the cat's SYR number; the app shows "No name yet"
             with it, and offers "Name this cat" (POST /cats/{catId}/name).
             Always sent; optional so a copy cached by an older app still reads.
+        areaKey:
+          type: ["string", "null"]
+          description: |
+            The key of the named area the cat's published cell centre is in
+            (SYC-810). Null when the centre is more than 2 km from every
+            area. Never worked out from the exact position or the owner's
+            home pin, so every viewer gets the same one. Always sent;
+            optional so a copy cached by an older app still reads.
+        areaName:
+          type: ["string", "null"]
+          description: The named area's name, in the team's own language. Null with areaKey. Optional like areaKey.
         ownerName:
           type: ["string", "null"]
           description: Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).

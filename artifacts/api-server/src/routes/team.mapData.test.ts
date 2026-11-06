@@ -236,6 +236,15 @@ describe("the style", () => {
     expect(JSON.stringify(el.json.layers)).toContain("name:el");
   });
 
+  it("the dashboard's style is the quiet one (SYC-812)", async () => {
+    const en = await style(CURRENT, "en");
+    const layer = (id: string) => en.json.layers.find((l: { id: string }) => l.id === id);
+    expect(layer("earth").paint["fill-color"]).toBe("#f4f2ec");
+    expect(layer("water").paint["fill-color"]).toBe("#cfe7f9");
+    // The un-quiet colours are gone.
+    expect(JSON.stringify(en.json.layers)).not.toContain("#aad3df");
+  });
+
   it("is built only for a lang we have and a version we would serve", async () => {
     expect((await style(CURRENT, "fr")).res.status).toBe(404);
     expect((await style(CURRENT, "EN")).res.status).toBe(404);

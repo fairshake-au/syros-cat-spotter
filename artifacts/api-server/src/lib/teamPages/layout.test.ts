@@ -35,6 +35,15 @@ describe("one main action on a cat page (SYC-814)", () => {
   });
 });
 
+describe("dashboard details from the 3 Nov critique (SYC-815)", () => {
+  it("gives the Go to an area fold a marker, the Figures links a full target, and keeps links in running words inline", () => {
+    const css = page({ active: "cats" });
+    expect(css).toContain('.mapmove>summary::before{content:"▸" / ""');
+    expect(css).toContain(".reportcard h2 a{display:inline-flex;align-items:center;min-height:44px}");
+    expect(css).toContain("p.hint a.hlink,p.empty a.hlink{display:inline;min-height:0}");
+  });
+});
+
 describe("the team's menu (spec §3.1)", () => {
   it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Figures · Settings", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
@@ -441,13 +450,15 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     "details.invitefold>summary",
     "details.method>summary",
     "details.planfold>summary",
+    "details.filters>summary",
+    ".mapmove>summary",
   ];
   const ruleFor = (css: string, tail: string) => {
     const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
     return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
   };
 
-  it("the marker rule lists exactly the seven summaries", () => {
+  it("the marker rule lists exactly the nine summaries", () => {
     const r = ruleFor(sheet(), "::before");
     const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
     expect(marker).toBeTruthy();
@@ -470,6 +481,8 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
       "details.planfold[open]>summary::before",
+      "details.filters[open]>summary::before",
+      ".mapmove[open]>summary::before",
     ]);
   });
 
@@ -520,10 +533,30 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(lines.length).toBe(2);
     for (const l of lines) {
       const sel = l.slice(0, l.indexOf("{"));
-      for (const no of ["summary.rowline", "details.filters", ".rowmenu", "details.confirm", ".menufold", "details.person", "details.arearow"]) {
+      for (const no of ["summary.rowline", ".rowmenu", "details.confirm", ".menufold", "details.person", "details.arearow"]) {
         expect(sel, no).not.toContain(no);
       }
     }
+  });
+
+  it("Filters is a fold on every width: nothing forces it open, and it stays a button", () => {
+    const css = sheet();
+    expect(css).not.toContain("details.filters::details-content");
+    expect(css).not.toMatch(/details\.filters>summary\{display:none\}/);
+    expect(css).toMatch(/\ndetails\.filters>summary\{[^}]*display:inline-flex[^}]*\}/);
+  });
+
+  it("the search placeholder is full-strength, and the Map dims while it waits", () => {
+    expect(sheet()).toContain(".searchrow input::placeholder{color:var(--muted);opacity:1}");
+    expect(sheet()).toContain('#mapresults[aria-busy="true"]');
+  });
+
+  it("Grid's chips keep clear of the Grid/Map row", () => {
+    expect(sheet()).toContain("#catresults>.viewrow{margin-bottom:8px}");
+  });
+
+  it("the Map's chips, count and note share a row where they fit", () => {
+    expect(sheet()).toMatch(/\n#mapresults\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*\}/);
   });
 
   it("Invite someone hugs its text: inline-flex, not a full-width row", () => {

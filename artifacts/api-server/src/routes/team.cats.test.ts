@@ -525,7 +525,7 @@ describe("design review fixes (PR 3)", () => {
   it("gives every photo link a name a screen reader can say", async () => {
     const html = await catHtml();
     expect(html).not.toMatch(/<a [^>]*><img [^>]*alt=""[^>]*><\/a>/);
-    expect(html).toContain('alt="Photo 1 of 4"');
+    expect(html).toMatch(/alt="[^"]+, photo 1 of 4"/);
     expect(html).toMatch(/alt="Photo from the sighting on [^"]+"/);
   });
 
