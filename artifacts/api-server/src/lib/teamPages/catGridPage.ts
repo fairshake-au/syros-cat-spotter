@@ -231,8 +231,9 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
     `<form class="catfilters" id="catfilters" method="get" action="${PATH}" role="search">` +
     tieField +
     (map ? '<input type="hidden" name="view" value="map">' : "") +
-    '<label class="label" for="q">Name or SYR number</label>' +
-    `<div class="searchrow"><input id="q" name="q" type="search" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
+    // Spoken by the label, shown by the placeholder: the row's height goes to the map (SYC-812).
+    '<label class="sr" for="q">Name or SYR number</label>' +
+    `<div class="searchrow"><input id="q" name="q" type="search" placeholder="Name or SYR number" value="${esc(f.q ?? "")}" maxlength="${QUERY_MAX}" autocomplete="off" autocapitalize="none" spellcheck="false">` +
     '<button type="submit">Show cats</button></div>' +
     `<details class="filters"><summary>Filters (${n})</summary>` +
     '<div class="fpanel">' +
@@ -393,9 +394,8 @@ export function renderCatGridPage(o: CatGridOptions): string {
   const body =
     (tie ? "" : pageIntro("Every cat the app knows about, with the most recently seen first. Tap a cat for its full record. Each cat's SYR number is its ID in the app.")) +
     filterForm(o) +
-    (livesNow.includes("gone") ? "" : hiddenNote) +
-    sterilisedKey() +
-    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${results}</div>`;
+    // Everything after the form is redrawn on a filter change, so the note's link stays true (SYC-812).
+    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${livesNow.includes("gone") ? "" : hiddenNote}${sterilisedKey()}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 

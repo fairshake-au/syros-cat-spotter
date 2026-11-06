@@ -433,13 +433,14 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     "details.invitefold>summary",
     "details.method>summary",
     "details.planfold>summary",
+    "details.filters>summary",
   ];
   const ruleFor = (css: string, tail: string) => {
     const m = new RegExp(`(^|\\n)([^{}\\n]*${tail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^{}\\n]*)\\{([^}]*)\\}`).exec(css);
     return m ? { selectors: m[2]!.split(",").map((s) => s.trim()), body: m[3]! } : null;
   };
 
-  it("the marker rule lists exactly the seven summaries", () => {
+  it("the marker rule lists exactly the eight summaries", () => {
     const r = ruleFor(sheet(), "::before");
     const marker = sheet().split("\n").find((l) => l.includes('content:"▸" / ""'))!;
     expect(marker).toBeTruthy();
@@ -462,6 +463,7 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
       "details.invitefold[open]>summary::before",
       "details.method[open]>summary::before",
       "details.planfold[open]>summary::before",
+      "details.filters[open]>summary::before",
     ]);
   });
 
@@ -512,10 +514,17 @@ describe("folds look like folds (SYC-619 §2.6)", () => {
     expect(lines.length).toBe(2);
     for (const l of lines) {
       const sel = l.slice(0, l.indexOf("{"));
-      for (const no of ["summary.rowline", "details.filters", ".rowmenu", "details.confirm", ".menufold", "details.person", "details.arearow"]) {
+      for (const no of ["summary.rowline", ".rowmenu", "details.confirm", ".menufold", "details.person", "details.arearow"]) {
         expect(sel, no).not.toContain(no);
       }
     }
+  });
+
+  it("Filters is a fold on every width: nothing forces it open, and it stays a button", () => {
+    const css = sheet();
+    expect(css).not.toContain("details.filters::details-content");
+    expect(css).not.toMatch(/details\.filters>summary\{display:none\}/);
+    expect(css).toMatch(/\ndetails\.filters>summary\{[^}]*display:inline-flex[^}]*\}/);
   });
 
   it("Invite someone hugs its text: inline-flex, not a full-width row", () => {

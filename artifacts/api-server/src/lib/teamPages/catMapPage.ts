@@ -98,7 +98,6 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "Each dot is a cat, placed where it was last seen. A circle with a number is a group of cats: zoom in to split it. These places are for the team only.",
   );
   const top =
-    intro +
     // Same order as the grid (search and Filters, then Grid/Map), so the
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
@@ -129,11 +128,6 @@ export function renderCatMapPage(o: CatMapOptions): string {
   const gridHref = catsAddress({ ...o.filters, page: undefined });
   const body =
     top +
-    // Shown by the script once the map is up; with no script it stays hidden.
-    '<fieldset class="maplayers" id="maplayers" hidden><legend>Show on the map</legend>' +
-    '<label class="choicechip"><input type="checkbox" id="layer-cats" checked> Cats</label>' +
-    '<label class="choicechip"><input type="checkbox" id="layer-sites"> Feeding sites</label>' +
-    "</fieldset>" +
     '<div class="mapwrap">' +
     box +
     legend() +
@@ -141,6 +135,13 @@ export function renderCatMapPage(o: CatMapOptions): string {
     "</div>" +
     // No script, or the map can't start: the same cats as the grid.
     `<p class="mapfallback" id="mapgrid"><a class="tap" id="map-gridlink" href="${esc(gridHref)}">${esc(tr("en", "map.catsAsGrid"))}</a></p>` +
+    // Below the map, so the map starts within the first screen (SYC-812).
+    intro +
+    // Shown by the script once the map is up; with no script it stays hidden.
+    '<fieldset class="maplayers" id="maplayers" hidden><legend>Show on the map</legend>' +
+    '<label class="choicechip"><input type="checkbox" id="layer-cats" checked> Cats</label>' +
+    '<label class="choicechip"><input type="checkbox" id="layer-sites"> Feeding sites</label>' +
+    "</fieldset>" +
     // Every named area is a lot of buttons on a phone: folded until opened.
     `<details class="mapmove" id="mapmove" hidden><summary>${esc(tr("en", "map.goToArea"))}</summary>` +
     '<div class="arearow" id="mapgoto" role="group" aria-label="Go to">' +
