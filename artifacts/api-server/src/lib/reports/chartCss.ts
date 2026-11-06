@@ -38,6 +38,7 @@ export const CHART_CSS =
   ".sbname{font-weight:700}" +
   // The Reports list, the time range and the method lines.
   "ul.reportlist{list-style:none;margin:12px 0;padding:0;display:grid;gap:10px}" +
+  "@media (min-width:900px){ul.reportlist{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
   "ul.reportlist>li{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}" +
   "ul.reportlist>li h2{margin:0 0 4px;font-size:18px}" +
   "ul.reportlist>li p{margin:4px 0}" +

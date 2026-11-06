@@ -70,6 +70,7 @@ const page = (viewer: string, title: string, body: string, beforeTitle?: string)
     showPeople: true,
     beforeTitle,
     body: CSS + body,
+    mainClass: "wide",
   });
 
 // ── What happened (shown after a change; built from ids looked up on the server) ──

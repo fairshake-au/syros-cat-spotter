@@ -89,6 +89,7 @@ export function renderReportsList(o: { personName: string; vetCosts: boolean }):
     active: "reports",
     personName: o.personName,
     body: pageIntro("How the work is going. Pick a report, then choose the dates at the top. Nothing here changes any records.") + `<ul class="reportlist">${cards}</ul>`,
+    mainClass: "wide",
   });
 }
 

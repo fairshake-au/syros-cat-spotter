@@ -166,6 +166,12 @@ describe("GET /api/team/home", () => {
 });
 
 describe("renderHomePage", () => {
+  it("puts Record vet visits under Today, not under Where to trap next (SYC-816)", () => {
+    const html = renderHomePage(full({ needs: needsOf(noNeeds), toCheck: checkOf(0, 0) }), { personName: "Maria", now: NOW, batches: true });
+    expect(html.indexOf('id="vet-batches-link"')).toBeGreaterThan(-1);
+    expect(html.indexOf('id="vet-batches-link"')).toBeLessThan(html.indexOf('class="hside"'));
+  });
+
   it("draws Today, Where to trap next, How we're doing in that order", () => {
     const html = page(full());
     const ids = ["today", "trap", "progress"].map((id) => html.indexOf(`id="${id}"`));

@@ -236,7 +236,7 @@ function progressSection(h: Section<Headline>, month: Section<{ now: MonthFigure
   );
 }
 
-/** Record vet visits (SYC-677): with the work links, for someone who holds the three capabilities a batch needs. */
+/** Record vet visits (SYC-677): under Today, with the work links (SYC-816), for someone who holds the three capabilities a batch needs. */
 const BATCHES_LINE = '<p id="vet-batches-link"><a class="hlink" href="/api/team/vet-batches">Record vet visits</a></p>';
 
 export function renderHomePage(d: HomeData, o: { personName: string; now: Date; costs?: boolean; batches?: boolean; duplicates?: number; matchChecks?: number }): string {
@@ -244,8 +244,8 @@ export function renderHomePage(d: HomeData, o: { personName: string; now: Date; 
     pageIntro("Your starting point. Today lists what needs a person; tap a number to open that list.") +
     `<p class="hint">New here? <a class="hlink" href="${WORDS_PATH}">Words we use</a> explains the terms on these pages.</p>` +
     '<div class="hgrid">' +
-    todaySection(d.needs, d.toCheck, o.now, o.duplicates, o.matchChecks) +
-    `<div class="hside">${trapSection(d.trapNext)}${o.batches === true ? BATCHES_LINE : ""}${progressSection(d.headline, d.month, o.costs === true)}</div>` +
+    `<div>${todaySection(d.needs, d.toCheck, o.now, o.duplicates, o.matchChecks)}${o.batches === true ? BATCHES_LINE : ""}</div>` +
+    `<div class="hside">${trapSection(d.trapNext)}${progressSection(d.headline, d.month, o.costs === true)}</div>` +
     "</div>";
   // Wide, as the Cats grid is: two columns from 1000px need more than the 760px reading column.
   return renderPage({ title: "Home", active: "home", personName: o.personName, body, mainClass: "wide" });

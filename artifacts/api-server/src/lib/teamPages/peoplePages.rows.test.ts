@@ -21,6 +21,12 @@ const recentPerson = {
   starting: false,
 } as PersonView;
 
+describe("the People page's width (SYC-816)", () => {
+  it("uses the full width on a desktop", () => {
+    expect(renderPeoplePage({ ...base, recent: [] })).toContain('<main id="main" tabindex="-1" class="wide">');
+  });
+});
+
 describe("Joined in the last 7 days (SYC-619 §4.1)", () => {
   it("is left out when nobody has joined", () => {
     expect(renderPeoplePage({ ...base, recent: [] })).not.toContain("Joined in the last 7 days");
