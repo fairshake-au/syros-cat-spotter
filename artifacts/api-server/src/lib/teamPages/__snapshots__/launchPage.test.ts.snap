@@ -128,8 +128,8 @@ article.report:not(.urgent):not(.issue):not(.closed):not(.likely){border-left-co
 .actions button.save{margin-top:8px;background:var(--accent);color:var(--on-accent)}
 .actions button.save:hover{background:var(--accent-hover)}
 /* A coat confirmation is outlined, so a page keeps one main action (SYC-814). */
-.actions button.save.calm{background:var(--card);color:var(--accent-strong)}
-.actions button.save.calm:hover{background:var(--accent-soft)}
+button.save.calm{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer}
+button.save.calm:hover{background:var(--accent-soft)}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;resize:vertical;min-height:84px}
 h3{font-size:16px;margin:16px 0 4px}
 .hint{color:var(--muted);font-size:14px;margin:0 0 8px}

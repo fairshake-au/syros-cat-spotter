@@ -31,7 +31,7 @@ describe("one main action on a cat page (SYC-814)", () => {
   it("sets This cat has died apart with a line, and outlines a coat confirmation", () => {
     const css = page({ active: "cats" });
     expect(css).toContain(".fixes form.diedform{margin:20px 0 4px;padding-top:16px;border-top:1px solid var(--line)}");
-    expect(css).toContain(".actions button.save.calm{background:var(--card);color:var(--accent-strong)}");
+    expect(css).toMatch(/\nbutton\.save\.calm\{[^}]*background:var\(--card\);color:var\(--accent-strong\)/);
   });
 });
 
