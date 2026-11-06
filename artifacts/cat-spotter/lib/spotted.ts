@@ -68,6 +68,7 @@ export function catalogueMatches(
     name: string;
     description?: string | null;
     hasHome?: boolean;
+    lifeStatus?: string;
     distanceKm?: number | null;
     areaKey?: string | null;
     areaName?: string | null;
@@ -87,7 +88,8 @@ export function catalogueMatches(
     case 'homed':
       return Boolean(cat.hasHome);
     case 'noHome':
-      return cat.hasHome === false;
+      // Not a cat in care or one who has died: neither is a cat with no home.
+      return cat.hasHome === false && cat.lifeStatus !== 'in_care' && cat.lifeStatus !== 'deceased';
     case 'notSpotted':
       return !args.spottedIds.has(cat.id);
     default:

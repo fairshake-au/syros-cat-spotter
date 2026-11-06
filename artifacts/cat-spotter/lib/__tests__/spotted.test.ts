@@ -138,6 +138,12 @@ describe('SYC-810: catalogueMatches', () => {
     expect(catalogueMatches(kini, args({ filter: 'noHome' }))).toBe(true);
     expect(catalogueMatches(kiniHomed, args({ filter: 'noHome' }))).toBe(false);
   });
+  it('a cat in care or a cat who has died is not in No home', () => {
+    for (const lifeStatus of ['in_care', 'deceased'] as const) {
+      expect(catalogueMatches({ ...kini, lifeStatus }, args({ filter: 'noHome' }))).toBe(false);
+    }
+    expect(catalogueMatches({ ...kini, lifeStatus: 'street' as const }, args({ filter: 'noHome' }))).toBe(true);
+  });
   it('"Kini" plus No home leaves out homed cats', () => {
     const a = args({ query: 'kini', filter: 'noHome' });
     expect([kini, kiniHomed, old].filter((c) => catalogueMatches(c, a)).map((c) => c.id)).toEqual([1]);

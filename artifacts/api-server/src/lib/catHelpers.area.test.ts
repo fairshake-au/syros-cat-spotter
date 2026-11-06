@@ -72,6 +72,7 @@ describe("serialiseCat area", () => {
     for (const viewer of [PUBLIC, OWNER]) {
       const out = serialiseCat(source(spot), viewer);
       expect(out.areaKey).toBe(expected.key);
+      expect(out.areaName).toBe(expected.name);
     }
   });
 
@@ -90,6 +91,7 @@ describe("serialiseCat area", () => {
       const out = serialiseCat(cat, viewer);
       expect(out.hasHome).toBe(true);
       expect(out.areaKey).toBe(expected.key);
+      expect(out.areaName).toBe(expected.name);
     }
   });
 

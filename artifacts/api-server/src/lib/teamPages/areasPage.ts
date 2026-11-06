@@ -189,13 +189,13 @@ function addForm(o: AreasPageOptions): string {
     }) +
     problem(again, "add", undefined, "key") +
     input("add-key", "Short key", "key", kept(again, "add", undefined, "key", ""), {
-      hint: "Used in the Cats filters' web address. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
+      hint: "Used in the Cats filters' web address, and sent with cats to the public app, so use the place's name. Small letters, numbers and dashes, like mega-gialos. It can't be changed later.",
       invalid: bad("key"),
     }) +
     // A centre that came back from the map's save and was refused shows here.
     problem(again, "add", undefined, "lat") +
     problem(again, "add", undefined, "lng") +
-    `<p class="hint">Next you tap the area's centre on a map. You see the spot before anything is saved.</p>` +
+    `<p class="hint">Next you tap the area's centre on a map, on the place itself, never a home or feeding site. You see the spot before anything is saved.</p>` +
     `<button type="submit">Choose the centre on the map</button></form></details></div>`
   );
 }

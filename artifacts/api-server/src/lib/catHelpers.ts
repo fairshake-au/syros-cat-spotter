@@ -194,7 +194,7 @@ export function toPublicDay(at: Date | string): string {
  * and the resolve response. Built field by field from an allow-list, never by
  * spreading a row, so a new column can't leak.
  *
- * Public: the centre of the cat's 250 m cell (secret grid origin, blur.ts),
+ * Public: the centre of the cat's 250 m cell (blur.ts),
  * `locationPrecision: "approximate"`, `locationCellM: 250`, distance to the
  * cell centre rounded to 100 m, last seen as a date. An owner viewing their
  * own cat gets its exact position and `locationPrecision: "exact"`.
