@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Questions for Syros Cats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap">
+<style>
+/* Layout: one calm column of questions in six parts, most urgent first. A sticky bar counts progress and jumps to the next unanswered question. Same palette and faces as the walkthrough. */
+:root{
+  --bg:#fefcf7; --paper:#f4f2ec; --card:#ffffff; --ink:#1b2a38; --muted:#5a6b7b; --line:#d7dee4;
+  --aegean:#1c77c3; --aegean-ink:#0f4a72; --aegean-soft:#e8f4fc;
+  --bougain:#b02f66; --bougain-soft:#fce4ee; --on-accent:#ffffff;
+  --olive:#4f5e26; --olive-soft:#eef1e0;
+  --display:"Poppins",ui-rounded,"Segoe UI",system-ui,sans-serif;
+  --body:"Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24; --paper:#152331; --card:#1b2a38; --ink:#e9edf0; --muted:#a3b2bf; --line:#2c3e4f;
+  --aegean:#66b2e8; --aegean-ink:#a3d1f2; --aegean-soft:#132f47;
+  --bougain:#f6a9c8; --bougain-soft:#3a1a29; --on-accent:#1b2a38;
+  --olive:#cbd6a8; --olive-soft:#262d17; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24; --paper:#152331; --card:#1b2a38; --ink:#e9edf0; --muted:#a3b2bf; --line:#2c3e4f;
+  --aegean:#66b2e8; --aegean-ink:#a3d1f2; --aegean-soft:#132f47;
+  --bougain:#f6a9c8; --bougain-soft:#3a1a29; --on-accent:#1b2a38;
+  --olive:#cbd6a8; --olive-soft:#262d17; color-scheme:dark}
+*{box-sizing:border-box}
+img{max-width:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.5 var(--body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{padding-block:36px 20px}
+h1{font:700 2rem/1.15 var(--display);margin:0 0 10px;text-wrap:balance}
+header.top p{margin:0 0 10px;max-width:62ch}
+header.top a{color:var(--aegean-ink)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-block:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:10px}
+.count{font:600 .95rem var(--display);font-variant-numeric:tabular-nums;min-width:0}
+.track{flex:1 1 120px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.fill{height:100%;width:0;background:var(--aegean);transition:width .2s}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--aegean);outline-offset:2px}
+.act{border:1px solid var(--aegean-ink);background:transparent;color:var(--aegean-ink);border-radius:8px;padding:6px 12px;font-weight:700;font-size:.95rem}
+.act.main{background:var(--bougain);border-color:var(--bougain);color:var(--on-accent)}
+.parts{display:flex;flex-wrap:wrap;gap:6px 14px;padding-block:14px 0;font-size:.95rem}
+.parts a{color:var(--aegean-ink)}
+section.part{padding-block:30px 6px}
+h2{font:600 1.35rem/1.25 var(--display);margin:0 0 4px}
+.lede{color:var(--muted);margin:0 0 14px}
+.q{padding-block:16px;border-top:1px solid var(--line);scroll-margin-top:90px}
+.q.flash{background:var(--aegean-soft);box-shadow:0 0 0 8px var(--aegean-soft)}
+.q h3{font:700 1.05rem/1.4 var(--body);margin:0}
+.why{color:var(--muted);margin:2px 0 0;font-size:.95rem}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.opt{border:1px solid var(--muted);background:var(--card);border-radius:8px;padding:7px 14px;min-height:40px;font-weight:600}
+.opt[aria-pressed="true"]{background:var(--aegean-ink);border-color:var(--aegean-ink);color:var(--bg)}
+textarea{display:block;width:100%;margin-top:10px;min-height:44px;padding:8px 10px;border:1px solid var(--muted);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;resize:vertical}
+.mocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:18px;margin:6px 0 10px}
+.mock{min-width:0}
+.mock h4{font:600 .95rem/1.3 var(--display);margin:0 0 2px}
+.mock>p{color:var(--muted);font-size:.9rem;margin:0 0 8px}
+.phone{border:5px solid var(--ink);border-radius:22px;background:var(--card);padding:12px;font-size:.82rem;line-height:1.4}
+.ph-photo{aspect-ratio:16/10;border-radius:10px;display:flex;align-items:flex-end;padding:7px 9px;color:#fff;font-weight:700;background:linear-gradient(135deg,#a8774a,#7d5533)}
+.ph-photo.grey{background:linear-gradient(135deg,#6d8aa3,#4a6580)}
+.ph-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 2px}
+.pill{font-size:.72rem;font-weight:700;border-radius:999px;padding:1px 7px;background:var(--olive-soft);color:var(--olive)}
+.ph-ask{background:var(--bougain-soft);border-radius:10px;padding:8px 10px;margin-top:8px}
+.ph-box{background:var(--aegean-soft);border-radius:10px;padding:8px 10px;margin-top:8px}
+.ph-ask b,.ph-box b{display:block}
+.ph-ask p,.ph-box p{margin:2px 0 6px}
+.b{display:inline-block;border-radius:999px;padding:3px 9px;font-weight:700;font-size:.75rem;background:var(--bougain);color:var(--on-accent);margin:2px 2px 0 0}
+.pbar{height:6px;background:var(--line);border-radius:5px;overflow:hidden;margin:5px 0 2px}
+.pbar i{display:block;height:100%;background:var(--bougain)}
+.small{font-size:.75rem;color:var(--muted)}
+.mockhead{font:600 1rem var(--display);margin:18px 0 8px}
+.sw{display:inline-block;width:1em;height:1em;border-radius:50%;border:1px solid var(--muted);margin-right:8px;vertical-align:-2px}
+.maplink{display:inline-block;margin-top:6px;color:var(--aegean-ink);font-weight:700}
+.info{margin:0 0 16px;padding-left:1.2em;max-width:62ch}
+.info li{margin:6px 0}
+.note{background:var(--olive-soft);color:var(--olive);border-radius:8px;padding:10px 12px;margin:0 0 14px;font-weight:600}
+footer{padding-block:30px 48px}
+footer h2{margin-bottom:6px}
+footer p{margin:0 0 12px;max-width:62ch}
+.status{color:var(--muted);font-size:.9rem;margin-top:10px}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <h1>Questions for Syros Cats</h1>
+  <p>Hello Susan and Jacky. Everything we need from you is on this page, most urgent first. Most questions take one tap. Skip anything you're not sure of, and add a note wherever it helps.</p>
+  <p>Part 1 matters most. Parts 2 to 6 can follow as you have time, and you can stop and come back.</p>
+  <p>To see what's new first, here's the <a href="/catspotters/walkthrough/" target="_blank" rel="noopener noreferrer">Cat Spotters walkthrough</a>.</p>
+  <nav class="parts" id="parts" aria-label="Parts"></nav>
+</header>
+<div class="bar"><div class="wrap">
+  <span class="count" id="count" aria-live="polite">0 answered</span>
+  <div class="track" aria-hidden="true"><div class="fill" id="fill"></div></div>
+  <button class="act main" id="next" type="button">Next unanswered</button>
+</div></div>
+<main class="wrap" id="main"></main>
+<footer class="wrap">
+  <h2>That's everything</h2>
+  <p>Your answers save as you go, so you can stop and come back at any time, on any device, using the same link. There's nothing to send. Thank you.</p>
+  <p class="status" id="status" role="status"></p>
+</footer>
+
+<script>
+const YN=["Yes","No","Not sure"];
+const OK=["Fine as it is","Needs changing"];
+const PARTS=[
+{id:"launch",t:"1. Before the app goes public",l:"These matter most.",q:[
+["hurtcats","yn","Would reports of hurt cats through the app help you, or just add to your load?","Today you decide what to do from phone calls and people coming to you about a particular cat. The app adds a second route: anyone can send a report with a photo and a location, and it reaches your inbox and a list on the dashboard. If it wouldn't help, we can change or remove it before launch. \"Yes\" means it would help.","SYC-787"],
+["urgent","yn","If so, are you happy for urgent reports to arrive at admin@syroscats.com, knowing it's an ordinary email and nothing alerts anyone?","Urgent means badly hurt, collapsed or in danger right now. The email subject is \"Urgent cat report: badly hurt or in danger\". The app tells the person that a vet is the fastest help, and gives them the vets' numbers. Nobody is told someone is watching. If you'd like faster notice, you can turn on a phone notification for that subject line.","SYC-173"],
+["people","short","Who else needs access to the dashboard? Please give each person's name and their own email address.","Only people on the list can sign in, and each person signs in with their own address. So far that's Susan, Jacky and Sam.","SYC-29"],
+["photos","short","Could you send three photos that are cleared for media use? Please tell us who took each one.","When the app launches, journalists use the pictures they're given or drop the story. Ideal subjects: a clipped ear close up, a volunteer at work, and a visitor photographing a cat.","SYC-27"]
+]},
+{id:"tests",t:"2. Tests on the live app",l:"Each of these proves something works before you rely on it.",q:[
+["android",["It worked","It crashed","Haven't tried"],"On an Android phone, open the app in Chrome, take a photo of a cat with the camera and tap \"Check for matches\". What happened?","The app used to crash at this step on Android. We believe it's fixed, but nobody has confirmed that on a real phone.","SYC-76"],
+["testok","yn","If you're keeping reports, can we send one test cat report to admin@syroscats.com, and will you tell us if it arrives and isn't in spam?","When someone reports a cat in trouble, the app emails a report with a photo and location. These go to Sam for now, and will move to your inbox once we know they get through. The test would be clearly marked. It comes from \"Syros Cats via Cat Spotters\".","SYC-173"]
+]},
+{id:"facts",t:"3. Cat facts",l:"While the app looks for a match, it shows one of these. Please mark each one, and say what's wrong with any that need changing.",q:[
+["f-eartip","ok","The flat top on the ear in this photo is a clipped tip: the sign a cat is sterilised. The vet trims it while she's asleep. On Syros it's usually the left ear.","Shown with your ear-tip photo.","fact.earTip"],
+["f-litters","ok","One unsterilised female can have up to three litters a year, and her daughters can be pregnant themselves from as young as four months.","","fact.litters"],
+["f-disease","ok","Sterilised cats fight and roam less, so they're less likely to catch or pass on diseases spread by bites.","","fact.disease"],
+["f-cost","ok","Sterilising one cat costs Syros Cats €50–60. It stops that cat adding to the street-cat population.","","fact.cost"],
+["f-milk","ok","Most grown-up cats digest cow's milk badly, so a saucer of milk often means an upset stomach. Fresh water is what they need.","","fact.milk"],
+["f-leftovers","ok","Onions, garlic and chocolate are poisonous to cats. Cooked bones can splinter, and salty scraps can make them ill. Leftovers aren't cat food.","","fact.leftovers"],
+["f-water","ok","See a dry water bowl at a feeding spot? Topping it up helps, especially in summer. Food is best left to the people who feed the cats regularly.","Are you happy for people to do this at any feeding spot, or only at some?","fact.water"],
+["f-hiss","ok","A hissing cat isn't being nasty. It's frightened and asking for space. Step back and let it be.","","fact.hiss"],
+["f-pickup","ok","Even a friendly street cat can panic, scratch or bite if you pick it up. Let it come to you, or simply admire it where it is.","","fact.dontPickUp"],
+["f-kittens","ok","Kittens on their own? Their mother has usually just gone for food. Don't pick them up; watch from a distance. If they look hurt or ill, report them in the app.","","fact.kittensAlone"],
+["f-tortie","ok","Almost every tortoiseshell or calico cat is female. A coat with both black and orange fur takes two X chromosomes, and usually only females have two.","","fact.tortie"],
+["f-whiteblue","ok","Many all-white cats with two blue eyes are born deaf. If one doesn't turn when you come near, it may not have heard you: stay where it can see you.","","fact.whiteBlue"],
+["f-blink","ok","Try a slow blink, from a distance. In a 2020 study, cats were more likely to slow-blink back at someone who slow-blinked first, and to come up to them.","","fact.slowBlink"],
+["f-tail","ok","A tail held straight up is a cat's friendly hello. A tail tucked low, or fur standing on end, means give it room.","","fact.tailUp"],
+["f-purr","ok","Cats purr when they're content, but also when they're stressed or hurt. A purr can be a cat calming itself down.","","fact.purr"],
+["f-kitteneyes","ok","Kittens' eyes open blue. Their real colour comes through in the weeks that follow, so a blue-eyed kitten may grow up green or gold.","","fact.kittenEyes"],
+["f-females","ok","A street colony often grows around related females: mothers, daughters, sisters. They may even help look after each other's kittens.","","fact.colonyFemales"],
+["f-canttell","ok","When the app asks whether a cat's ear is clipped, \"Can't tell\" is a good answer. A wrong guess can make a cat look sterilised when it isn't.","","fact.cantTell"],
+["rabies","yn","Is it right to say \"€10 covers a rabies vaccine\"?","This line came from an early design for the donate screen and was never checked with you. If it's right we can use it as an example of what a gift does. If not, please tell us the real figure.","SYC-70"]
+]},
+{id:"coats",t:"4. Colours and patterns",l:"This is what we propose for describing a cat's coat in the app and on the dashboard. It's based on the cats logged so far. Each cat gets every colour you can see, stripes included, plus one pattern. Please mark each one.",q:[
+["c-black","ok","Black or dark grey","Black, charcoal and any mid or dark grey, and the dark stripes on a tabby. Why: charcoal looks black in the shade and grey in the sun.","colour",{sw:"#2c2f36"}],
+["c-grey","ok","Light grey","Only pale, silvery grey. Why: with the darker greys moved out, this stays easy to recognise.","colour",{sw:"#c6ccd2"}],
+["c-brown","ok","Brown","Warm brown, sandy or golden-brown. Why: no change. It's kept apart from light grey for now, though tabbies can look like either in strong sun.","colour",{sw:"#a5784f"}],
+["c-ginger","ok","Ginger or cream","Orange, apricot and pale cream. Why: cream cats were being read as brown.","colour",{sw:"#e3a653"}],
+["c-white","ok","White","","colour",{sw:"#ffffff"}],
+["n-words","short","Which words do your volunteers actually use for coats?","For example tortoiseshell, calico, torbie, tuxedo. We'd like the app to use your words.","naming"],
+["p-plain","ok","Plain","One even coat, or colours with no stripes or patches. Why: the simplest case, and it needs no special word.","pattern"],
+["p-stripes","ok","Stripes","A tabby. Why: \"stripes\" is what people see, and it needs no cat knowledge. A brown tabby with dark stripes would be Black or dark grey, Brown and Stripes.","pattern"],
+["p-patches","ok","Patches","Separate blocks of colour, as on a black and white cat, a tortoiseshell or a calico. Why: it covers all patchy cats, whatever people call them.","pattern"],
+["n-tort","ok","Patchy black and ginger cats are named Tortoiseshell, or Calico if they have white. Pale grey and cream ones count too.","Why: these are familiar names, and they're a useful hint, because almost all these cats are female. A brown tabby with ginger patches (a \"torbie\") is described in plain colours rather than named, so a plain brown tabby is never wrongly marked as probably female.","naming"],
+["n-torbie","yn","Do you ever use the term torbie?","","naming"],
+["n-calico",["Calico","Tortoiseshell and white"],"Which name do you prefer? Both mean the same cat.","","naming"]
+]},
+{id:"work",t:"5. How you work",l:"We'd rather ask than guess. Short answers are fine.",q:[
+["round","short","How does a trapping round get organised? Who decides where to go, and how do volunteers know what to bring?","We understand volunteers and helpers trap whichever cats they can, and you find out which cats you have from the photos afterwards. The dashboard will suggest where effort might go next, and you stay free to choose elsewhere. This would help us give volunteers something useful on their phones during a round.","SYC-54"],
+["litters","short","What do you do when someone tells you about kittens? Who at Syros Cats should hear about them?","We're thinking about a way for spotters to report a litter: how many kittens, and whether the mother is around. We'd only build it to match what you do, and reports would tell people to contact you first rather than just turn up.","SYC-58"],
+["health","short","What do you note down about a cat's health today, and where do you keep it?","The team can write free notes about a cat's health on the dashboard, and these are never public. If you always record the same few things, we can turn them into a short list to tick, which is quicker and easier to search.","SYC-242"],
+["vaccrec","yn","Would you like to record vaccinations on the dashboard? They'd never be public.","","SYC-5"],
+["vaccwhich","short","Which vaccines do the vets usually give?","This would be a short pick-list.","SYC-5"],
+["covers","yn","Does the €50–60 for a sterilisation also cover vaccinations at the same visit?","So that the dashboard's cost figures mean what you'd expect.","SYC-284"],
+["records","yn","Would it help to bring your past sterilisation records into the app, and could you hand them over?","","SYC-49"],
+["vet-symviosis","yn","Is this the right place for Symviosis, in Talanta?","The app sends people to this pin. It sits on the Shell station opposite the clinic, so if you know the exact door, please say.","SYC-68",{link:["Open in Google Maps","https://www.google.com/maps/search/?api=1&query=37.4234996,24.9202989"]}],
+["vet-cyclades","yn","Is this the right place for Cyclades Vets (George Maragkos), in Mana?","This pin sits on the AVIN station opposite the clinic.","SYC-68",{link:["Open in Google Maps","https://www.google.com/maps/search/?api=1&query=37.4281630,24.9400130"]}],
+["vet-dermitzaki","yn","Is this the right place for Dr Dermitzaki, in Livadia, Manna?","","SYC-68",{link:["Open in Google Maps","https://www.google.com/maps/search/?api=1&query=37.4288115,24.940307"]}],
+["dermit","short","Does Dr Dermitzaki have an out-of-hours number we can list?","The app lists after-hours lines for the other two clinics, but we can't find one for this clinic.","SYC-68"],
+["mailbox",["Keep admin@syroscats.com","A group address","A new address just for this"],"Where should messages from the website go in the long run?","These are the emails people send to hello@catspotters.com. Using one inbox is simplest, but it depends on that one mailbox staying in use. A group address reaches several of you. A new address can be passed on if people change.","SYC-30"]
+]},
+{id:"giving",t:"6. Giving",l:"Here's how giving would work in the app, then a few questions.",info:["The app asks about a cat someone has met, at two moments: while they're with her, and when there's good news such as a sterilisation. News always comes first.","Every gift goes to your general care fund. The app says what money buys (\"€60 sterilises a cat like her\"), never that a gift pays for one particular cat.","There's never an ask near a death or for a cat with an open report. Once someone gives, the app stops asking for two months, and monthly givers are never asked again.","Giving never buys points. Givers get a private thank-you badge.","The app can feature up to four cats in your long-term care on its Home screen, each with a story, what the care costs, and updates from your team. You choose the cats and post the updates from the dashboard.","Payment happens on a secure page in the person's language. The amounts are the ones you agreed on 1 September, and they can make a gift monthly if they choose. It's never ticked for them.","You see real totals, such as \"that's the same as sterilising 72 cats\", and the money reaches your bank as one payment a month, as you asked on 1 September."],q:[
+["approve","yn","Are you happy with how giving would work, as described above?","","SYC-1"],
+["promise","yn","Are you happy with this wording? \"Every gift goes to Syros Cats' care fund, which pays for Nico and cats like him.\"","This is the promise donors see. Nico is an example.","SYC-700"],
+["receipts","short","What do donors need by way of receipts? Do you need their email addresses?","As a UK charity, would you also want to claim Gift Aid on gifts from UK taxpayers?","SYC-1"],
+["updates",["Weekly","Fortnightly","Monthly","Other"],"How often could you post a line and a photo about each featured cat?","A featured cat that goes quiet loses people's trust, so an honest answer helps most.","SYC-700"],
+["featured",["1","2","3","4"],"How many cats would you like to feature at once?","","SYC-700"]
+]}];
+
+const GIVING_MOCKS=`
+<div class="mock"><h4>While someone is with a cat</h4><p>Right after a spot, on their first spot of the day.</p><div class="phone" role="img" aria-label="Example screen: a spotter has just spotted Agatha and is asked to help cats like her"><div class="ph-photo">You spotted Agatha!</div><div class="ph-row"><b>Agatha</b><span class="pill">Not sterilised yet</span></div><div class="ph-ask"><b>Help cats like Agatha</b><p>The kindest thing for Agatha isn't food. It's being sterilised. €60 sterilises a cat like her, and €30 feeds one for a month.</p><span class="b">Help sterilise a cat</span><span class="b">Help feed a cat</span></div></div></div>
+<div class="mock"><h4>Cats in your care</h4><p>On the Home screen. You choose the cats and write their stories.</p><div class="phone" role="img" aria-label="Example screen: Nico, a cat in Syros Cats' care, with a progress bar for his care costs"><b>Cats in Syros Cats' care</b><div class="ph-box"><b>Nico</b><p>Lost a back leg. Recovering well.</p><div class="pbar"><i style="width:62%"></i></div><div class="small">€372 of €600 for his care · 18 people helping</div></div><span class="b" style="margin-top:8px">Help with Nico's care</span></div></div>
+<div class="mock"><h4>After someone gives</h4><p>A thank-you and a private badge. The app then stops asking for two months.</p><div class="phone" role="img" aria-label="Example screen: thank you after giving, with a Supporter badge"><div class="ph-photo grey">Nico</div><div class="ph-box"><b>Thank you, Emma</b><p>You're helping care for Nico and cats like him.</p><span class="pill">Supporter badge</span></div></div></div>
+<div class="mock"><h4>When good news arrives</h4><p>The news comes first. Someone who hasn't given sees one line under it.</p><div class="phone" role="img" aria-label="Example screen: news that Agatha has been sterilised, with a short ask below"><b>Agatha has been sterilised</b><p style="margin:4px 0 0">She's back at the harbour and won't have any more litters.</p><div class="ph-ask"><p>There are more cats like Agatha waiting. €60 sterilises the next one.</p><span class="b">Help sterilise the next cat</span></div></div></div>`;
+const ALL=PARTS.flatMap(p=>p.q.map(q=>({id:q[0],opts:q[1]==="yn"?YN:q[1]==="ok"?OK:q[1],text:q[2],why:q[3],t:q[4],x:q[5]||{},part:p.t})));
+let answers={};
+const API=location.pathname.replace(/\/$/,"")+"/api/answers";
+const pending=new Map();
+let retry=null;
+const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n};
+
+function render(){
+  const nav=document.getElementById("parts"),main=document.getElementById("main");
+  PARTS.forEach(p=>{
+    const a=el("a",null,p.t);a.href="#"+p.id;a.addEventListener("click",e=>{e.preventDefault();document.getElementById(p.id).scrollIntoView()});nav.append(a);
+    const s=el("section","part");s.id=p.id;s.append(el("h2",null,p.t),el("p","lede",p.l));
+    if(p.info){const u=el("ul","info");p.info.forEach(t=>u.append(el("li",null,t)));s.append(u)}
+    if(p.note)s.append(el("p","note",p.note));
+    if(p.id==="giving"){s.append(el("p","mockhead","What people would see"));const g=el("div","mocks");g.innerHTML=GIVING_MOCKS;s.append(g);s.append(el("p","why","Cats, names and figures here are examples."))}
+    p.q.forEach(row=>{
+      const q=ALL.find(x=>x.id===row[0]);
+      const d=el("div","q");d.id="q-"+q.id;
+      const h=el("h3",null,q.text);
+      if(q.x.sw){const sw=el("span","sw");sw.style.background=q.x.sw;sw.setAttribute("aria-hidden","true");h.prepend(sw)}
+      d.append(h);
+      if(q.why)d.append(el("p","why",q.why));
+      if(q.x.link){const a=el("a","maplink",q.x.link[0]);a.href=q.x.link[1];a.target="_blank";a.rel="noopener";d.append(a)}
+      if(q.opts!=="short"){
+        const o=el("div","opts");o.setAttribute("role","group");o.setAttribute("aria-label",q.text);
+        q.opts.forEach(v=>{const b=el("button","opt",v);b.type="button";b.dataset.v=v;b.setAttribute("aria-pressed","false");
+          b.addEventListener("click",()=>{const cur=answers[q.id]||{};setAnswer(q.id,{choice:cur.choice===v?"":v,note:cur.note||""})});o.append(b)});
+        d.append(o);
+      }
+      const n=el("textarea");n.id="n-"+q.id;n.rows=1;
+      n.setAttribute("aria-label",(q.opts==="short"?"Your answer: ":"Add a note: ")+q.text);
+      n.placeholder=q.opts==="short"?"Your answer":"Add a note (optional)";
+      let timer;
+      n.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>{const cur=answers[q.id]||{};setAnswer(q.id,{choice:cur.choice||"",note:n.value},true)},600)});
+      n.addEventListener("blur",()=>{clearTimeout(timer);const cur=answers[q.id]||{};if((cur.note||"")!==n.value)setAnswer(q.id,{choice:cur.choice||"",note:n.value},true)});
+      d.append(n);s.append(d);
+    });
+    main.append(s);
+  });
+}
+function paint(skipNotes){
+  ALL.forEach(q=>{
+    const a=answers[q.id]||{};
+    document.querySelectorAll("#q-"+q.id+" .opt").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===a.choice)));
+    const n=document.getElementById("n-"+q.id);
+    if(!skipNotes&&document.activeElement!==n&&n.value!==(a.note||""))n.value=a.note||"";
+  });
+  const done=ALL.filter(isDone).length;
+  document.getElementById("count").textContent=done+" of "+ALL.length+" answered";
+  document.getElementById("fill").style.width=(100*done/ALL.length)+"%";
+  document.getElementById("next").textContent=done===ALL.length?"All answered":"Next unanswered";
+}
+const isDone=q=>{const a=answers[q.id];return !!(a&&(a.choice||(a.note||"").trim()))};
+function setStatus(t){document.getElementById("status").textContent=t}
+function setAnswer(id,val,skip){answers[id]=val;paint(skip);pending.set(id,val);flush()}
+async function flush(){
+  for(const [id,val] of [...pending]){
+    try{
+      const r=await fetch(API+"/"+id,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(val),keepalive:true});
+      if(!r.ok)throw new Error(String(r.status));
+      if(pending.get(id)===val)pending.delete(id);
+      setStatus("");
+    }catch(e){
+      setStatus("We couldn't save your last answer. Please check your connection. We'll keep trying while this page is open.");
+      clearTimeout(retry);retry=setTimeout(flush,5000);
+      return;
+    }
+  }
+}
+document.getElementById("next").addEventListener("click",()=>{
+  const q=ALL.find(x=>!isDone(x));if(!q)return;
+  const d=document.getElementById("q-"+q.id);d.scrollIntoView({block:"start"});
+  d.classList.add("flash");setTimeout(()=>d.classList.remove("flash"),900);
+  const f=d.querySelector(".opt,textarea");if(f)f.focus({preventScroll:true});
+});
+async function load(){
+  try{
+    const r=await fetch(API,{cache:"no-store"});
+    if(!r.ok)throw new Error(String(r.status));
+    const all=await r.json();
+    for(const id of Object.keys(all))if(!pending.has(id))answers[id]=all[id];
+    paint();
+  }catch(e){setStatus("We couldn't load saved answers. Please check your connection and reload the page.")}
+}
+render();paint();load();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){flush();load()}});
+</script>
+</body>
+</html>
