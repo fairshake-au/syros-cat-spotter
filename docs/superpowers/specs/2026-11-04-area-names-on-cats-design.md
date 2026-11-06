@@ -1,6 +1,6 @@
 # Area names on cat cards and the cat page (SYC-810, app half)
 
-**Status:** adversarial review done and folded in, ready for Samuel. **Who it's for:** spotters, in the public app. **Scope:** the app half only. The dashboard's "Where to trap next" waits for Jacky's or Susan's answers.
+**Status:** adversarial review done, Samuel's answers of 6 Nov folded in and re-checked (§7, §11), waiting for his approval. **Who it's for:** spotters, in the public app. **Scope:** the app half only. The dashboard's "Where to trap next" waits for Jacky's or Susan's answers.
 
 ## 1. The problem
 
@@ -15,14 +15,18 @@ Checked in the code on `origin/main` at 7b0b4c22d.
 - **Names are in one language.** The table has no Greek column.
 - **The team's dashboard** already shows `c.place`, worked out from exact positions. That's team-only and stays as it is.
 - **Decisions in force:** F2 keeps the 250m grid. D4 says a confirmed "not sterilised" is public, and notes that it sharpens the targeting risk. `claiming-a-cat.md` D9 says where an owned cat lives is seen only by the owner and Syros Cats.
+- **An owned cat has two places.** Its public position is where it's spotted. Its home pin is separate: the owner places it within 1km of the public position, it's never in the public data, and the app promises the owner "Only you and Syros Cats will see the pin and the note."
+- **Catalogue filters today:** All, Near me, Has a home and, once there's collection data, Not spotted, one at a time.
 
 ## 3. The privacy rule this spec depends on
 
-**The area is worked out from the published cell centre, never from the exact position.**
+**The area is worked out from the published cell centre, never from the exact position and never from the owner's home pin.**
 
 So the area name gives away nothing that the public `lat` and `lng` don't already give: anyone can work out the nearest place name from the cell centre. Worked out from the exact position, a cat near an area border would leak which side of the border it's on, which is finer than the cell.
 
 The rule holds for owners too: an owner sees the same area name as everyone else, so the name never depends on who's asking.
+
+The home pin stays out for a stronger reason: the app has promised owners that only they and Syros Cats see it. The code that works out the area is given the cell centre only, so it can't read the pin.
 
 ## 4. What changes
 
@@ -33,7 +37,7 @@ The rule holds for owners too: an owner sees the same area name as everyone else
 - `areaKey`: a named area's key, or null.
 - `areaName`: its name, or null.
 
-**Null when:** the cell centre is more than 2km from every area centre, on the island or off it; or the cat has a home (see §4.5).
+**Null when:** the cell centre is more than 2km from every area centre, on the island or off it. A cat with a home gets its area like any other cat (see §4.5).
 
 `namedAreas.ts` imports `haversineKm` from `catHelpers.ts`, so calling it from the serialiser would make a circular import. It switches to the same function from `@workspace/geo`.
 
@@ -47,10 +51,10 @@ Both fields go in `openapi.yaml` and the generated clients as optional, so a pho
 |---|---|
 | Has an area | Map pin and the area: "Kini" |
 | On the island, far from every area | Map pin and "Somewhere on Syros" |
-| Has a home, or off the island | "Discovered by…", as today |
+| Off the island | "Discovered by…", as today |
 | From an old phone cache with no area field | "Discovered by…", as today |
 
-The app tells these apart from `hasHome`, the published position and whether the field exists at all. The card's spoken label matches the row.
+A cat with a home follows the same rows and keeps its "Has a home" badge. The app tells the rows apart from the published position and whether the field exists at all. The card's spoken label matches the row.
 
 "Discovered by" isn't lost: the cat page's Story tab already says who first spotted the cat.
 
@@ -63,15 +67,21 @@ The "where" row leads with the area and keeps the description under it:
 
 With no area and no description, there's no row. With a description only, it shows as today.
 
-### 4.4 Search
+### 4.4 Search and the No home filter
 
 The Catalogue's search box already says "Search by name, ID, or area", but only looks at the name, description and ID. `app/(tabs)/cats.tsx` adds the area to what it searches, in both the shown name and the server's name, so "Kini" and "Κίνι" both find a Kini cat in Greek. Then the box does what it says.
 
+**A new filter, "No home",** joins the Catalogue's filters. It shows only cats where `c.hasHome === false`, on the list and on the map. Search and filters already work together, so typing "Kini" and tapping No home shows the cats in Kini without a home. That gives Samuel's option without a separate area picker. A cat from an old phone cache with no `hasHome` field is left out. With nothing to show and no search typed, the screen says "No cats without a home here." With a search typed, it keeps today's no-match message. That needs `noHome` in the `CatalogueFilter` type and a new case in `catalogueEmptyKey`, both in `lib/spotted.ts`.
+
 ### 4.5 Cats with a home
 
-A cat with a home shows no area, and `areaName` is null for everyone, the owner included, so the answer never depends on who's asking. D9 keeps where an owned cat lives private, and a place name beside "Has a home" reads as a statement about a household.
+A cat with a home shows its area, like any other cat (Samuel, 6 Nov). The area comes from the published cell centre, the same as for every cat, and everyone sees the same name, the owner included.
 
-**Why not rely on the map?** The cell is already public for these cats, so this adds no new protection against someone determined. It stops the app from saying it out loud. See §7, question 2.
+**It's the area where the cat is seen, not where its home pin is.** The two nearly always match, because the pin must be within 1km of the public position. Near an area border they can differ, and then the app shows the area of the published position. Using the pin would tell the public something the app has promised owners it won't (§3).
+
+The wording stays a plain place name: never "Lives in Kini" or "Home in Kini", on the card, the cat page or the spoken label.
+
+**What this does and doesn't give away.** It adds no location: the cell is already public for these cats. It does make it easier to read, because a place name now sits beside "Has a home", and Has a home plus a search for "Kini" lists owned cats in Kini. Samuel accepted that with his answer. See §7, question 2.
 
 ### 4.6 Three languages
 
@@ -81,7 +91,7 @@ There's no column for it, and this batch adds no database changes. So the app ho
 
 **The Greek names need checking by Syros Cats or a Greek speaker before launch.** The list is Claude's draft.
 
-New string in en, el, fr: "Somewhere on Syros". There's no template with the area name inside it, so no grammar to get wrong.
+New strings in en, el, fr: "Somewhere on Syros", "No home" and "No cats without a home here." There's no template with the area name inside it, so no grammar to get wrong.
 
 ### 4.7 The Areas page
 
@@ -93,8 +103,10 @@ Before this goes live, someone checks the 21 live names. The seed list is all pl
 
 | Worry | Answer |
 |---|---|
-| The name narrows a cat's location below 250m | No. It's worked out from the published centre (§3), and an independent read of the code found no way round that. Tests: an owner's response carries the same `areaName` as the public one for the same cat, and a cat whose exact spot is across an area border from its cell centre gets the cell centre's area. |
-| A list of "not sterilised" cats by area | The map and the API already allow this, but search makes it easier. D4 recorded this risk as Syros Cats' to accept. See §7, question 1. |
+| The name narrows a cat's location below 250m | No. It's worked out from the published centre (§3), and an independent read of the code found no way round that. Tests: an owner's response carries the same `areaName` as the public one for the same cat, a cat whose exact spot is across an area border from its cell centre gets the cell centre's area, and a homed cat whose pin is in another area gets the cell centre's area. |
+| A list of "not sterilised" cats by area | The map and the API already allow this, but search makes it easier. D4 recorded this risk as Syros Cats' to accept. Samuel's call is to tell them after it goes live. See §7, question 1. |
+| The name gives away where an owned cat lives | It names the area of the public position, which anyone could work out already. The home pin is never read (§3). It does put a place beside "Has a home", which Samuel accepted (§7, question 2). |
+| A list of cats with no home, by area | Has a home plus the public data already allows this, and No home plus search makes it easier. These are the cats nobody is watching over at home, so it's the same risk as D4. It's on the list for Syros Cats (§7, question 1). |
 | Averaging cats' positions finds a colony | Unchanged (F2). The name adds nothing to it. |
 | Private feeding sites | Not touched. Sites aren't in `named_areas`, and no site data goes through this code. |
 | A team-typed name reveals a person or site | §4.7. |
@@ -109,19 +121,19 @@ Before this goes live, someone checks the 21 live names. The seed list is all pl
 - Long Greek and French strings fit: the card row truncates on one line, and the spoken label keeps the full name.
 - The cat page row wraps.
 
-## 7. Questions for Samuel
+## 7. Samuel's answers (6 Nov 2026)
 
-1. **Should Syros Cats be told before this goes live?** F2 and D4 say location risks are theirs to accept, and this makes "which cats are in Kini" easier to read. Recommendation: yes, one plain line to Jacky or Susan with the three questions already going to them. It doesn't need to hold up building.
-2. **Should cats with a home show no area?** Recommendation: yes, leave it off. The cost is a slightly thinner card for homed cats. The other option, showing it, gives a more even catalogue but puts a place beside a household.
-3. **Is losing "Discovered by" from cards all right?** It's a small reward for spotters who find a cat first. Recommendation: yes. It stays on the cat page, and the ticket asks for this swap. The other option is keeping both, which makes cards taller and uneven.
+1. **Should Syros Cats be told before this goes live?** Samuel: "no, we can tell them after it goes live". So one plain line goes to Jacky or Susan after launch, covering area names and the No home filter. The two checks before live stay, because they're about correct names: the 21 live names (§4.7) and the Greek list (§4.6).
+2. **Should cats with a home show no area?** Samuel: "cats with a home should show in the area in which they're homed, with an option to only show the cats that are not homed in that area". §4.5 shows the area, and §4.4 adds the No home filter. One reading to confirm: the area shown is where the cat is seen, not its home pin, for the reason in §3.
+3. **Is losing "Discovered by" from cards all right?** Samuel: "yes". §4.2 stands.
 
 ## 8. Not in this spec
 
-The dashboard half, area filters in the app, sub-areas, area pages, Home's place names (parked in SYC-835).
+The dashboard half, a separate area picker in the app, sub-areas, area pages, Home's place names (parked in SYC-835).
 
 ## 9. Checks before the PR
 
-Catalogue, Home and cat page at 390px and desktop, in en, el and fr, with long names; a homed cat; a cat off the island; a cat far from every area; old cached data with no area fields; a Catalogue search test for the area; the tests in §5.
+Catalogue, Home and cat page at 390px and desktop, in en, el and fr, with long names; a homed cat, including one whose pin is in another area; the No home filter with a search, on the list and the map, a `spotted.test.ts` case for its empty message and one for a cached cat with no `hasHome` field, and the filter row at 390px in Greek; a cat off the island; a cat far from every area; old cached data with no area fields; a Catalogue search test for the area; the tests in §5.
 
 ## 10. What the adversarial review changed
 
@@ -135,3 +147,13 @@ The review (4 Nov 2026) confirmed the §3 privacy rule holds. It changed these t
 - A circular import in the build is named and solved.
 
 The review also said `CatCard` reaches four more screens. That was checked and is wrong: only Home and the Catalogue render it.
+
+## 11. What changed after Samuel's answers
+
+Samuel's answer to question 2 reversed §4.5 and added a filter, so both went back through the privacy rule.
+
+- **Showing an area on homed cats:** passes, as long as it comes from the published position. It adds no location. It does put a place beside "Has a home".
+- **Using the home pin for the area:** fails. It would make public something the app promises owners only they and Syros Cats see, so this spec doesn't do it.
+- **The No home filter:** passes. It adds no new data, because `hasHome` is already public. It makes a list of cats with no home in an area easier to get, which is listed in §5.
+
+A second, independent read on 6 Nov agreed: the rule holds, and nothing in the claiming spec hides homed cats from public lists or maps. It also found that the filter's empty message needs a change in `lib/spotted.ts` and that old cached cats need a strict check. §4.4 covers both. §10's note on homed cats describes the first draft; they now follow the same rows as other cats.
