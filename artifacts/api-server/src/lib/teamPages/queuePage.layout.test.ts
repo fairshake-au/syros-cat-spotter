@@ -435,6 +435,27 @@ describe("Queue: the next step, the folded row and the stripe (SYC-619 task 15, 
     // Control: New goes to Looking at it, which is offered, so the same row does fill it in.
     expect(draw(issue("new"))).toContain('class="go"');
   });
+  // SYC-816: nothing open is one line, not three headed "(0)" sections. Drawn from a fixed section, because the test database is shared and can hold other files' reports (SYC-672).
+  it("with no issues at all, the Issues section is one line", () => {
+    const empty: IssuesSection = {
+      hidden: [],
+      needsPerson: [],
+      other: [],
+      unchecked: [],
+      totals: { hidden: 0, needsPerson: 0, other: 0, unchecked: 0 },
+      closed: [],
+      closedTotal: 0,
+      brake: { on: false, hidesToday: 0, limit: 10 },
+    };
+    const draw = (s: IssuesSection) =>
+      renderQueuePage(queue([]), "Maria", NOW, undefined, undefined, true, undefined, false, undefined, undefined, s);
+    expect(draw(empty)).toContain("No issues are waiting.");
+    expect(draw(empty)).not.toContain('id="issues-hidden"');
+    // Control: with the brake on, the sections stay, because the brake's line has to show.
+    const braked = draw({ ...empty, brake: { on: true, hidesToday: 10, limit: 10 } });
+    expect(braked).not.toContain("No issues are waiting.");
+    expect(braked).toContain('id="issues-hidden"');
+  });
   // SYC-655 §3.2 and final review M1: a report that carries a photo opens the cat's Photos tab; one without keeps the plain page.
   it("an Issues row that carries a photo links to the cat's Photos tab", () => {
     const issue = (reason: string, withPhoto = true): IssueReport => ({

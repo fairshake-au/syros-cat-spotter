@@ -318,7 +318,7 @@ export default function ReviewScreen() {
               else router.replace("/(tabs)");
             }}
           >
-            <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+            <Feather name="arrow-left" size={22} color={colors.mutedForeground} />
           </IconButton>
         </View>
         <View style={styles.openFailed} testID="review-open-failed">
@@ -952,7 +952,7 @@ export default function ReviewScreen() {
             label={t("back")}
             onPress={() => setNameTakenCat(null)}
           >
-            <Feather name="chevron-left" size={22} color={colors.mutedForeground} />
+            <Feather name="arrow-left" size={22} color={colors.mutedForeground} />
           </IconButton>
           <View style={{ width: 44 }} />
         </View>
@@ -1123,7 +1123,7 @@ export default function ReviewScreen() {
                 label={t("back")}
                 onPress={() => setShowNewCat(false)}
               >
-                <Feather name="chevron-left" size={22} color="#fff" />
+                <Feather name="arrow-left" size={22} color="#fff" />
               </IconButton>
             ) : (
               <View style={{ width: 44, height: 44 }} />
@@ -1295,7 +1295,7 @@ export default function ReviewScreen() {
       <View style={[styles.header, { paddingTop: insets.top + bannerReserve + 8 }]}>
         <IconButton variant="ghost" label={t("tryAgain")} onPress={close}>
           <Feather
-            name="chevron-left"
+            name="arrow-left"
             size={22}
             color={colors.mutedForeground}
           />

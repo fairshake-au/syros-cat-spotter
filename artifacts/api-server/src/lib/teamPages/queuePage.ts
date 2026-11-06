@@ -640,6 +640,10 @@ function issuesSection(
         ? `<p class="empty">Showing the newest ${issues.closed.length} of ${issues.closedTotal}.</p>`
         : "")
     : "";
+  // SYC-816: nothing open is one line, not three headed "(0)" sections.
+  if (open === 0 && issues.closed.length === 0 && !issues.brake.on) {
+    return '<section id="issues" class="issues"><h2>Issues (0)</h2><p class="empty">No issues are waiting.</p></section>';
+  }
   return (
     `<section id="issues" class="issues"><h2>Issues (${open})</h2>` +
     '<p class="hint">Problems the public reported with a photo, a name or what a cat\'s page says. Team only: a cat guardian never sees these.</p>' +

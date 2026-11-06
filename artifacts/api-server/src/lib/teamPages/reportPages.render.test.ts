@@ -77,6 +77,11 @@ describe("the Reports index (§8.1)", () => {
   const html = renderReportsList({ personName: "Test", vetCosts: true });
   const card = (h: string, key: string) => new RegExp(`<li class="card reportcard" id="report-${key}">([\\s\\S]*?)</li>`).exec(h)![1]!;
 
+  it("uses the page's full width, two cards to a row on a desktop (SYC-816)", () => {
+    expect(html).toContain('<main id="main" tabindex="-1" class="wide">');
+    expect(html).toContain("@media (min-width:900px){ul.reportlist{grid-template-columns:repeat(2,minmax(0,1fr))}}");
+  });
+
   it("says in plain words what Figures is for (SYC-739)", () => {
     expect(html).toContain("How the work is going. Pick one, then choose the dates at the top. Nothing here changes any records.");
   });

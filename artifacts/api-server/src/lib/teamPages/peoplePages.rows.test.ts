@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderPeoplePage } from "./peoplePages";
+import { renderNoSuchPerson, renderPeoplePage } from "./peoplePages";
 import { shortRolesOf, type PersonView } from "../people/screen";
 
 const base = { viewer: "Sam", tab: "people" as const, people: [], left: [], colonies: [], done: null };
@@ -20,6 +20,18 @@ const recentPerson = {
   isSelf: false,
   starting: false,
 } as PersonView;
+
+describe("the People page's width (SYC-816)", () => {
+  it("uses the full width on a desktop", () => {
+    expect(renderPeoplePage({ ...base, recent: [] })).toContain('<main id="main" tabindex="-1" class="wide">');
+  });
+
+  it("leaves the other People pages at reading width", () => {
+    const html = renderNoSuchPerson("Sam");
+    expect(html).toContain('<div class="readcol">');
+    expect(html).not.toContain('class="wide">');
+  });
+});
 
 describe("Joined in the last 7 days (SYC-619 §4.1)", () => {
   it("is left out when nobody has joined", () => {

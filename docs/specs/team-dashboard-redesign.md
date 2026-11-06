@@ -638,13 +638,15 @@ Every screen in this spec follows these rules, and the design review checks agai
 ### 12.1 Look and feel
 
 - **Keep the dashboard's own look:**
-  - warm off-white background (`#f6f4ef`);
-  - dark ink (`#1d1d1b`);
-  - teal (`#0b5c6b`) for links and main buttons;
-  - the system font.
+  - warm whitewash background (`#f4f2ec`);
+  - dark ink (`#1b2a38`);
+  - Aegean blue for links (`#135f92`) and main buttons (`#1c77c3`);
+  - Inter, self-hosted, the same family as the app.
+
+  `tokens.ts` and `DESIGN.md` hold the full palette.
 
   Red stays reserved for risky actions and urgent reports.
-- **One main action per screen,** in the solid teal button. Everything else is a plain or outlined button.
+- **One main action per screen,** in the solid blue button. Everything else is a plain or outlined button.
 - **Cards for things, rows for lists.** A cat, a colony or a report is a card. Sightings and history are rows.
 - **Phone first.**
   - Every screen is designed at 390px first, then laid out wider from 1000px.
@@ -662,21 +664,18 @@ Sterilisation status appears on badges, map dots, bars and charts. It always use
 
 | State | Shape | Colour |
 |---|---|---|
-| Sterilised | filled circle | deep teal `#0a4d59` |
-| Probably | half-filled circle | mid teal `#2f7884` |
-| Not known | empty ring | light teal `#6a949b` |
-| Not sterilised | ring with a slash | amber `#a6540a` |
+| Sterilised | filled circle | deep Aegean `#0f4a72` |
+| Probably | half-filled circle | Aegean `#1c77c3`, with white hatching |
+| Not known | empty ring | hairline grey `#d7dee4`, with a `#75838f` edge |
+| Not sterilised | ring with a slash | terracotta `#b8552f` |
 
-**Checks on these colours (15 Oct 2026):**
-- The three teal shades passed the palette checker as an ordered scale: they read light to dark, with visible steps.
-- Against the page background, the light teal measures 3.02:1, and it measures 3.32:1 against white cards. Both meet WCAG's 3:1 minimum for shapes.
-- Amber measures 4.9:1 against the page.
+**Why the edge and the rings:**
 - No light shade reaches 3:1 against both the map's land and its sea. So **every map dot also gets a 2px light ring and a 1px dark outline**, and the shape carries the meaning on its own.
 
 **What the marks mean, and nothing else:**
 - These four marks mean sterilisation status, and nothing else.
 - A total that isn't a status, such as "all street cats known" on the progress chart, is drawn in neutral grey ink.
-- Amber here is the "needs doing" state, and always comes with its word and its slashed shape.
+- Terracotta here is the "needs doing" state, and always comes with its word and its slashed shape.
 
 ### 12.3 Numbers and charts
 
@@ -713,7 +712,7 @@ These rules follow the data-visualisation method.
 
 ### 12.4 The map
 
-- **Feeding sites are squares, never circles, and never teal.** Circles mean cats, and teal means sterilisation status. Public sites are filled dark-ink squares, private sites are dark-ink outlined squares, and retired sites are dashed grey squares (shown only when asked for). The key beside the map shows all of them.
+- **Feeding sites are squares, never circles, and never blue.** Circles mean cats, and blue means sterilisation status. Public sites are filled dark-ink squares, private sites are dark-ink outlined squares, and retired sites are dashed grey squares (shown only when asked for). The key beside the map shows all of them.
 - **On a phone, the Feeding sites view keeps SYC-362's aim:** what matters (the list, or the map with its key) sits near the top, and pan and "Go to" come after.
 
 - **A quiet base map.** It's light and low-colour, so the dots stand out.

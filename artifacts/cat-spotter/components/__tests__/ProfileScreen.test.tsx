@@ -451,6 +451,8 @@ describe('Profile tabs (SYC-628)', () => {
       expect(screen.getByTestId('spotters-week-empty').textContent).toBe(
         'A new week has started. Spot a cat to get on the board.',
       );
+      // SYC-816: no "New week in 5 days" above "A new week has started".
+      expect(screen.queryByTestId('spotters-countdown')).toBeNull();
       expect(screen.getByTestId('spotters-last-week').textContent).toBe(
         '🏆 Last week: Marco, a spotter, Sophie',
       );

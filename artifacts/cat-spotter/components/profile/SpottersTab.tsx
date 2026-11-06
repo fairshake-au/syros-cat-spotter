@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { palette } from '@/constants/colors';
 import { fonts, fontSizes, radii, spacing } from '@/constants/theme';
@@ -7,6 +8,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { formatRank } from '@/lib/formatRank';
 import type { LeaderRow, RankSummary } from '@/lib/leaderboardView';
 import { weekCountdown } from '@/lib/weekCountdown';
+import { Button } from '@/components/purropolis';
 import { sharedStyles, useSubtleText } from './shared';
 
 // Gold, silver and bronze discs for the top three; plain numbers after.
@@ -103,7 +105,8 @@ export function SpottersTab({
   const weekEmpty = isWeek && rows.length === 0;
   const summaryLines =
     summary && !weekEmpty ? summaryText(summary, t, (n) => formatRank(language, n), isWeek) : null;
-  const countdown = isWeek && week.endsAt ? countdownText(week.endsAt, now ?? new Date(), t) : null;
+  // SYC-816: an empty week says "a new week has started", so no "new week in 5 days" above it.
+  const countdown = isWeek && !weekEmpty && week.endsAt ? countdownText(week.endsAt, now ?? new Date(), t) : null;
   const lastWeekNames = week.lastWeek.map((w) => w.name ?? t('aSpotter')).join(', ');
 
   return (
@@ -124,12 +127,17 @@ export function SpottersTab({
       )}
 
       {rows.length === 0 ? (
-        <Text
-          testID={isWeek ? 'spotters-week-empty' : 'profile-spotters-empty'}
-          style={[sharedStyles.body, { color: subtle }]}
-        >
-          {isWeek ? t('spottersWeekEmpty') : t('profileSpottersEmpty')}
-        </Text>
+        <View style={styles.empty}>
+          <Text
+            testID={isWeek ? 'spotters-week-empty' : 'profile-spotters-empty'}
+            style={[sharedStyles.body, { color: subtle }]}
+          >
+            {isWeek ? t('spottersWeekEmpty') : t('profileSpottersEmpty')}
+          </Text>
+          <Button variant="accent" block onPress={() => router.push('/spot')}>
+            {t('profileSpotACat')}
+          </Button>
+        </View>
       ) : (
         <>
           <View style={[styles.list, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -245,6 +253,7 @@ export function summaryText(
 }
 
 const styles = StyleSheet.create({
+  empty: { gap: spacing[3] },
   wrap: { padding: spacing[4], gap: spacing[3] },
   switch: { flexDirection: 'row', borderRadius: radii.pill, padding: 3 },
   // SYC-644: a 44pt minimum tap area, as on the Map/List toggle.
