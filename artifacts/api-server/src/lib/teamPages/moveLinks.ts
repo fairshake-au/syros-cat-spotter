@@ -7,7 +7,7 @@
 export const MOVE_SCREEN = "/api/team/sightings/move";
 export const MOVE_FORM = "/api/team/sightings/move/form";
 
-export type MoveSource = "cat_page" | "matched_by_hand" | "report" | "game";
+export type MoveSource = "cat_page" | "matched_by_hand" | "report" | "game" | "match_check";
 
 export interface MoveScreenAsk {
   /** The cat the sightings are filed under now: what the screen expects to find. */

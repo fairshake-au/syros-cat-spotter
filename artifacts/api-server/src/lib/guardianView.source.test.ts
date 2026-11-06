@@ -115,6 +115,11 @@ const ISLAND_ONLY_MODULES: Record<string, { why: string; fns: string[]; capabili
     fns: ["launchMeasuresReport"],
     capabilities: ["view_reports", "export_report"],
   },
+  "lib/matchesToCheck.ts": {
+    why: "Matches to check (SYC-795): the whole island's suggestions spotters took, for Samuel to check, team-only",
+    fns: ["matchesToCheck", "matchesToCheckCount", "markLooksRight"],
+    capabilities: ["move_sighting"],
+  },
   "lib/reports/welfarePatterns.ts": {
     why: "Welfare patterns (SYC-396 PR 3.3b): the whole island's welfare reports by kind, week and area, team-only until the guardian variant (SYC-472, 16 Nov)",
     fns: ["welfarePatterns"],
