@@ -15,7 +15,7 @@ import { assetUrl } from "../teamAssets";
 // element (the CSP allows inline styles and nothing else). Every value that
 // is not fixed text here goes through escapeHtml.
 
-export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "newcats" | "duplicates" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
+export type NavKey = "home" | "queue" | "cats" | "map" | "colonies" | "reports" | "sites" | "likely" | "colour" | "newcats" | "duplicates" | "matchcheck" | "people" | "settings" | "myPage" | "myColonies" | "workspace";
 
 interface NavItem {
   key: NavKey;
@@ -45,7 +45,7 @@ const NAV: NavItem[] = [
  * the two work lists sit under Home, Feeding sites under Colonies. A cat
  * guardian's own menu still has Feeding sites, so it's mapped for the team only.
  */
-const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", newcats: "home", duplicates: "home", sites: "colonies" };
+const TEAM_PARENT: Partial<Record<NavKey, NavKey>> = { likely: "home", colour: "home", newcats: "home", duplicates: "home", matchcheck: "home", sites: "colonies" };
 
 /** The People link: only for people who hold `manage_people` (SYC-53 PR 1.2). */
 const PEOPLE_NAV: NavItem = { key: "people", label: "People", href: "/api/team/people" };
@@ -372,6 +372,9 @@ ul.dupwho{list-style:none;margin:0 0 8px;padding:0;font-size:14px;color:var(--mu
 .dupactions a.go,.dupactions button{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;box-sizing:border-box;font:inherit;font-size:15px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent-strong);cursor:pointer;text-decoration:none}
 .dupactions a.go{background:var(--accent);color:var(--on-accent)}
 .dupactions input.text{min-height:44px;flex:1 1 180px}
+.matchphotos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 8px}
+.matchphotos figure{margin:0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.matchphotos img,.matchphotos .nophoto{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--sunk);box-sizing:border-box}
 .nearby{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
 .nearby figure{margin:0;width:88px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .nearby img{width:88px;height:88px;object-fit:cover;border-radius:6px;background:var(--sunk);display:block}

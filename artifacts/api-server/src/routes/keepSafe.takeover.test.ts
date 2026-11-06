@@ -585,6 +585,7 @@ const PROBES: Probe[] = [
   { name: "POST /sightings/:id/resolve", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/resolve`).set("X-Device-Secret", s).send({ deviceId: id, newCatName: "Anything" }) },
   // SYC-503: "Check again" after a failed look-alike check.
   { name: "POST /sightings/:id/recheck", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/recheck`).set("X-Device-Secret", s).set("X-Forwarded-For", freshIp()).send({ deviceId: id }) },
+  { name: "POST /sightings/:id/wait", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/wait`).set("X-Device-Secret", s).send({ deviceId: id, waitMs: 1500 }) },
   { name: "POST /sightings/:id/answers", file: "sightings.ts", call: (id, s, c) => request(app).post(`/api/sightings/${c.sightingId}/answers`).set("X-Device-Secret", s).send({ deviceId: id }) },
   { name: "GET /profiles/:id/cats/:c/open-sightings", file: "sightings.ts", call: (id, s, c) => request(app).get(`/api/profiles/${id}/cats/${c.catId}/open-sightings`).set("X-Device-Secret", s) },
   // SYC-677 D: a spotter naming a cat left unnamed.

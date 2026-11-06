@@ -52,8 +52,8 @@ export const STILL_OPEN_MS = 48 * 3_600_000;
 /** A phone wait over 10 minutes means the app was put away (§4.4). The database refuses more; this guards old rows. */
 export const MAX_PHONE_WAIT_MS = 600_000;
 const FOLLOW_UP_MS = 7 * DAY;
-const MERGE_REASONS = ["merged", "merge_undone"] as const;
-const MERGE_SOURCES = ["merge", "undo"] as const;
+export const MERGE_REASONS = ["merged", "merge_undone"] as const;
+export const MERGE_SOURCES = ["merge", "undo"] as const;
 
 export type WeekLabel = "before_launch" | "launch_days" | "baseline" | "after";
 
@@ -115,7 +115,11 @@ export interface LaunchMeasures {
   /** Sightings whose spotter has since been deleted (no device). */
   withoutSpotter: number;
   launchDate: string | null;
-  /** The earliest sighting with a phone wait, or null. */
+  /**
+   * The earliest sighting among the rows read that has a phone wait. It can
+   * fall in the 7-day follow-up tail just after the range, and that is still a
+   * true "recorded from" date.
+   */
   phoneWaitFrom: Date | null;
   workedOutAt: Date;
   ms: number;
@@ -134,7 +138,7 @@ function weekEnd(start: Date): Date {
 }
 
 /** Syros midnight at the start of a YYYY-MM-DD date, or null. */
-function launchMidnight(launchDate: string | null): Date | null {
+export function launchMidnight(launchDate: string | null): Date | null {
   const m = launchDate === null ? null : /^(\d{4})-(\d{2})-(\d{2})$/.exec(launchDate);
   return m ? athensMidnight(Number(m[1]), Number(m[2]), Number(m[3])) : null;
 }
