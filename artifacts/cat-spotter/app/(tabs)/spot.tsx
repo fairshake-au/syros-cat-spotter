@@ -121,7 +121,6 @@ import {
   type PickSource,
   type ReadyMapStart,
 } from '@/lib/mapStart';
-import { spokenText } from '@/lib/a11yText';
 import {
   effectiveLocationAsk,
   locationAskView,
@@ -1529,7 +1528,7 @@ export default function SpotScreen() {
               // is not "Retake photo" (that button keeps the extras).
               accessibilityLabel={t('startAgain')}
             >
-              <Feather name="chevron-left" size={24} color={colors.mutedForeground} />
+              <Feather name="arrow-left" size={24} color={colors.mutedForeground} />
             </Pressable>
             <Text style={[styles.title, { color: colors.foreground }]}>
               {t('newSpotTitle')}
@@ -1746,12 +1745,6 @@ export default function SpotScreen() {
             <View style={styles.framingRect} pointerEvents="none">
               <Text style={styles.viewfinderEmoji}>🐈‍⬛</Text>
             </View>
-            <Text
-              style={styles.captureHint}
-              accessibilityLabel={spokenText(t('captureHintPicker'))}
-            >
-              {t('captureHintPicker')}
-            </Text>
             <CaptureControls
               onTakePhoto={() => pickPhoto(true)}
               onChooseFromLibrary={() => pickPhoto(false)}
@@ -1869,13 +1862,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  captureHint: {
-    textAlign: 'center',
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSizes.sm,
-    color: 'rgba(255,255,255,0.92)',
-    marginBottom: spacing[3],
   },
 
   // Details state
