@@ -10,9 +10,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Cat } from '@workspace/api-client-react';
 
 const push = vi.hoisted(() => vi.fn());
+const h = vi.hoisted(() => ({ language: 'en' as 'en' | 'el' | 'fr' }));
 vi.mock('expo-router', () => ({ useRouter: () => ({ push }) }));
 vi.mock('expo-haptics', () => ({ selectionAsync: vi.fn() }));
-vi.mock('@expo/vector-icons', () => ({ Feather: () => null }));
+vi.mock('@expo/vector-icons', () => ({
+  Feather: ({ name, 'aria-hidden': ariaHidden }: { name: string; 'aria-hidden'?: boolean }) => (
+    <i data-feather={name} aria-hidden={ariaHidden ? 'true' : undefined} />
+  ),
+}));
 vi.mock('expo-image', () => ({
   Image: ({ testID }: { testID?: string }) => <img data-testid={testID ?? 'image'} />,
 }));
@@ -32,9 +37,10 @@ vi.mock('@/context/LanguageContext', () => {
     catCardSeenOnce: 'Seen once',
     catCardSeenTimes: 'Seen {n} times',
     filterHasHome: 'Has a home',
+    catAreaSomewhere: 'Somewhere on Syros',
   };
   return {
-    useLanguage: () => ({ t: (key: string) => strings[key] ?? key, language: 'en' }),
+    useLanguage: () => ({ t: (key: string) => strings[key] ?? key, language: h.language }),
   };
 });
 
@@ -165,5 +171,84 @@ describe('SYC-677 D: a cat nobody has named yet', () => {
   it('a named cat has no number line', () => {
     const { queryByTestId } = render(<CatCard cat={CAT} />);
     expect(queryByTestId('cat-card-number')).toBeNull();
+  });
+});
+
+describe('SYC-810: the place row on the cat card', () => {
+  const KINI = { ...CAT, areaKey: 'kini', areaName: 'Kini' };
+  const placeRow = (container: HTMLElement) => container.querySelector('[data-feather="map-pin"]');
+
+  afterEach(() => {
+    h.language = 'en';
+  });
+
+  it('a cat with an area shows the area in place of "Discovered by"', () => {
+    const { container } = render(<CatCard cat={{ ...KINI, distanceKm: null }} />);
+    expect(container.textContent).toContain('Kini');
+    expect(container.textContent).not.toContain('discoveredBy');
+  });
+
+  it('a cat on the island with no area shows "Somewhere on Syros"', () => {
+    const { container } = render(<CatCard cat={{ ...CAT, areaKey: null, areaName: null }} />);
+    expect(container.textContent).toContain('Somewhere on Syros');
+    expect(container.textContent).not.toContain('discoveredBy');
+  });
+
+  it('a cat off the island keeps "Discovered by"', () => {
+    const off = { ...CAT, areaKey: null, areaName: null, lat: 34.6123, lng: 21.1189 };
+    const { container } = render(<CatCard cat={off} />);
+    expect(container.textContent).toContain('discoveredBy aSpotter');
+    expect(container.textContent).not.toContain('Somewhere on Syros');
+  });
+
+  it('a cat from an old cache with no area field keeps "Discovered by"', () => {
+    const { container } = render(<CatCard cat={CAT} />);
+    expect(container.textContent).toContain('discoveredBy aSpotter');
+    expect(container.textContent).not.toContain('Somewhere on Syros');
+  });
+
+  it('a homed cat shows both the badge and the area', () => {
+    const { container } = render(<CatCard cat={{ ...KINI, hasHome: true }} />);
+    expect(container.textContent).toContain('Has a home');
+    expect(container.textContent).toContain('Kini');
+  });
+
+  it('shows the Greek name in Greek', () => {
+    h.language = 'el';
+    const { container } = render(<CatCard cat={KINI} />);
+    expect(container.textContent).toContain('Κίνι');
+  });
+
+  it('the spoken label has the area and not "Discovered by"', () => {
+    const { container } = render(<CatCard cat={KINI} spotted />);
+    const label = container.firstElementChild!.getAttribute('aria-label')!;
+    expect(label).toBe('Agatha. Spotted by you. Seen once. 100 m. Kini');
+    expect(label).not.toContain('discoveredBy');
+  });
+
+  it('a homed cat is spoken as "Has a home" and the plain area, never "lives in"', () => {
+    const { container } = render(<CatCard cat={{ ...KINI, hasHome: true }} />);
+    expect(container.firstElementChild!.getAttribute('aria-label')).toBe(
+      'Agatha. Has a home. Seen once. 100 m. Kini',
+    );
+  });
+
+  it('the spoken label keeps a long Greek-length name whole', () => {
+    const long = { ...CAT, areaKey: 'new-place', areaName: 'Μέγας Γιαλός της Σύρου, κοντά στο λιμάνι' };
+    const { container } = render(<CatCard cat={long} />);
+    expect(container.firstElementChild!.getAttribute('aria-label')).toContain(
+      'Μέγας Γιαλός της Σύρου, κοντά στο λιμάνι',
+    );
+  });
+
+  it('the row stays on one line, with a pin hidden from screen readers', () => {
+    const long = { ...CAT, areaKey: 'new-place', areaName: 'Μέγας Γιαλός της Σύρου, κοντά στο λιμάνι' };
+    const { getByText, container } = render(<CatCard cat={long} />);
+    const row = getByText('Μέγας Γιαλός της Σύρου, κοντά στο λιμάνι');
+    expect(window.getComputedStyle(row).textOverflow).toBe('ellipsis');
+    const pins = Array.from(container.querySelectorAll('[data-feather="map-pin"]'));
+    const rowPin = pins.find((p) => p.parentElement === row.parentElement)!;
+    expect(rowPin.getAttribute('aria-hidden')).toBe('true');
+    expect(placeRow(container)).toBeTruthy();
   });
 });
