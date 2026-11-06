@@ -791,6 +791,20 @@ export interface RecheckSightingRequest {
   deviceId: string;
 }
 
+export interface RecordPhoneWaitRequest {
+  /**
+     * Device credential of the sighting owner; must match the sighting
+     * @minLength 1
+     */
+  deviceId: string;
+  /**
+     * Milliseconds the phone waited for the look-alikes
+     * @minimum 0
+     * @maximum 600000
+     */
+  waitMs: number;
+}
+
 /**
  * Which screen a pick came from. It only describes the phone's own screen: the server never uses it to decide whether a choice was a suggestion (choose-a-different-cat.md §4.6). nearby, search and name_prompt are recorded on hand picks only; cat_page (the cat page's "I've spotted" question) is recorded on suggested picks too.
  */

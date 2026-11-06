@@ -81,6 +81,7 @@ export * from './openSighting';
 export * from './openSightingOpen';
 export * from './profile';
 export * from './recheckSightingRequest';
+export * from './recordPhoneWaitRequest';
 export * from './registerPushToken200';
 export * from './registerPushTokenRequest';
 export * from './registerPushTokenRequestLanguage';
