@@ -62,7 +62,7 @@ ol.hist .when{color:var(--muted);font-size:13px;display:block}
 .joined7 li{margin:2px 0}
 </style>`;
 
-const page = (viewer: string, title: string, body: string, beforeTitle?: string) =>
+const page = (viewer: string, title: string, body: string, beforeTitle?: string, mainClass?: "wide") =>
   renderPage({
     title,
     active: "people",
@@ -70,7 +70,7 @@ const page = (viewer: string, title: string, body: string, beforeTitle?: string)
     showPeople: true,
     beforeTitle,
     body: CSS + body,
-    mainClass: "wide",
+    mainClass,
   });
 
 // ── What happened (shown after a change; built from ids looked up on the server) ──
@@ -341,7 +341,8 @@ export function renderPeoplePage(o: {
         ? ""
         : `<h2>Joined in the last 7 days</h2><ul class="joined7">${o.recent.map((p) => `<li><a href="${PEOPLE}?open=${esc(p.id)}#p-${esc(p.id)}">${esc(p.name)}</a> · ${esc(p.roles)}</li>`).join("")}</ul>`);
   }
-  return page(o.viewer, "People", body);
+  // Only the list goes wide: a form stays at reading width.
+  return page(o.viewer, "People", body, undefined, "wide");
 }
 
 export function renderRolesPage(o: {
