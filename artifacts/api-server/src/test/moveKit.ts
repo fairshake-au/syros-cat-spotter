@@ -30,7 +30,12 @@ export const tag = () => {
 
 export const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
-export function moveKit(prefix: string) {
+/**
+ * Every kit's cats sit on one spot unless given another. Lists of nearby cats
+ * are capped and test files run at once, so a new file that adds many cats
+ * should take its own spot.
+ */
+export function moveKit(prefix: string, spot: { lat: number; lng: number } = { lat: 37.4441, lng: 24.9412 }) {
   const devicePrefix = `vitest-${prefix.toLowerCase()}-`;
 
   async function cleanup() {
@@ -50,7 +55,7 @@ export function moveKit(prefix: string) {
   async function cat(createdAt = daysAgo(40)): Promise<number> {
     const [c] = await db
       .insert(catsTable)
-      .values({ name: `${prefix}${tag()}`, primaryPhotoId: await photo(), lat: 37.4441, lng: 24.9412, discovererDeviceId: `${devicePrefix}finder`, createdAt })
+      .values({ name: `${prefix}${tag()}`, primaryPhotoId: await photo(), lat: spot.lat, lng: spot.lng, discovererDeviceId: `${devicePrefix}finder`, createdAt })
       .returning({ id: catsTable.id });
     return c!.id;
   }
@@ -62,7 +67,7 @@ export function moveKit(prefix: string) {
     const photoId = await photo();
     const [s] = await db
       .insert(sightingsTable)
-      .values({ catId, deviceId, photoId, lat: 37.4441, lng: 24.9412, status: "resolved", createdAt: at })
+      .values({ catId, deviceId, photoId, lat: spot.lat, lng: spot.lng, status: "resolved", createdAt: at })
       .returning();
     return s!;
   }
