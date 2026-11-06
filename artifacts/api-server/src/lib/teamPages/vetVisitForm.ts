@@ -265,7 +265,7 @@ export function renderVetVisitForm(p: VisitFormPage): string {
       err("paidBy") +
       PAID_BY.map((w) => radio("paidBy", `vv-paid-${w}`, w, PAID_WORDS[w], f.paidBy === w)).join("") +
       "</fieldset>" +
-      whatHappens("If the owner paid, the cost is not counted in Syros Cats' spend in Reports.")
+      whatHappens("If the owner paid, the cost is not counted in Syros Cats' spend in Figures.")
     : "";
 
   const photo = cat.mainPhotoUrl

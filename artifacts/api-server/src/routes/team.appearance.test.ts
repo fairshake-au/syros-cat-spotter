@@ -880,6 +880,7 @@ describe("the Appearance section on the team cat page", () => {
     expect(html).toContain("Read from the photo on");
     expect(html).not.toContain("model gpt-test-1");
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/confirm"`);
+    expect(html).toContain('<button type="submit" class="save calm">');
     expect(html).toContain(`action="/api/team/cats/${catId}/appearance/correct"`);
     expect(html).toContain(`action="/api/team/statements/${reading.id}/wrong"`);
     // The team never states Not sure on colour.

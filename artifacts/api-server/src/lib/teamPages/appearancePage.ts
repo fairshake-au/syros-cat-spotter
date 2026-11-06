@@ -170,7 +170,7 @@ function confirmForm(
     `<input type="hidden" name="kind" value="${kind}">` +
     expectedFields(kind, value, coat) +
     backField(back) +
-    `<button type="submit" class="save">${label}</button>` +
+    `<button type="submit" class="save calm">${label}</button>` +
     `<p class="hint">${esc(tr(lang, "appearance.confirmHint"))}` +
     (guardianDecides ? ` ${esc(tr(lang, "appearance.confirmHintGuardian"))}` : "") +
     "</p></form>"

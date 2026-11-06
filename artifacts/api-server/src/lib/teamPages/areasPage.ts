@@ -287,7 +287,7 @@ export function renderAreasPage(o: AreasPageOptions): string {
       methodFold([
         "A place belongs to the area whose centre is nearest. More than 2 km from every centre is Off Syros. " +
           "Place labels and the Cats filters use this list within a minute of a change.",
-        `Each change makes a new version. Reports name the version they used. This is version ${o.version}.`,
+        `Each change makes a new version. Figures pages name the version they used. This is version ${o.version}.`,
       ]),
   });
 }

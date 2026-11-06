@@ -25,8 +25,8 @@ interface NavItem {
 }
 
 // The menu names the team's jobs (SYC-396 spec §3.1): Home · Cats · Map ·
-// Queue · Colonies · Reports · People, then Settings (SYC-694). Items appear as their screens ship
-// (Reports came with PR 3.3a). Since Home (PR 2.1), the work lists live on Home:
+// Queue · Colonies · Figures · People, then Settings (SYC-694). Items appear as their screens ship
+// (Figures came with PR 3.3a, as "Reports"). Since Home (PR 2.1), the work lists live on Home:
 // Ear clips to check and Colour check are linked from there, and Feeding
 // sites from the Map and each colony (SYC-450).
 const NAV: NavItem[] = [
@@ -37,7 +37,7 @@ const NAV: NavItem[] = [
   { key: "queue", label: "Queue", href: "/api/team" },
   { key: "colonies", label: "Colonies", href: "/api/team/colonies" },
   // /insights, because /api/team/reports is the welfare queue's (PR 3.3a).
-  { key: "reports", label: "Reports", href: "/api/team/insights" },
+  { key: "reports", label: "Figures", href: "/api/team/insights" },
 ];
 
 /**
@@ -220,6 +220,9 @@ article.report:not(.urgent):not(.issue):not(.closed):not(.likely){border-left-co
 /* end SYC-619 §6 */
 .actions button.save{margin-top:8px;background:var(--accent);color:var(--on-accent)}
 .actions button.save:hover{background:var(--accent-hover)}
+/* A coat confirmation is outlined, so a page keeps one main action (SYC-814). */
+.actions button.save.calm{background:var(--card);color:var(--accent-strong)}
+.actions button.save.calm:hover{background:var(--accent-soft)}
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:10px;resize:vertical;min-height:84px}
 h3{font-size:16px;margin:16px 0 4px}
 .hint{color:var(--muted);font-size:14px;margin:0 0 8px}
@@ -503,7 +506,7 @@ input[type=date]{max-width:220px}
 .fixes a.coatlink{display:flex;align-items:center;min-height:44px;font-weight:700;color:var(--accent-strong)}
 .fixes form.samecat{margin:8px 0 4px}
 .fixes form.samecat button{width:100%;background:var(--card);color:var(--accent-strong);border:2px solid var(--accent)}
-.fixes form.diedform{margin:20px 0 4px}
+.fixes form.diedform{margin:20px 0 4px;padding-top:16px;border-top:1px solid var(--line)}
 .fixes form.diedform button{width:100%;background:var(--card);color:var(--danger);border:2px solid var(--danger)}
 .fixes form.diedform button:hover{background:var(--danger-soft)}
 .photo.catmain.diedphoto{max-height:140px}

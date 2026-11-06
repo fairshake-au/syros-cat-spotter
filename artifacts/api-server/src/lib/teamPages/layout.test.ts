@@ -27,27 +27,35 @@ const links = (html: string) =>
     m[1]!,
   ]);
 
+describe("one main action on a cat page (SYC-814)", () => {
+  it("sets This cat has died apart with a line, and outlines a coat confirmation", () => {
+    const css = page({ active: "cats" });
+    expect(css).toContain(".fixes form.diedform{margin:20px 0 4px;padding-top:16px;border-top:1px solid var(--line)}");
+    expect(css).toContain(".actions button.save.calm{background:var(--card);color:var(--accent-strong)}");
+  });
+});
+
 describe("the team's menu (spec §3.1)", () => {
-  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Reports · Settings", () => {
+  it("names the team's jobs in the spec's order: Home · Cats · Map · Queue · Colonies · Figures · Settings", () => {
     expect(links(page({ island: true, showPeople: false }))).toEqual([
       ["Home", "/api/team/home"],
       ["Cats", "/api/team/cats"],
       ["Map", "/api/team/cats?view=map"],
       ["Queue", "/api/team"],
       ["Colonies", "/api/team/colonies"],
-      ["Reports", "/api/team/insights"],
+      ["Figures", "/api/team/insights"],
       ["Settings", "/api/team/settings"],
     ]);
   });
 
-  it("with People, is exactly the eight labels in order (SYC-450; Reports since PR 3.3a; Settings after People, SYC-694)", () => {
+  it("with People, is exactly the eight labels in order (SYC-450; Figures since SYC-814; Settings after People, SYC-694)", () => {
     expect(links(page({ island: true, showPeople: true })).map((x) => x[0])).toEqual([
       "Home",
       "Cats",
       "Map",
       "Queue",
       "Colonies",
-      "Reports",
+      "Figures",
       "People",
       "Settings",
     ]);
@@ -82,8 +90,8 @@ describe("the team's menu (spec §3.1)", () => {
     expect(links(page({ nav: "guardian" })).map((x) => x[0])).not.toContain("Settings");
   });
 
-  it("Reports opens the Reports area at /insights (/api/team/reports is the welfare queue's), and a guardian's menu has none", () => {
-    expect(page({ active: "reports" })).toContain('<a class="here" href="/api/team/insights" aria-current="page">Reports</a>');
+  it("Figures opens the Figures area at /insights (/api/team/reports is the welfare queue's), and a guardian's menu has none", () => {
+    expect(page({ active: "reports" })).toContain('<a class="here" href="/api/team/insights" aria-current="page">Figures</a>');
     const l = links(page({ island: false, mine: true })).map((x) => x[0]);
     expect(l).not.toContain("Reports");
   });
