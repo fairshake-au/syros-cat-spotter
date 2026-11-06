@@ -1,6 +1,6 @@
 # Area names on cat cards and the cat page (SYC-810, app half)
 
-**Status:** adversarial review done, Samuel's answers of 6 Nov folded in and re-checked (§7, §11), waiting for his approval. **Who it's for:** spotters, in the public app. **Scope:** the app half only. The dashboard's "Where to trap next" waits for Jacky's or Susan's answers.
+**Status:** approved by Samuel, 6 Nov 2026, with his answers folded in and re-checked (§7, §11). **Who it's for:** spotters, in the public app. **Scope:** the app half only. The dashboard's "Where to trap next" waits for Jacky's or Susan's answers.
 
 ## 1. The problem
 

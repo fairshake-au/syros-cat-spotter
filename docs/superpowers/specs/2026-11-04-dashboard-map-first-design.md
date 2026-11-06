@@ -1,6 +1,6 @@
 # Dashboard Map: map first, filters folded (SYC-812)
 
-**Status:** adversarial review done and folded in, ready for Samuel. **Who it's for:** the Syros Cats team on `/api/team/cats?view=map`.
+**Status:** approved by Samuel, 6 Nov 2026 ("approved"). He gave no separate answer to the two questions in §6, so the build follows their recommendations. **Who it's for:** the Syros Cats team on `/api/team/cats?view=map`.
 
 ## 1. The problem
 
