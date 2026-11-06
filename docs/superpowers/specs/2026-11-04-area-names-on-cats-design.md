@@ -71,7 +71,7 @@ With no area and no description, there's no row. With a description only, it sho
 
 The Catalogue's search box already says "Search by name, ID, or area", but only looks at the name, description and ID. `app/(tabs)/cats.tsx` adds the area to what it searches, in both the shown name and the server's name, so "Kini" and "Κίνι" both find a Kini cat in Greek. Then the box does what it says.
 
-**A new filter, "No home",** joins the Catalogue's filters. It shows only cats where `c.hasHome === false`, on the list and on the map. Search and filters already work together, so typing "Kini" and tapping No home shows the cats in Kini without a home. That gives Samuel's option without a separate area picker. A cat from an old phone cache with no `hasHome` field is left out. With nothing to show and no search typed, the screen says "No cats without a home here." With a search typed, it keeps today's no-match message. That needs `noHome` in the `CatalogueFilter` type and a new case in `catalogueEmptyKey`, both in `lib/spotted.ts`.
+**A new filter, "No home",** joins the Catalogue's filters. It shows only cats where `c.hasHome === false`, leaving out cats in care and cats who have died, on the list and on the map. Search and filters already work together, so typing "Kini" and tapping No home shows the cats in Kini without a home. That gives Samuel's option without a separate area picker. A cat from an old phone cache with no `hasHome` field is left out. With nothing to show and no search typed, the screen says "No cats without a home here." With a search typed, it keeps today's no-match message. That needs `noHome` in the `CatalogueFilter` type and a new case in `catalogueEmptyKey`, both in `lib/spotted.ts`.
 
 ### 4.5 Cats with a home
 
@@ -107,10 +107,12 @@ Before this goes live, someone checks the 21 live names. The seed list is all pl
 | A list of "not sterilised" cats by area | The map and the API already allow this, but search makes it easier. D4 recorded this risk as Syros Cats' to accept. Samuel's call is to tell them after it goes live. See §7, question 1. |
 | The name gives away where an owned cat lives | It names the area of the public position, which anyone could work out already. The home pin is never read (§3). It does put a place beside "Has a home", which Samuel accepted (§7, question 2). |
 | A list of cats with no home, by area | Has a home plus the public data already allows this, and No home plus search makes it easier. These are the cats nobody is watching over at home, so it's the same risk as D4. It's on the list for Syros Cats (§7, question 1). |
-| Averaging cats' positions finds a colony | Unchanged (F2). The name adds nothing to it. |
+| Averaging cats' positions finds a colony | Unchanged (F2). The name adds nothing, but No home takes homed cats out of the Catalogue map's counts, so street-cat clusters read more clearly. No new data, and it goes in the same post-launch line to Syros Cats. |
+| No home points at cats someone could claim | Claiming is older than this feature, and a claim's reply carries the cat's exact spot, which goes against the rule that exact street positions stay private. `hasHome` was already public, but No home makes choosing targets by area quick. This doesn't change what a claim gives away, so it doesn't block this work. It has its own ticket, and it goes in the post-launch line to Syros Cats. |
+| The area's key or centre gives something away | `areaKey` goes out with every cat, and borders between areas can be traced from the labels, which roughly shows where centres are. The Add form says both: use the place's name for the key, and put the centre on the place, never a home or feeding site. The check before live covers names and keys of every live area. |
 | Private feeding sites | Not touched. Sites aren't in `named_areas`, and no site data goes through this code. |
 | A team-typed name reveals a person or site | §4.7. |
-| The field leaks through another route | The serialiser is the only builder and is an allow-list. A test covers its callers: `GET /cats`, `GET /cats/:id` (`publicCat.ts`) and the resolve response. |
+| The field leaks through another route | The serialiser is the only builder and is an allow-list. A route test covers its callers with a cat across a border from its cell and a home pin in a third area: `GET /cats`, `GET /cats/:id` (`publicCat.ts`), the owner's `GET` and `PATCH`, and the resolve response. Claim and let-go share `catPayload`. |
 | The team's retiring or renaming an area | The app shows the new name within about a minute (`AREAS_TTL_MS`). Cached phones show the old one until they refresh, which is harmless. |
 
 **A security review is required before merge,** as the brief says.

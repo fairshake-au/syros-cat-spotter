@@ -9,13 +9,14 @@ import type { Cat } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { catDisplayName, catListName } from '@/lib/catDisplayName';
 import { useLanguage } from '@/context/LanguageContext';
+import { cardPlace } from '@/lib/areaNames';
 import { photoSource } from '@/lib/urls';
 import colorsConst from '@/constants/colors';
 import { SpottedStamp } from './SpottedStamp';
 
 export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
 
   const distanceText =
@@ -31,6 +32,11 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
     cat.discovererNickname ??
     (cat.discovererSpotterCode ? `${t('spotter')} ${cat.discovererSpotterCode}` : t('aSpotter'))
   }`;
+  // SYC-810: the place row replaces "Discovered by" when the cat has an area,
+  // or is on the island far from every area. Off the island, or from an old
+  // cache with no area field, it stays "Discovered by".
+  const place = cardPlace(cat, language, t);
+  const lastPart = place.kind === 'none' ? discovererText : place.text;
   const seenText =
     cat.sightingsCount === 1
       ? t('catCardSeenOnce')
@@ -42,7 +48,7 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
       ? t(spotted ? 'catCardA11ySpotted' : 'catCardA11yNotSpotted').replace('{name}', listName)
       : listName;
   // Join with a full stop, unless a part already ends its sentence ("Nefeli. Not spotted yet.").
-  const a11yLabel = [lead, hasHomeText, seenText, distanceText, discovererText]
+  const a11yLabel = [lead, hasHomeText, seenText, distanceText, lastPart]
     .filter((part): part is string => Boolean(part))
     .reduce((acc, part) => (/[.!?;]$/.test(acc) ? `${acc} ${part}` : `${acc}. ${part}`));
 
@@ -117,7 +123,23 @@ export function CatCard({ cat, spotted }: { cat: Cat; spotted?: boolean }) {
             </View>
           )}
         </View>
-        {(
+        {place.kind !== 'none' ? (
+          <View style={[styles.metaRow, styles.metaRowTop]} testID="cat-card-place">
+            <Feather
+              name="map-pin"
+              size={12}
+              color={colors.mutedForeground}
+              style={styles.metaIcon}
+              aria-hidden
+            />
+            <Text
+              style={[styles.meta, styles.metaWrap, { color: colors.mutedForeground }]}
+              numberOfLines={1}
+            >
+              {place.text}
+            </Text>
+          </View>
+        ) : (
           <View style={[styles.metaRow, styles.metaRowTop]}>
             <Feather name="star" size={12} color={colors.mutedForeground} style={styles.metaIcon} />
             <Text style={[styles.meta, styles.metaWrap, { color: colors.mutedForeground }]}>

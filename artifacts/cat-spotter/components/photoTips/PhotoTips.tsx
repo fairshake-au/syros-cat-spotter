@@ -15,7 +15,7 @@ export function PhotoTips({ compact = false }: { compact?: boolean }) {
   const cartoon = compact ? 110 : 150;
 
   const tips: { title: string; line: string }[] = [
-    { title: t('photoTipGetClose'), line: t('photoTipGetCloseLine') },
+    { title: t('photoTipGiveSpace'), line: t('photoTipGiveSpaceLine') },
     { title: t('photoTipFace'), line: t('photoTipFaceLine') },
     { title: t('photoTipBody'), line: t('photoTipBodyLine') },
     { title: t('photoTipLight'), line: t('photoTipLightLine') },

@@ -14,6 +14,7 @@ import { formatInstant, formatPublicDate } from '@/lib/catPageDates';
 import type { HomeAction } from '@/lib/catPageFacts';
 import { fonts, fontSizes, radii } from '@/constants/theme';
 import { catNameInSentence } from '@/lib/catDisplayName';
+import { areaLabel } from '@/lib/areaNames';
 
 export type UpdateBanner = {
   updateType?: string | null;
@@ -78,6 +79,8 @@ export function AboutTab({
     photoUrl: string | null;
     lastSeenAt: string;
     description?: string | null;
+    areaKey?: string | null;
+    areaName?: string | null;
     hasHome: boolean;
     ownerName?: string | null;
     homeDescription?: string | null;
@@ -108,6 +111,8 @@ export function AboutTab({
   const { t, language } = useLanguage();
   const sentenceName = catNameInSentence(cat);
   const place = cat.description?.trim() || null;
+  // SYC-810: the area leads the "where" row and the description is the quiet line.
+  const area = areaLabel(cat, language);
 
   const rows: FactRow[] = [
     { key: 'home', icon: 'heart', bold: lifeLineText },
@@ -122,7 +127,8 @@ export function AboutTab({
   // SYC-809: the coat is not a place, so it gets its own row and never sits
   // under the map pin.
   if (appearance) rows.push({ key: 'coat', icon: 'droplet', bold: appearance, spokenPrefix: t('catCoatPrefix') });
-  if (place) rows.push({ key: 'where', icon: 'map-pin', bold: place });
+  if (area) rows.push({ key: 'where', icon: 'map-pin', bold: area, quiet: place });
+  else if (place) rows.push({ key: 'where', icon: 'map-pin', bold: place });
 
   const bannerTarget: CatTab | null = update
     ? update.updateType === 'sighting'

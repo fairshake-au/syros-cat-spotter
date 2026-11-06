@@ -51,7 +51,7 @@ The card shows the two cartoons side by side: the good photo with a green tick, 
 
 | Tip | Line under it |
 |---|---|
-| **Get close** | Fill the frame with the cat. |
+| **Give it space** | Fill the frame from a step back. Crouch to its level. |
 | **Show the face** | Wait for it to look your way. |
 | **Show the whole body** | Nose to tail, so the coat pattern shows. |
 | **Daylight, and hold still** | Step into the light, and don't zoom if you can help it. |

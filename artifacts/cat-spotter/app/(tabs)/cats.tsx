@@ -33,12 +33,10 @@ import { Chip } from '@/components/purropolis';
 import { photoSource, SYROS_CENTER } from '@/lib/urls';
 import {
   catalogueEmptyKey,
+  catalogueMatches,
   effectiveFilter,
   type CatalogueFilter,
 } from '@/lib/spotted';
-// Cats within NEARBY_KM count as "near me": one number for the whole app,
-// shared with the "Find the cat" picker (SYC-119).
-import { NEARBY_KM } from '@workspace/geo';
 import {
   useGetProfile,
   getGetProfileQueryKey,
@@ -55,7 +53,7 @@ export const MAP_SEARCH_SETTLE_MS = 400;
 
 export default function CatalogScreen() {
   const colors = useColors();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bannerReserve = useBannerAreaReserve();
@@ -93,23 +91,11 @@ export default function CatalogScreen() {
   const applied = effectiveFilter(filter, hasCollectionData);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return cats.filter((c) => {
-      if (q) {
-        const haystack = [c.name, c.description, String(c.id)]
-          .join(' ')
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      if (applied === 'nearby') {
-        // distanceKm is only present when the list was fetched with coords.
-        return c.distanceKm != null && c.distanceKm <= NEARBY_KM;
-      }
-      if (applied === 'homed') return c.hasHome;
-      if (applied === 'notSpotted') return !spottedIds.has(c.id);
-      return true;
-    });
-  }, [cats, search, applied, spottedIds]);
+    const query = search.trim().toLowerCase();
+    return cats.filter((c) =>
+      catalogueMatches(c, { query, filter: applied, spottedIds, language }),
+    );
+  }, [cats, search, applied, spottedIds, language]);
 
   const emptyKey = catalogueEmptyKey({
     filter: applied,
@@ -145,6 +131,7 @@ export default function CatalogScreen() {
     { key: 'all', label: t('filterAll') },
     { key: 'nearby', label: t('filterNearMe') },
     { key: 'homed', label: t('filterHasHome') },
+    { key: 'noHome', label: t('filterNoHome') },
     ...(hasCollectionData
       ? [{ key: 'notSpotted' as const, label: t('filterNotSpotted') }]
       : []),
@@ -278,7 +265,7 @@ export default function CatalogScreen() {
             paddingBottom: insets.bottom + (Platform.OS === 'web' ? 100 : 90),
           }}
         >
-          {filtered.length === 0 && emptyKey === 'filterNotSpottedAllDone' && (
+          {filtered.length === 0 && (emptyKey === 'filterNotSpottedAllDone' || emptyKey === 'filterNoHomeEmpty') && (
             <View
               style={[styles.mapMessage, { backgroundColor: colors.card }]}
               pointerEvents="none"
