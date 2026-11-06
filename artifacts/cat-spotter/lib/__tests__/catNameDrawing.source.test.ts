@@ -20,7 +20,7 @@ const STYLE_SHEET = /\b(?:styles|compact)\.name\b/g;
 type Allow = { includes: string; why: string };
 const ALLOWED: Record<string, Allow[]> = {
   'lib/spotted.ts': [
-    { includes: 'const haystack = [cat.name,', why: 'catalogue search matches the SYR number too (ruling R26); moved here from cats.tsx by SYC-810' },
+    { includes: '[cat.name, cat.description, String(cat.id), areaSearchText', why: 'catalogue search matches the SYR number too (ruling R26); moved here from cats.tsx by SYC-810' },
   ],
   'app/review.tsx': [
     { includes: 'nameTakenCat.name', why: 'a cat holding a taken name is never pending' },
