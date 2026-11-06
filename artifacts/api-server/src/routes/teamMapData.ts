@@ -115,6 +115,8 @@ router.get("/team/map-data/v:version/style-:lang.json", ...door, async (req: Req
     pmtilesUrl: `pmtiles://syros-v${version}.pmtiles`,
     glyphsUrl: `/api/team/map-data/v${version}/fonts/{fontstack}/{range}.pbf`,
     spriteUrl: `/api/team/map-data/v${version}/sprites/light`,
+    // The dashboard's base map is low-colour so the cats' marks stand out (SYC-812). The app's is not.
+    quiet: true,
   });
   sendWhole(res, "application/json; charset=utf-8", Buffer.from(JSON.stringify(style)), STYLE_CACHE);
 });
