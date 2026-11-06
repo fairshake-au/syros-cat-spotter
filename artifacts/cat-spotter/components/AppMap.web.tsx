@@ -258,7 +258,7 @@ export function AppMap({
                   onPress={a.onPress}
                   accessibilityRole={a.onPress ? 'button' : undefined}
                   accessibilityLabel={a.accessibilityLabel ?? a.label}
-                  aria-pressed={a.count ? !!a.selected : undefined}
+                  aria-pressed={a.count || a.selected !== undefined ? !!a.selected : undefined}
                   style={[
                     styles.area,
                     {
