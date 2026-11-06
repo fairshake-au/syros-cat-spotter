@@ -271,6 +271,44 @@ describe("help on the Cats list (SYC-739)", () => {
   });
 });
 
+describe("Last seen (SYC-812 §3.5)", () => {
+  const optionsOf = (html: string) =>
+    [...(/id="f-seen"[^>]*>([\s\S]*?)<\/select>/.exec(html)![1]!).matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(
+      (m) => [m[1]!, m[2]!],
+    );
+
+  it("the dropdown has no quiet option by default, and the words don't overlap", () => {
+    expect(optionsOf(render())).toEqual([
+      ["", "Any time"],
+      ["week", "In the last week"],
+      ["month", "1 week to 1 month"],
+      ["1to3", "1–3 months"],
+      ["over3", "Over 3 months"],
+      ["never", "Never seen since first recorded"],
+    ]);
+  });
+
+  it("arriving with lastSeen=quiet shows it selected, with its chip", () => {
+    const html = render({ filters: { lastSeen: "quiet" } });
+    expect(optionsOf(html)).toContainEqual(["quiet", "6 weeks or more"]);
+    expect(html).toContain('<option value="quiet" selected>6 weeks or more</option>');
+    expect(html).toContain("Filters (1)");
+    expect(html).toMatch(/class="fchip"[^>]*>Last seen: 6 weeks or more /);
+  });
+
+  it("a chosen month shows its new words in the chip", () => {
+    const html = render({ filters: { lastSeen: "month" } });
+    expect(html).toMatch(/class="fchip"[^>]*>Last seen: 1 week to 1 month /);
+    expect(html).not.toContain("This month");
+    expect(html).not.toContain("This week");
+  });
+
+  it("the Map's form behaves the same", () => {
+    expect(optionsOf(filterForm({ filters: {}, colonies: [] }, true)).map((o) => o[0])).not.toContain("quiet");
+    expect(optionsOf(filterForm({ filters: { lastSeen: "quiet" }, colonies: [] }, true)).map((o) => o[0])).toContain("quiet");
+  });
+});
+
 describe("Sort (SYC-812 §3.3)", () => {
   it("the Map has no Sort control and keeps a chosen sort as a hidden field", () => {
     const html = filterForm({ filters: { sort: "name" }, colonies: [] }, true);

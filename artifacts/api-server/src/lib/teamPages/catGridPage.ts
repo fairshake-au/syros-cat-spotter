@@ -51,8 +51,8 @@ const LIVES_WORD: Record<Lives, string> = {
 };
 
 const LAST_SEEN_WORD: Record<(typeof LAST_SEEN)[number], string> = {
-  week: "This week",
-  month: "This month",
+  week: "In the last week",
+  month: "1 week to 1 month",
   "1to3": "1–3 months",
   over3: "Over 3 months",
   quiet: notSeenWords(),
@@ -220,7 +220,8 @@ export function filterForm(o: Pick<CatGridOptions, "filters" | "colonies" | "tie
   ).join("");
   const lastSeen =
     '<option value="">Any time</option>' +
-    LAST_SEEN.map(
+    // "quiet" overlaps two others, so it's offered only to someone who arrives with it (SYC-812).
+    LAST_SEEN.filter((l) => l !== "quiet" || f.lastSeen === "quiet").map(
       (l) => `<option value="${l}"${sel(f.lastSeen === l)}>${esc(LAST_SEEN_WORD[l])}</option>`,
     ).join("");
   const sort = SORTS.map(
