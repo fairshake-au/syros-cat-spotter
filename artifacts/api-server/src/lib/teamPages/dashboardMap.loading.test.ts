@@ -68,6 +68,7 @@ describe("map can't start", () => {
     // The link follows a change of filters, as the Grid switch does; no cats are asked for again.
     const asked = t.asks.length;
     t.change(() => (t.document.querySelector('#catfilters input[name="colours"][value="black"]').checked = true));
+    await t.settle();
     // The same address as the Grid switch, which the script also keeps up to date.
     expect(gridLink(t).getAttribute("href")).toBe(t.document.getElementById("view-grid").getAttribute("href"));
     expect(gridLink(t).getAttribute("href")).toMatch(/^\/api\/team\/cats\?colours=black&colours=ginger&sterilised=not_known&/);

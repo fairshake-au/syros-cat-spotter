@@ -101,6 +101,23 @@ describe("the island Map page", () => {
     expect(res.text).toContain('<details class="mapmove" id="mapmove" hidden><summary>Go to an area</summary>');
   });
 
+  it("the map comes before the layer choices and the help line on view=map", async () => {
+    const res = await page("/api/team/cats?view=map");
+    const at = (t: string) => {
+      const i = res.text.indexOf(t);
+      expect(i, t).toBeGreaterThan(-1);
+      return i;
+    };
+    const map = at('id="island-map"');
+    expect(at('id="catfilters"')).toBeLessThan(map);
+    expect(at('class="viewrow"')).toBeLessThan(map);
+    expect(at('id="mapcount"')).toBeLessThan(map);
+    expect(map).toBeLessThan(at('<p class="intro">'));
+    expect(at('<p class="intro">')).toBeLessThan(at('id="maplayers"'));
+    expect(at('id="maplayers"')).toBeLessThan(at('id="mapmove"'));
+    expect(at('id="mapmove"')).toBeLessThan(at('class="attrib"'));
+  });
+
   it("no script or no map: links to the same cats as the grid, with the filters and never a position", async () => {
     const q = `colours=ginger&sterilised=not_known&colony=${colony}`;
     const res = await page(`/api/team/cats?${q}&view=map&focus=${cat.id}`);
