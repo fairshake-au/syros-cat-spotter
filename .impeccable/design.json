@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T00:00:00Z",
+  "title": "Design System: Cat Spotters",
+  "extensions": {
+    "colorMeta": {
+      "aegean-600": {
+        "role": "primary",
+        "displayName": "Aegean Fill Blue",
+        "canonical": "#1c77c3",
+        "tonalRamp": [
+          "#071e30",
+          "#0a3350",
+          "#0f4a72",
+          "#135f92",
+          "#1c77c3",
+          "#2f92dc",
+          "#66b2e8",
+          "#e8f4fc"
+        ]
+      },
+      "aegean-700": {
+        "role": "primary",
+        "displayName": "Aegean Text Blue",
+        "canonical": "#135f92",
+        "tonalRamp": [
+          "#071e30",
+          "#0a3350",
+          "#0f4a72",
+          "#135f92",
+          "#1c77c3",
+          "#7cc0ef",
+          "#cfe7f9",
+          "#e8f4fc"
+        ]
+      },
+      "bougainvillea-700-accent": {
+        "role": "secondary",
+        "displayName": "Bougainvillea Pink",
+        "canonical": "#b02f66",
+        "tonalRamp": [
+          "#b02f66",
+          "#d64185",
+          "#e8558a",
+          "#f6a9c8",
+          "#fce4ee"
+        ]
+      },
+      "sun-500": {
+        "role": "tertiary",
+        "displayName": "Marigold Sun",
+        "canonical": "#ffc94d",
+        "tonalRamp": [
+          "#6b4a00",
+          "#d99413",
+          "#f5b023",
+          "#ffc94d",
+          "#ffe0a0",
+          "#fff5df"
+        ]
+      },
+      "terracotta-700": {
+        "role": "tertiary",
+        "displayName": "Terracotta",
+        "canonical": "#b8552f",
+        "tonalRamp": [
+          "#a3401f",
+          "#b8552f",
+          "#e07856",
+          "#ee9070",
+          "#f6c2ac",
+          "#fbe8de"
+        ]
+      },
+      "olive-700": {
+        "role": "tertiary",
+        "displayName": "Olive",
+        "canonical": "#5f6f36",
+        "tonalRamp": [
+          "#5f6f36",
+          "#7f9349",
+          "#9fb168",
+          "#cbd6a8",
+          "#eef1e0"
+        ]
+      },
+      "stone-100-whitewash": {
+        "role": "neutral",
+        "displayName": "Whitewash Page",
+        "canonical": "#f4f2ec",
+        "tonalRamp": [
+          "#1b2a38",
+          "#2c3e4f",
+          "#47596a",
+          "#5a6b7c",
+          "#8c9caa",
+          "#b6c2cc",
+          "#d7dee4",
+          "#f4f2ec"
+        ]
+      },
+      "stone-000-paper": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#fefcf7",
+        "tonalRamp": [
+          "#f4f2ec",
+          "#fefcf7"
+        ]
+      },
+      "stone-900-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "#1b2a38",
+        "tonalRamp": [
+          "#1b2a38",
+          "#2c3e4f",
+          "#47596a",
+          "#5a6b7c"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Home hero figure (42px)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "StatTile values (28px)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Button labels and card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Tags, badges, field labels."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Catalogue IDs, dates, numbers only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "xs",
+        "value": "0 1px 2px rgba(27,42,56,0.06)",
+        "purpose": "Defined, tiny."
+      },
+      {
+        "name": "sm",
+        "value": "0 2px 6px rgba(27,42,56,0.08)",
+        "purpose": "Buttons and Cards at rest."
+      },
+      {
+        "name": "md",
+        "value": "0 6px 16px rgba(27,42,56,0.10)",
+        "purpose": "Pressed pressable Card."
+      },
+      {
+        "name": "dashboard-menu",
+        "value": "0 6px 20px rgba(0,0,0,.12)",
+        "purpose": "Dashboard row menu."
+      }
+    ],
+    "motion": [
+      {
+        "name": "press",
+        "value": "opacity .85, scale .98",
+        "purpose": "Button press in the app."
+      },
+      {
+        "name": "card-lift",
+        "value": "translateY(-2px)",
+        "purpose": "Pressable Card with hover."
+      },
+      {
+        "name": "dashboard-busy",
+        "value": "opacity .2s",
+        "purpose": "The only dashboard transition."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "menu",
+        "value": "600px"
+      },
+      {
+        "name": "facts",
+        "value": "700px"
+      },
+      {
+        "name": "merge",
+        "value": "720px"
+      },
+      {
+        "name": "catpage",
+        "value": "1000px"
+      },
+      {
+        "name": "main-max",
+        "value": "1120px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Aegean pill, the default action in the app.",
+      "html": "<button class=\"ds-btn-primary\">Spot a cat</button>",
+      "css": ".ds-btn-primary{background:#1c77c3;color:#fefcf7;font:600 14px Inter,system-ui,sans-serif;min-height:40px;padding:8px 16px;border:0;border-radius:999px;box-shadow:0 2px 6px rgba(27,42,56,.08);cursor:pointer}.ds-btn-primary:hover{opacity:.85}.ds-btn-primary:focus-visible{outline:3px solid #1c77c3;outline-offset:2px}.ds-btn-primary:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Accent Button",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "The pink pill, Home first-spot call to action.",
+      "html": "<button class=\"ds-btn-accent\">Spot your first cat</button>",
+      "css": ".ds-btn-accent{background:#b02f66;color:#fefcf7;font:600 16px Inter,system-ui,sans-serif;min-height:48px;padding:12px 24px;border:0;border-radius:999px;box-shadow:0 2px 6px rgba(27,42,56,.08);cursor:pointer}.ds-btn-accent:hover{opacity:.85}.ds-btn-accent:focus-visible{outline:3px solid #135f92;outline-offset:2px}.ds-btn-accent:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Soft Aegean pill with hairline border.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary{background:#e8f4fc;color:#0f4a72;font:600 14px Inter,system-ui,sans-serif;min-height:40px;padding:8px 16px;border:1.5px solid #d7dee4;border-radius:999px;cursor:pointer}.ds-btn-secondary:hover{opacity:.85}.ds-btn-secondary:focus-visible{outline:3px solid #1c77c3;outline-offset:2px}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Catalogue category pill; active state filled.",
+      "html": "<span class=\"ds-chip\">All cats</span> <span class=\"ds-chip ds-chip-on\">Has a home</span>",
+      "css": ".ds-chip{display:inline-block;background:#fefcf7;color:#1b2a38;font:600 13px Inter,system-ui,sans-serif;padding:8px 15px;border:1.5px solid #75838f;border-radius:999px}.ds-chip-on{background:#1c77c3;color:#fefcf7;border-color:#135f92}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Paper card, 20px corners, soft shadow.",
+      "html": "<div class=\"ds-card\">A cat, a colony or a report.</div>",
+      "css": ".ds-card{background:#fefcf7;color:#1b2a38;font:14px/1.5 Inter,system-ui,sans-serif;padding:24px;border:1.5px solid transparent;border-radius:20px;box-shadow:0 2px 6px rgba(27,42,56,.08)}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "14px radius, control outline, thicker on focus.",
+      "html": "<label class=\"ds-label\">Name</label><input class=\"ds-input\" value=\"Nefeli\">",
+      "css": ".ds-label{display:block;font:700 13px Inter,system-ui,sans-serif;color:#1b2a38;margin-bottom:4px}.ds-input{background:#fefcf7;color:#1b2a38;font:14px Inter,system-ui,sans-serif;padding:8px 12px;border:1.5px solid #75838f;border-radius:14px}.ds-input:focus-visible{outline:none;border:2.5px solid #135f92}"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag-aegean",
+      "description": "Toned label pill.",
+      "html": "<span class=\"ds-tag\">Sterilised</span>",
+      "css": ".ds-tag{display:inline-block;background:#e8f4fc;color:#0f4a72;font:700 12px Inter,system-ui,sans-serif;letter-spacing:.04em;padding:2px 8px;border-radius:999px}"
+    },
+    {
+      "name": "Home Hero",
+      "kind": "custom",
+      "refersTo": "hero",
+      "description": "The blue header band with progress.",
+      "html": "<div class=\"ds-hero\"><div class=\"ds-hero-fig\">12 <span>of 40 cats spotted</span></div><div class=\"ds-track\"><div class=\"ds-fill\"></div></div></div>",
+      "css": ".ds-hero{background:#1c77c3;color:#fefcf7;font:16px Inter,system-ui,sans-serif;padding:16px 16px 24px;border-radius:0 0 30px 30px}.ds-hero-fig{font:700 42px/46px Inter,system-ui,sans-serif}.ds-hero-fig span{font:400 16px Inter,system-ui,sans-serif}.ds-track{margin-top:11px;height:12px;border-radius:999px;background:rgba(255,255,255,.24);overflow:hidden}.ds-fill{width:30%;height:100%;border-radius:999px;background:#ffc94d}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Sun-Bleached Cycladic Postcard",
+    "overview": "This file records the incumbent look of Cat Spotters as it is built on 4 Nov 2026. It is the baseline for SYC-811, written before any design direction is chosen. It describes what the code does, not what anyone intends. It is not a redesign and proposes nothing.\n\nThe North Star comes from the header comment in `artifacts/cat-spotter/constants/colors.ts` (\"Sun-bleached Cycladic palette: Aegean blue + whitewash walls, with bougainvillea, sun, terracotta and olive accents\"). The 3 Nov 2026 critique found the look generic: a blue header, a pink pill, rounded cards, emoji and puns. The words, by contrast, are made for Syros. This file records the generic parts as they stand, so a later direction can be judged against them.\n\nThere are two surfaces that share one palette and typeface but differ on purpose. The **spotter app** (Expo, `artifacts/cat-spotter`) is playful and rounded: pill buttons, 20px cards, soft shadows, a big blue hero, emoji. The **team dashboard** (server-rendered HTML, `artifacts/api-server/src/lib/teamPages`) is plainer and denser: 10px corners, 1px hairline borders, no shadows on cards, 44px tap targets, no hero.",
+    "keyCharacteristics": [
+      "Aegean blue (#1c77c3) as the one brand colour, on a warm whitewash page (#f4f2ec) with paper-white cards (#fefcf7).",
+      "One typeface family, Inter, for every language; Space Mono only for catalogue IDs, dates and numbers.",
+      "Generous radii in the app (10 to 28px, pills for every control), tighter in the dashboard.",
+      "Bougainvillea pink (#b02f66) is the accent, and it means spotting: every button that starts or finishes a spot, plus banners and badges.",
+      "Dark mode is a deep Aegean night (#071e30), not grey."
+    ],
+    "rules": [
+      {
+        "name": "The Whitewash Rule",
+        "body": "The page is warm stone (#f4f2ec) and cards are paper (#fefcf7); pure white is not a surface. White text on fills is `stone-000`, with a few literal `#fff` exceptions in the Home hero.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Blues Rule",
+        "body": "Fills use Aegean 600; text, icons and outlines use Aegean 700 (light) or Aegean 350 (dark). The split exists for contrast (SYC-766, SYC-702) and the dashboard repeats it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Colour-Plus-Word Rule",
+        "body": "On the dashboard the four sterilisation marks (sterilised #0f4a72, probably #1c77c3 with white hatching, not known #d7dee4 with #75838f edge, not sterilised #b8552f) are always a shape and a word, never colour alone (`marks.ts`).",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Every language, every weight, one family: Inter. Space Mono is the only exception and never carries words.",
+        "section": "typography"
+      },
+      {
+        "name": "The Soft Ink Shadow Rule",
+        "body": "App shadows are tinted with ink #1b2a38, never pure black; the dashboard's menu shadow is a pure-black literal, a small drift.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use Aegean 600 for fills and Aegean 700 (light) or Aegean 350 (dark) for text and outlines.",
+      "**Do** keep small text at 4.5:1 or better and control outlines at 3:1 or better (SYC-509, SYC-766).",
+      "**Do** keep tap areas at 44px, using padding rather than `hitSlop` (web ignores it).",
+      "**Do** pair every sterilisation mark and status colour with a word or shape.",
+      "**Do** use \"spotter\", \"cat guardian\" and \"clipped tip\"; text in Greek, English and French must fit.",
+      "**Do** respect WCAG 2.2 AA (PRODUCT.md)."
+    ],
+    "donts": [
+      "**Don't** put Greek text in a Latin-only face; Inter was chosen to cover it (SYC-7).",
+      "**Don't** colour feeding sites as circles or teal on dashboard maps.",
+      "**Don't** use `textTransform` for capitals; use `displayUpperCase` so Greek loses its accents.",
+      "**Don't** trust the incumbent's own decoration as a rule: emoji, the pink pill and 20px cards are what is built, not a recorded requirement."
+    ]
+  }
+}

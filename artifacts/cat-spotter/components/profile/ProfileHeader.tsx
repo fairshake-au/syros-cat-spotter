@@ -113,7 +113,7 @@ export function ProfileHeader({
                 minimumFontScale={0.8}
                 style={[
                   styles.tabText,
-                  { color: onPrimary, opacity: active ? 1 : 0.85 },
+                  { color: onPrimary },
                   active && styles.tabTextActive,
                 ]}
               >
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   names: { flex: 1, minWidth: 0, gap: 2 },
   name: { fontFamily: fonts.displayBold, fontSize: fontSizes.xl },
-  sub: { fontFamily: fonts.body, fontSize: fontSizes.xs, opacity: 0.92 },
+  sub: { fontFamily: fonts.body, fontSize: fontSizes.xs },
   settings: {
     flexShrink: 0,
     minHeight: 44,
@@ -141,7 +141,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    // SYC-827: white on translucent white was 3.4:1.
+    backgroundColor: palette.aegean800,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

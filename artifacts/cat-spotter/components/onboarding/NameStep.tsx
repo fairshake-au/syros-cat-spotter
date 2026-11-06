@@ -421,7 +421,7 @@ export function NameStep({ onBack }: { onBack: () => void }) {
             <Pressable
               onPress={shuffle}
               disabled={(!localNames && suggestionsQuery.isFetching) || pending || !!uncertainName || saving}
-              style={[styles.shuffle, { backgroundColor: palette.bougain500 }]}
+              style={[styles.shuffle, { backgroundColor: colors.accent }]}
               accessibilityRole="button"
             >
               <Text style={styles.shuffleText}>🎲 {t('landingShuffle')}</Text>

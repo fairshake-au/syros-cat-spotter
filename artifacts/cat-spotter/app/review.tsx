@@ -333,7 +333,7 @@ export default function ReviewScreen() {
               {t("reviewOpenFailedBody")}
             </Text>
           </View>
-          <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={() => goToSpotTab(router)}>
+          <Button variant="accent" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={() => goToSpotTab(router)}>
             {t("reviewOpenFailedCta")}
           </Button>
         </View>
@@ -760,7 +760,7 @@ export default function ReviewScreen() {
           {t("notACatNotAdded")}
         </Text>
         <PhotoTips compact />
-        <Button variant="primary" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={retake}>
+        <Button variant="accent" size="lg" wrapLabel style={{ maxWidth: "100%" }} onPress={retake}>
           {t("notACatRetake")}
         </Button>
       </ScrollView>
@@ -863,7 +863,7 @@ export default function ReviewScreen() {
           {hintRefused ? (
             <Button
               key="hint-carry-on"
-              variant="primary"
+              variant="accent"
               size="lg"
               block
               wrapLabel
@@ -875,7 +875,7 @@ export default function ReviewScreen() {
           ) : (
             <Button
               key="hint-yes"
-              variant="primary"
+              variant="accent"
               size="lg"
               block
               wrapLabel
@@ -992,7 +992,7 @@ export default function ReviewScreen() {
             </Text>
           ) : null}
           <Button
-            variant="primary"
+            variant="accent"
             size="lg"
             block
             disabled={busy}
@@ -1112,7 +1112,7 @@ export default function ReviewScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <LinearGradient
-          colors={[palette.bougain500, palette.terra600]}
+          colors={[palette.bougain700, palette.terra800]}
           style={[styles.celebrateHero, { paddingTop: insets.top + bannerReserve + 8 }]}
         >
           <View style={styles.celebrateHeaderRow}>
@@ -1263,7 +1263,7 @@ export default function ReviewScreen() {
             </Text>
           ) : null}
           <Button
-            variant="primary"
+            variant="accent"
             size="lg"
             block
             disabled={busy || isBlankName(newName)}
@@ -1396,7 +1396,7 @@ export default function ReviewScreen() {
                 {c.reasoning}
               </Text>
               <Button
-                variant={index === 0 ? "primary" : "secondary"}
+                variant={index === 0 ? "accent" : "secondary"}
                 size="md"
                 block
                 disabled={busy}
