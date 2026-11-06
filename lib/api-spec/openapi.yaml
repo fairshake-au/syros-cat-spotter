@@ -554,6 +554,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorBody"
+  /sightings/{sightingId}/wait:
+    post:
+      operationId: recordPhoneWait
+      tags: [sightings]
+      summary: Report how long the phone waited for look-alikes (SYC-795)
+      description: >-
+        The phone's whole-trip wait, in milliseconds, from the spotter
+        sending the photo to the look-alikes showing. Only the sighting's own
+        device. Stored once, beside the server's part of the wait, and only
+        for a check that worked: a second report, a report with no match
+        record, one after a failed check, or one shorter than the server's
+        part changes nothing and still answers 204.
+      parameters:
+        - name: sightingId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordPhoneWaitRequest"
+      responses:
+        "204":
+          description: Accepted (whether or not anything was stored)
+        "400":
+          description: waitMs is not a whole number from 0 to 600000
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorBody"
+        "403":
+          description: Not this device's sighting
+        "404":
+          description: Sighting not found
   /sightings/{sightingId}/resolve:
     post:
       operationId: resolveSighting
@@ -1864,6 +1900,19 @@ components:
           minLength: 1
           description: Device credential of the sighting owner; must match the sighting
       required: [deviceId]
+    RecordPhoneWaitRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          minLength: 1
+          description: Device credential of the sighting owner; must match the sighting
+        waitMs:
+          type: integer
+          minimum: 0
+          maximum: 600000
+          description: Milliseconds the phone waited for the look-alikes
+      required: [deviceId, waitMs]
     ResolveSightingRequest:
       type: object
       properties:
