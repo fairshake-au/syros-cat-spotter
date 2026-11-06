@@ -203,7 +203,7 @@ export function AboutTab({
 
       {canSpot ? (
         <Button
-          variant="primary"
+          variant="accent"
           size="lg"
           block
           wrapLabel

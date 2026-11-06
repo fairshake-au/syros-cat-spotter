@@ -64,7 +64,7 @@ export function LocationAskCard({ view, busy, onUse, onMap, onOpenSettings }: Pr
     <Card flat padding={spacing[4]}>
       <View style={styles.cardContent} testID="location-ask-card">
         <View style={styles.titleRow}>
-          <Feather name="map-pin" size={18} color={colors.accent} />
+          <Feather name="map-pin" size={18} color={colors.accentMark} />
           <Text accessibilityRole="header" style={[styles.title, { color: colors.foreground }]}>
             {t('locAskTitle')}
           </Text>
