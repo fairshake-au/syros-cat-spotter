@@ -29,6 +29,7 @@ import {
 import { pr3Recorded } from "./pr3Gate";
 import { LIKELY_STERILISED_PUBLIC_LIVE } from "./likelyGate";
 import { BLUR_CELL_METRES, blurPosition, publicDistanceKm } from "./blur";
+import { areaFor, OFF_SYROS } from "./areas/namedAreas";
 import { catDisplayPhotos, type PublicPhotoUrl } from "./photoVisibility";
 import { isTeamDesk, TEAM_DESK_NAME } from "./teamDesk";
 
@@ -125,6 +126,13 @@ export interface CatWithStats extends DerivedCatStatus {
   discovererUsername: string | null;
   /** SYC-677: Syros Cats left this cat for spotters to name; `name` is its SYR number. */
   namePending: boolean;
+  /**
+   * SYC-810: the named area of the cat's published cell centre, or null when
+   * the centre is more than 2 km from every area. Never worked out from the
+   * exact position or the home pin, so it is the same for every viewer.
+   */
+  areaKey: string | null;
+  areaName: string | null;
 }
 
 /**
@@ -194,12 +202,18 @@ export function toPublicDay(at: Date | string): string {
 export function serialiseCat(cat: CatSource, viewer: Viewer): CatWithStats {
   const exact =
     viewer.tier === "owner" && cat.ownerDeviceId !== null && cat.ownerDeviceId === viewer.deviceId;
-  const position = exact ? { lat: cat.lat, lng: cat.lng } : blurPosition(cat.lat, cat.lng);
+  // The published cell centre, once. The area is worked out from this and
+  // nothing finer (SYC-810 spec §3): not cat.lat/lng, not the home pin.
+  const cell = blurPosition(cat.lat, cat.lng);
+  const position = exact ? { lat: cat.lat, lng: cat.lng } : cell;
+  const area = areaFor(cell.lat, cell.lng);
   const out: CatWithStats = {
     id: cat.id,
     // While pending, the stored name is already the SYR number (SYC-677).
     name: cat.name,
     namePending: cat.namePending,
+    areaKey: area === OFF_SYROS ? null : area.key,
+    areaName: area === OFF_SYROS ? null : area.name,
     description: cat.description,
     photoUrl: cat.photoUrl,
     lat: position.lat,
