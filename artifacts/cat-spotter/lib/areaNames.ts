@@ -11,34 +11,32 @@
 import type { Language } from './i18n';
 
 /**
- * DRAFT, and a stub: Greek names by area key, for the 21 seed areas
- * (artifacts/api-server/src/lib/areas/seedAreas.ts). Syros Cats or a Greek
- * speaker must check these before launch. Until they are written, each value
- * is the server's English name, except Kini.
+ * DRAFT: Greek names by area key, for the 21 seed areas
+ * (artifacts/api-server/src/lib/areas/seedAreas.ts). A Greek speaker must
+ * check these before they go live.
  */
-// TODO(session): Greek names
 export const GREEK_AREA_NAMES: Readonly<Record<string, string>> = {
-  ermoupoli: 'Ermoupoli',
-  vaporia: 'Vaporia',
+  ermoupoli: 'Ερμούπολη',
+  vaporia: 'Βαπόρια',
   kini: 'Κίνι',
-  galissas: 'Galissas',
-  finikas: 'Finikas',
-  posidonia: 'Posidonia',
-  azolimnos: 'Azolimnos',
-  'ano-syros': 'Ano Syros',
-  vari: 'Vari',
-  fabrika: 'Fabrika',
-  manna: 'Manna',
-  'mega-gialos': 'Mega Gialos',
-  chroussa: 'Chroussa',
-  kampos: 'Kampos',
-  chalandriani: 'Chalandriani',
-  syringas: 'Syringas',
-  aetos: 'Aetos',
-  lia: 'Lia',
-  grammata: 'Grammata',
-  pagos: 'Pagos',
-  episkopio: 'Episkopio',
+  galissas: 'Γαλησσάς',
+  finikas: 'Φοίνικας',
+  posidonia: 'Ποσειδωνία',
+  azolimnos: 'Αζόλιμνος',
+  'ano-syros': 'Άνω Σύρος',
+  vari: 'Βάρη',
+  fabrika: 'Φάμπρικα',
+  manna: 'Μάννα',
+  'mega-gialos': 'Μέγας Γιαλός',
+  chroussa: 'Χρούσα',
+  kampos: 'Κάμπος',
+  chalandriani: 'Χαλανδριανή',
+  syringas: 'Συρίγγας',
+  aetos: 'Αετός',
+  lia: 'Λία',
+  grammata: 'Γράμματα',
+  pagos: 'Πάγος',
+  episkopio: 'Επισκοπείο',
 };
 
 /** The same numbers as SYROS_BOX in api-server/src/lib/areas/areaWrites.ts: where an area centre may be. */

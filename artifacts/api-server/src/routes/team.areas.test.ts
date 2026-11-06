@@ -64,9 +64,9 @@ describe("the Areas page", () => {
     expect(res.text).toMatch(/<span class="meta">\d+ cats?<\/span>/);
   });
 
-  it("says under the name boxes that area names are shown to cat guardians", async () => {
+  it("says under the name boxes that area names are public", async () => {
     const res = await page(team.cookie);
-    const hint = "Area names are shown to cat guardians. Use the place&#39;s name, never a person&#39;s.";
+    const hint = "Area names are public. Use the place&#39;s name, never a person&#39;s.";
     // Under the Add form's Name box and under each area's Rename box.
     const count = res.text.split(hint).length - 1;
     expect(count).toBeGreaterThan(1);

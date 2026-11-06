@@ -106,7 +106,7 @@ export const MOVE_WHAT = "Moving the centre can change which area nearby cats sh
 export const RETIRE_WHAT =
   "Retiring takes this area off the list. Its places go to the nearest area that is left, or Off Syros. You can bring it back later from the list of retired areas below.";
 
-const NAME_HINT = "Area names are shown to cat guardians. Use the place's name, never a person's.";
+const NAME_HINT = "Area names are public. Use the place's name, never a person's.";
 
 function input(
   id: string,
