@@ -261,13 +261,47 @@ describe("help on the Cats list (SYC-739)", () => {
     const html = render();
     expect(html).toContain("Every cat the app knows about");
     expect(html).toContain("Probably (ear clip seen)");
-    expect(html).toContain("hidden by default");
+    expect(html).toContain("Not showing cats who are no longer with us.");
     expect(html).toContain("Show them");
   });
 
   it("the empty state with no filters says those cats are hidden", () => {
     const html = render({ items: [], total: 0 });
     expect(html).toContain("are hidden unless you ask for them");
+  });
+});
+
+describe("the honest note (SYC-812 §3.6)", () => {
+  const WORDS = "Not showing cats who are no longer with us.";
+
+  it("says only who is left out, with a Show them link that keeps the filters", () => {
+    const html = render({ filters: { colours: ["black"] } });
+    expect(html).toContain(WORDS);
+    const link = /<p class="hint">Not showing cats who are no longer with us\. <a href="([^"]*)">Show them<\/a><\/p>/.exec(html);
+    expect(link).not.toBeNull();
+    expect(link![1]).toContain("colours=black");
+    expect(link![1]).toContain("lives=gone");
+  });
+
+  it("sits inside #catresults, and the old words are gone", () => {
+    const html = render();
+    const results = html.slice(html.indexOf('<div id="catresults">'));
+    expect(results).toContain(WORDS);
+    expect(html).not.toContain("haven't been seen for a long time");
+    expect(html).not.toContain("haven&#39;t been seen for a long time");
+    expect(html).not.toContain("hidden by default");
+  });
+
+  it("is gone when No longer with us is ticked", () => {
+    const html = render({ filters: { lives: ["street", "gone"] } });
+    expect(html).not.toContain(WORDS);
+  });
+
+  it("the empty state's hint uses the same true words", () => {
+    const html = render({ items: [], total: 0, catCount: 5 });
+    expect(html).not.toContain("haven't been seen for a long time");
+    expect(html).not.toContain("haven\\'t been seen");
+    expect(html).toContain("Cats who are no longer with us are hidden unless you ask for them.");
   });
 });
 

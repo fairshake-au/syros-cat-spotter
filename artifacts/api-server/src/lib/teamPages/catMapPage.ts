@@ -1,7 +1,7 @@
 import type { CatListFilters, CatListItem } from "../teamCatList";
 import { assetUrl } from "../teamAssets";
 import { currentAreas } from "../areas/namedAreas";
-import { activeChips, catsAddress, filterForm, viewRow } from "./catGridPage";
+import { activeChips, catsAddress, filterForm, hiddenCatsNote, viewRow } from "./catGridPage";
 import { escapeHtml as esc } from "./escape";
 import { pageIntro } from "./help";
 import { renderPage } from "./layout";
@@ -102,7 +102,7 @@ export function renderCatMapPage(o: CatMapOptions): string {
     // controls stay put when the person switches view (SYC-522).
     filterForm(o, true) +
     viewRow(o, "map") +
-    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}</div>`;
+    `<div id="mapresults">${activeChips(o, true)}${countLine(o)}${hiddenCatsNote(o.filters, undefined, true)}</div>`;
 
   const focus = o.focus
     ? {

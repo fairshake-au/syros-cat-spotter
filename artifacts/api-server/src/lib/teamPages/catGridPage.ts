@@ -123,6 +123,20 @@ export function catsAddress(f: CatListFilters, tie?: TieMode, map = false): stri
 const address = catsAddress;
 
 /**
+ * Who the page is leaving out (SYC-812 §3.6): only cats marked "No longer with
+ * us" are hidden by default. Empty once that box is ticked. The Show them link
+ * keeps the filters and stays on the same view.
+ */
+export function hiddenCatsNote(f: CatListFilters, tie?: TieMode, map = false): string {
+  const livesNow = f.lives?.length ? f.lives : defaultLives(Boolean(tie));
+  if (livesNow.includes("gone")) return "";
+  return (
+    '<p class="hint">Not showing cats who are no longer with us. ' +
+    `<a href="${esc(address({ ...f, lives: [...LIVES], page: undefined }, tie, map))}">Show them</a></p>`
+  );
+}
+
+/**
  * The one switch between Grid and Map (spec §6.1): the same filters either
  * way, so the Grid link's query is exactly the grid's own. Not drawn while
  * choosing a cat for a report.
@@ -366,7 +380,7 @@ export function renderCatGridPage(o: CatGridOptions): string {
     // Cats exist, but the usual choice of "Lives" hides every one of them.
     results =
       '<p class="notice" role="status">No cats match these filters</p>' +
-      '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden unless you ask for them.</p>' +
+      '<p class="hint">Cats who are no longer with us are hidden unless you ask for them.</p>' +
       `<p><a class="tap" href="${esc(address({ lives: [...LIVES] }, tie))}">Also show cats who are no longer with us</a></p>`;
   } else if (o.total === 0) {
     results =
@@ -390,15 +404,11 @@ export function renderCatGridPage(o: CatGridOptions): string {
   // Grid/Map switch (so the Map link keeps the filters), the chips, the
   // count, the grid and "Show more", and nothing else. No switch while
   // choosing a cat for a report.
-  const hiddenNote =
-    '<p class="hint">Cats who have died, or haven\'t been seen for a long time, are hidden by default. ' +
-    `<a href="${esc(address({ ...o.filters, lives: [...LIVES], page: undefined }, tie))}">Show them</a></p>`;
-  const livesNow = o.filters.lives?.length ? o.filters.lives : defaultLives(Boolean(tie));
   const body =
     (tie ? "" : pageIntro("Every cat the app knows about, with the most recently seen first. Tap a cat for its full record. Each cat's SYR number is its ID in the app.")) +
     filterForm(o) +
     // Everything after the form is redrawn on a filter change, so the note's link stays true (SYC-812).
-    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${livesNow.includes("gone") ? "" : hiddenNote}${sterilisedKey()}${results}</div>`;
+    `<div id="catresults">${viewRow(o, "grid")}${activeChips(o)}${hiddenCatsNote(o.filters, tie)}${sterilisedKey()}${results}</div>`;
   // The one page with our own script (SYC-396 PR 1.3.4). Its route sends the wider header.
   const script = assetUrl("dashboard-grid.js");
 
