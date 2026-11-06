@@ -531,6 +531,31 @@ describe('the facts card and the cards under the main button', () => {
     expect(where.querySelector('[data-feather="map-pin"]')).toBeTruthy();
   });
 
+  // SYC-810: the area leads the "where" row; the description is the quiet line.
+  it('shows the area in bold with the description under it', () => {
+    page({}, cat({ areaKey: 'kini', areaName: 'Kini' } as Partial<Cat>));
+    const where = screen.getByTestId('fact-where');
+    expect(where.textContent).toContain('Kini');
+    expect(where.textContent).toContain('By the harbour');
+    expect(where.textContent!.indexOf('Kini')).toBeLessThan(where.textContent!.indexOf('By the harbour'));
+    expect(where.textContent).not.toMatch(/Around|Lives in|Home in/);
+  });
+
+  it('shows the area alone when the cat has no description', () => {
+    page({}, cat({ areaKey: 'kini', areaName: 'Kini', description: undefined } as Partial<Cat>));
+    expect(screen.getByTestId('fact-where').textContent).toBe('Kini');
+  });
+
+  it('shows the description alone, as before, when the cat has no area', () => {
+    page({}, cat({ areaKey: null, areaName: null } as Partial<Cat>));
+    expect(screen.getByTestId('fact-where').textContent).toBe('By the harbour');
+  });
+
+  it('shows no "where" row with neither an area nor a description', () => {
+    page({}, cat({ areaKey: null, areaName: null, description: undefined } as Partial<Cat>));
+    expect(screen.queryByTestId('fact-where')).toBeNull();
+  });
+
   // SYC-809: the coat is not a place, so it never sits under the map pin.
   it('gives the coat its own row, apart from the place', () => {
     page({}, cat({ coatColours: ['ginger'] } as Partial<Cat>));

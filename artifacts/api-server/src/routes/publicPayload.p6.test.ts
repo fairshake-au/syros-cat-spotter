@@ -53,6 +53,10 @@ import { toPublicDay } from "../lib/catHelpers";
 // "wordingDay":null` after `message` on the cat-news bell entry (a row with no
 // label keeps its stored words). No other byte changed.
 //
+// Regenerated again, on purpose, by SYC-810: `"areaKey":null,"areaName":null`
+// right after `"namePending"` on every public cat (this cat is off the island,
+// so no area). No other byte changed.
+//
 // Only values the database or the clock hand out (serial ids, the upload's
 // random public id, today's date) are swapped for placeholders; every other
 // byte, including key order, is compared as sent.

@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   cats: [] as Array<Record<string, unknown>>,
   profile: undefined as unknown,
   loadFailed: false,
+  language: 'en' as 'en' | 'el' | 'fr',
   retry: vi.fn(async () => {}),
 }));
 
@@ -28,7 +29,7 @@ vi.mock('@/hooks/useColors', () => ({
 }));
 vi.mock('expo-router', () => ({ useRouter: () => ({ push: h.push }) }));
 vi.mock('@/context/LanguageContext', () => ({
-  useLanguage: () => ({ t: (k: string) => k }),
+  useLanguage: () => ({ t: (k: string) => k, language: h.language }),
 }));
 vi.mock('@/context/DeviceContext', () => ({
   useDevice: () => ({ deviceId: 'dev-1', username: 'sam' }),
@@ -86,6 +87,7 @@ beforeEach(() => {
   h.profile = undefined;
   h.loadFailed = false;
   h.retry.mockClear();
+  h.language = 'en';
 });
 afterEach(cleanup);
 
@@ -248,5 +250,71 @@ describe('SYC-508: the Cat-alogue when nothing could be loaded', () => {
     render(<CatalogScreen />);
     expect(screen.getByText('noCats')).toBeTruthy();
     expect(screen.queryByText('loadFailedTitle')).toBeNull();
+  });
+});
+
+describe('Cat-alogue area search and the No home filter (SYC-810)', () => {
+  const area = (key: string, name: string) => ({ areaKey: key, areaName: name });
+  const search = (value: string) =>
+    fireEvent.change(screen.getByPlaceholderText('catalogSearchPlaceholder'), { target: { value } });
+
+  beforeEach(() => {
+    h.cats = [
+      { ...mkCats(1)[0]!, id: 1, ...area('kini', 'Kini'), hasHome: false },
+      { ...mkCats(1)[0]!, id: 2, ...area('kini', 'Kini'), hasHome: true },
+      { ...mkCats(1)[0]!, id: 3, ...area('vari', 'Vari'), hasHome: false },
+      // An older phone's cached cat: no area and no hasHome field.
+      { id: 4, name: 'Cat4', description: '', lat: 37, lng: 24, photoUrl: null },
+    ];
+  });
+
+  it('typing an area name finds the cats in it', () => {
+    render(<CatalogScreen />);
+    search('Kini');
+    expect(cardIds()).toEqual(['1', '2']);
+  });
+
+  it('in Greek, both "Kini" and "Κίνι" find a Kini cat', () => {
+    h.language = 'el';
+    render(<CatalogScreen />);
+    search('Κίνι');
+    expect(cardIds()).toEqual(['1', '2']);
+    search('Kini');
+    expect(cardIds()).toEqual(['1', '2']);
+  });
+
+  it('No home comes after Has a home and shows only cats with hasHome false', () => {
+    render(<CatalogScreen />);
+    const has = screen.getByText('filterHasHome');
+    const none = screen.getByText('filterNoHome');
+    expect(has.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(none);
+    expect(cardIds()).toEqual(['1', '3']);
+    expect(selected('filterNoHome')).toBe(true);
+  });
+
+  it('"Kini" plus No home leaves out the homed Kini cat', () => {
+    render(<CatalogScreen />);
+    fireEvent.click(screen.getByText('filterNoHome'));
+    search('Kini');
+    expect(cardIds()).toEqual(['1']);
+  });
+
+  it('No home with nothing left says "No cats without a home here."; with a search it keeps the search message', () => {
+    h.cats = h.cats.map((c) => ({ ...c, hasHome: true }));
+    render(<CatalogScreen />);
+    fireEvent.click(screen.getByText('filterNoHome'));
+    expect(cardIds()).toEqual([]);
+    expect(screen.getByText('filterNoHomeEmpty')).toBeTruthy();
+    search('zzz');
+    expect(screen.getByText('noCatsSearch')).toBeTruthy();
+    expect(screen.queryByText('filterNoHomeEmpty')).toBeNull();
+  });
+
+  it('on the map view No home narrows the cats too', () => {
+    render(<CatalogScreen />);
+    fireEvent.click(screen.getByText('filterNoHome'));
+    fireEvent.click(screen.getByLabelText('viewMap'));
+    expect(screen.getByTestId('map').getAttribute('data-count')).toBe('2');
   });
 });

@@ -330,6 +330,20 @@ export interface Cat {
      */
   namePending?: boolean;
   /**
+     * The key of the named area the cat's published cell centre is in
+     * (SYC-810). Null when the centre is more than 2 km from every
+     * area. Never worked out from the exact position or the owner's
+     * home pin, so every viewer gets the same one. Always sent;
+     * optional so a copy cached by an older app still reads.
+     * @nullable
+     */
+  areaKey?: string | null;
+  /**
+     * The named area's name, in the team's own language. Null with areaKey. Optional like areaKey.
+     * @nullable
+     */
+  areaName?: string | null;
+  /**
      * Display name of the cat's owner. Only in the owner's own view; null for everyone else (claiming-a-cat.md D9).
      * @nullable
      */
