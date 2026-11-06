@@ -20,6 +20,16 @@ Two other files are kept in step with it, by hand, not by any build step:
 
   Before publishing, check the PDF actually renders correctly: render a few pages to PNG (e.g. `pdftoppm -r 60 -png`) and look at the first page, a middle page and the last page. Check margins are consistent, there's no white border or stray background, and nothing is cut off — a white-border bug got past a previous round because this check wasn't done.
 
+## Syros Cats questions page
+
+`src/questions.html` is a page of questions for Syros Cats, served by `src/worker.js` at `/catspotters/questions/<token>`. Answers save to the `ANSWERS` KV namespace, with no sign-in. The token is the Worker secret `QUESTIONS_TOKEN`, not in this repo, because the repo is public and the token is what keeps the answers private. A request without it gets a 404.
+
+When a question is added or removed, update `src/questionIds.json` too: the Worker refuses ids that aren't on that list.
+
+Read the answers with `curl <page link>/api/answers`. They can include names and email addresses, so delete them from KV once they're recorded.
+
+To try it locally, put `QUESTIONS_TOKEN=<32 or more characters>` in `.dev.vars` and run `npx wrangler dev`.
+
 ## Publishing
 
 ```
