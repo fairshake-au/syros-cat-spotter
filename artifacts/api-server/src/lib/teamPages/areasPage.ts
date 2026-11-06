@@ -278,6 +278,8 @@ export function renderAreasPage(o: AreasPageOptions): string {
       pageIntro(
         "Areas are the place names shown on cats, sightings and the Cats filters, like Ermoupoli. Each place takes the name of the area whose centre is nearest.",
       ) +
+      // SYC-810: area names show on cats in the public app.
+      `<p class="warn">These names show in the public app. Use places only, never people or feeding sites.</p>` +
       addForm(o) +
       `<h2>The areas (${o.areas.length})</h2>` +
       `<ul class="cats">${o.areas.map((a) => areaRow(a, o)).join("")}</ul>` +

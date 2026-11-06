@@ -74,6 +74,14 @@ describe("the Areas page", () => {
     expect(res.text.indexOf(hint)).toBeLessThan(res.text.indexOf('id="add-name"'));
   });
 
+  // SYC-810: area names now show on cats in the public app.
+  it("warns above the add form that names show in the public app", async () => {
+    const res = await page(team.cookie);
+    const line = "These names show in the public app. Use places only, never people or feeding sites.";
+    expect(res.text).toContain(line);
+    expect(res.text.indexOf(line)).toBeLessThan(res.text.indexOf("<summary>Add an area</summary>"));
+  });
+
   it("a team member can add, rename, move and retire an area, and each change is in the history", async () => {
     const key = k("page");
     const add = await send(team.cookie, { op: "add", name: nm("Page"), key, ...SEA });
