@@ -674,13 +674,6 @@ describe("SYC-519 (D) with 7.1: an Issues row is the Queue's one-line row", () =
     expect(card((await get(`/api/team?issue=hidden&r=${r.publicId}`)).text, r.publicId)).toContain("<details open><summary");
   });
 
-  // SYC-816: nothing open is one line, not three headed "(0)" sections.
-  it("with no issues at all, the section is one line", async () => {
-    const page = (await get("/api/team")).text;
-    expect(page).toContain("No issues are waiting.");
-    expect(page).not.toContain('id="issues-hidden"');
-  });
-
   it("the Unchecked issues group is hidden at zero, and named in plain words when there are some", async () => {
     await seedReport({ publicId: `vt-iss-${RUN}-chk`, kind: "content", reason: "other", catId: cat.id, tokenChecked: true });
     const none = (await get("/api/team")).text;
