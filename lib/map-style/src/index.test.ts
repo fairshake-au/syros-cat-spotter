@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { LayerSpecification, StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { layers as protomapsLayers, namedFlavor } from '@protomaps/basemaps';
@@ -144,5 +145,85 @@ describe('map style', () => {
       expect(JSON.stringify(f)).toContain('["!",["in",["get","kind"],["literal",["beach","peak"]]]]');
       expect(f![0]).toBe('all');
     });
+  });
+});
+
+describe('the quiet base map (SYC-812 §3.4)', () => {
+  const QUIET = { ...EN, quiet: true } as const;
+  const LAND = '#f4f2ec';
+  const WATER = '#cfe7f9';
+  const here = (f: string) => new URL(`./__fixtures__/${f}`, import.meta.url);
+
+  it.each(['en', 'el'] as const)('with no quiet option the style is unchanged (%s)', (lang) => {
+    // The fixture is the style as it was before the quiet option existed.
+    const before = JSON.parse(readFileSync(here(`style-before-quiet.${lang}.json`), 'utf8'));
+    const opts = { ...EN, lang } as const;
+    expect(JSON.parse(JSON.stringify(buildStyle(opts)))).toEqual(before);
+    expect(JSON.parse(JSON.stringify(buildStyle({ ...opts, quiet: false })))).toEqual(before);
+    expect(JSON.parse(JSON.stringify(buildStyle({ ...opts, quiet: undefined })))).toEqual(before);
+  });
+
+  it('quiet land is #f4f2ec and water is #cfe7f9', () => {
+    const s = buildStyle(QUIET);
+    expect(paint(s, 'earth')['fill-color']).toBe(LAND);
+    expect(paint(s, 'water')['fill-color']).toBe(WATER);
+    expect(paint(s, 'background')['background-color']).toBe(WATER);
+    expect(paint(s, 'water_river')['line-color']).toBe(WATER);
+  });
+
+  it('quiet keeps every layer, in order, and every label layer exactly as it was apart from colour', () => {
+    const plain = buildStyle(EN);
+    const quiet = buildStyle(QUIET);
+    expect(quiet.layers.map((l) => l.id)).toEqual(plain.layers.map((l) => l.id));
+    const labels = plain.layers.filter((l) => l.type === 'symbol');
+    expect(labels.length).toBeGreaterThan(10);
+    for (const l of labels) {
+      const q = layer(quiet, l.id);
+      expect(q.layout, l.id).toEqual(l.layout);
+      expect((q as { filter?: unknown }).filter, l.id).toEqual((l as { filter?: unknown }).filter);
+      expect(q.minzoom, l.id).toEqual(l.minzoom);
+      expect(q.maxzoom, l.id).toEqual(l.maxzoom);
+    }
+    expect(labelFieldsFor('en').every((f) => JSON.stringify(textField(quiet, f.layerId)) === JSON.stringify(f.textField))).toBe(true);
+  });
+
+  it('quiet changes only colours, never a width, an opacity or a shape', () => {
+    const plain = buildStyle(EN);
+    const quiet = buildStyle(QUIET);
+    const strip = (l: LayerSpecification) => {
+      const p = { ...((l.paint ?? {}) as Record<string, unknown>) };
+      for (const k of Object.keys(p)) if (/color/.test(k)) delete p[k];
+      return { ...l, paint: p };
+    };
+    for (const l of plain.layers) expect(strip(layer(quiet, l.id)), l.id).toEqual(strip(l));
+  });
+
+  // Contrast, worked out from the colours in the style itself (WCAG relative luminance).
+  const lin = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const lum = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  };
+  const ratio = (a: string, b: string) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi! + 0.05) / (lo! + 0.05);
+  };
+  const hexes = (v: unknown) => [...JSON.stringify(v).matchAll(/#[0-9a-fA-F]{6}\b/g)].map((m) => m[0]);
+
+  it('every label colour is at least 4.5:1 on its ground (land, or water for water names)', () => {
+    const s = buildStyle(QUIET);
+    const onWater = new Set(['water_waterway_label', 'water_label_ocean', 'water_label_lakes']);
+    let checked = 0;
+    for (const l of s.layers.filter((x) => x.type === 'symbol')) {
+      const colour = paint(s, l.id)['text-color'];
+      if (colour === undefined) continue;
+      for (const c of hexes(colour)) {
+        // A label drawn in the halo's own colour is not drawn (pois of unknown kinds).
+        if (c === paint(s, l.id)['text-halo-color']) continue;
+        expect(ratio(c, onWater.has(l.id) ? WATER : LAND), `${l.id} ${c}`).toBeGreaterThanOrEqual(4.5);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(15);
   });
 });

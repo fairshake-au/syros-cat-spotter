@@ -178,3 +178,123 @@ export function adjustedLayers(lang: MapLang): LayerSpecification[] {
     return { ...l, layout: { ...l.layout, ...extra } } as LayerSpecification;
   });
 }
+
+// The quiet base map for the dashboard (SYC-812 §3.4): the same layers, labels
+// and shapes with the colour taken out, so the cats' marks stand out. Applied
+// after adjustedLayers and only on request; the app's map never asks for it.
+const QUIET_LAND = '#f4f2ec';
+const QUIET_WATER = '#cfe7f9';
+const QUIET_CASING = '#d9d5cc';
+const QUIET_MAJOR_CASING = '#bab6ad';
+const QUIET_HIGHWAY_CASING = '#a8a49b';
+const QUIET_TUNNEL_CASING = '#ebe8e1';
+
+/** Paint colours replaced by id (a single colour for the whole layer). */
+const QUIET_PAINT: Record<string, Record<string, string>> = {
+  background: { 'background-color': QUIET_WATER },
+  earth: { 'fill-color': QUIET_LAND },
+  landcover: { 'fill-color': '#ebeee3' },
+  landuse_urban_green: { 'fill-color': '#e5ebdf' },
+  landuse_hospital: { 'fill-color': '#f1efe7' },
+  landuse_industrial: { 'fill-color': '#ecedea' },
+  landuse_school: { 'fill-color': '#f1efe7' },
+  landuse_beach: { 'fill-color': '#f1ecdc' },
+  landuse_zoo: { 'fill-color': '#e6ebe7' },
+  landuse_aerodrome: { 'fill-color': '#ecedee' },
+  landuse_runway: { 'fill-color': '#eeeeef' },
+  roads_runway: { 'line-color': '#eeeeef' },
+  roads_taxiway: { 'line-color': '#eeeeef' },
+  water: { 'fill-color': QUIET_WATER },
+  water_stream: { 'line-color': QUIET_WATER },
+  water_river: { 'line-color': QUIET_WATER },
+  landuse_pedestrian: { 'fill-color': '#efeef0' },
+  landuse_pier: { 'fill-color': '#ebe9e4' },
+  buildings: { 'fill-color': '#e2ddd3' },
+  roads_pier: { 'line-color': '#ebe9e4' },
+  // Roads: white, with a hairline casing; the bigger the road, the darker the hairline.
+  roads_minor_service_casing: { 'line-color': '#e1ddd5' },
+  roads_minor_casing: { 'line-color': QUIET_CASING },
+  roads_link_casing: { 'line-color': QUIET_CASING },
+  roads_major_casing_early: { 'line-color': QUIET_MAJOR_CASING },
+  roads_major_casing_late: { 'line-color': QUIET_MAJOR_CASING },
+  roads_highway_casing_early: { 'line-color': QUIET_HIGHWAY_CASING },
+  roads_highway_casing_late: { 'line-color': QUIET_HIGHWAY_CASING },
+  roads_other: { 'line-color': '#fafaf8' },
+  roads_link: { 'line-color': '#ffffff' },
+  roads_minor_service: { 'line-color': '#ffffff' },
+  roads_minor: { 'line-color': '#ffffff' },
+  roads_major: { 'line-color': '#ffffff' },
+  roads_highway: { 'line-color': '#ffffff' },
+  paths: { 'line-color': '#b3a79a' },
+  roads_bridges_other_casing: { 'line-color': QUIET_CASING },
+  roads_bridges_link_casing: { 'line-color': QUIET_CASING },
+  roads_bridges_minor_casing: { 'line-color': QUIET_CASING },
+  roads_bridges_major_casing: { 'line-color': QUIET_MAJOR_CASING },
+  roads_bridges_highway_casing: { 'line-color': QUIET_HIGHWAY_CASING },
+  roads_bridges_other: { 'line-color': '#fafaf8' },
+  roads_bridges_minor: { 'line-color': '#ffffff' },
+  roads_bridges_link: { 'line-color': '#ffffff' },
+  roads_bridges_major: { 'line-color': '#ffffff' },
+  roads_bridges_highway: { 'line-color': '#ffffff' },
+  roads_tunnels_other_casing: { 'line-color': QUIET_TUNNEL_CASING },
+  roads_tunnels_minor_casing: { 'line-color': QUIET_TUNNEL_CASING },
+  roads_tunnels_link_casing: { 'line-color': QUIET_TUNNEL_CASING },
+  roads_tunnels_major_casing: { 'line-color': QUIET_TUNNEL_CASING },
+  roads_tunnels_highway_casing: { 'line-color': QUIET_TUNNEL_CASING },
+  roads_tunnels_other: { 'line-color': '#f1efe9' },
+  roads_tunnels_minor: { 'line-color': '#f1efe9' },
+  roads_tunnels_link: { 'line-color': '#f1efe9' },
+  roads_tunnels_major: { 'line-color': '#f1efe9' },
+  roads_tunnels_highway: { 'line-color': '#f1efe9' },
+  // Labels stay, with darker text where the old colour fell under 4.5:1 on the new land or water.
+  address_label: { 'text-color': '#6a6164' },
+  water_waterway_label: { 'text-color': '#2d4a8a', 'text-halo-color': QUIET_WATER },
+  water_label_ocean: { 'text-color': '#2d4a8a', 'text-halo-color': QUIET_WATER },
+  water_label_lakes: { 'text-color': '#2d4a8a', 'text-halo-color': QUIET_WATER },
+  earth_label_islands: { 'text-halo-color': QUIET_LAND },
+  places_subplace: { 'text-halo-color': QUIET_LAND },
+  places_region: { 'text-color': '#6b6b6b', 'text-halo-color': QUIET_LAND },
+  places_locality: { 'text-halo-color': QUIET_LAND },
+  places_country: { 'text-color': '#6b6b6b', 'text-halo-color': QUIET_LAND },
+  church: { 'text-halo-color': QUIET_LAND },
+  peak: { 'text-halo-color': QUIET_LAND },
+  beach_name: { 'text-color': '#7a5f17' },
+};
+
+/** Colours swapped inside layers whose paint is an expression (parks, and landmark labels). */
+const QUIET_SWAPS: Record<string, Record<string, string>> = {
+  landuse_park: {
+    '#c8facc': '#e4ebdf', // parks and woods: a pale grey-green
+    '#add19e': '#d8e3d0',
+    '#c8d7ab': '#e6ebdc',
+    '#f5e9c6': '#f0ead8',
+    '#c6dcdc': '#e3e9e8',
+    '#f2efe9': QUIET_LAND,
+  },
+  pois: {
+    '#20834D': '#1a6e40',
+    '#1A8CBD': '#11688d',
+    '#CB6704': '#a14f00',
+    '#EF56BA': '#b02d86',
+    '#f2efe9': QUIET_LAND,
+  },
+};
+
+function swapColours<T>(value: T, swaps: Record<string, string>): T {
+  const json = JSON.stringify(value);
+  return JSON.parse(json.replace(/#[0-9a-fA-F]{6}\b/g, (hex) => swaps[hex] ?? hex)) as T;
+}
+
+/** The layers with low-colour paint. Layout, filters, widths and opacities are left alone. */
+export function quietLayers(layers: LayerSpecification[]): LayerSpecification[] {
+  return layers.map((l) => {
+    const flat = QUIET_PAINT[l.id];
+    const swaps = QUIET_SWAPS[l.id];
+    if (!flat && !swaps) return l;
+    const paint = { ...((l as { paint?: Record<string, unknown> }).paint ?? {}) };
+    if (swaps) {
+      for (const k of Object.keys(paint)) if (/color/.test(k)) paint[k] = swapColours(paint[k], swaps);
+    }
+    return { ...l, paint: { ...paint, ...flat } } as LayerSpecification;
+  });
+}

@@ -11,7 +11,7 @@ describe("the Map's honest note (SYC-812 §3.6)", () => {
   it("is inside #mapresults with a Show them link that stays on the Map and keeps the filters", () => {
     const results = resultsOf(catMapBody({ filters: { colours: ["black"] } }));
     expect(results.textContent).toContain(WORDS);
-    const link = results.querySelector<HTMLAnchorElement>("p.hint a")!;
+    const link = results.querySelector("p.hint a")!;
     expect(link.textContent).toBe("Show them");
     const href = link.getAttribute("href")!;
     expect(href).toContain("view=map");
