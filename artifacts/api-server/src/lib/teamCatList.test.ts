@@ -4,7 +4,7 @@ import { like } from "drizzle-orm";
 import { catIdentityTable, catsTable, db, observationsTable, photosTable, sightingsTable } from "@workspace/db";
 import { deleteTestSightings } from "../test/sightings";
 import { newColony, putInColony } from "../test/roleKit";
-import { allTeamCats, listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
+import { allTeamCats, inLastSeenBand, listTeamCats, livesOf, loadTeamCats, markOf, PAGE_SIZE } from "./teamCatList";
 import { NOT_SEEN_LATELY_DAYS, notSeenLately } from "./dashboard/countedCats";
 import { loadCatRecords } from "./observations";
 import { resolveCat, type CatSnapshot } from "./resolve";
@@ -23,6 +23,37 @@ describe("markOf: the four sterilisation marks", () => {
   ])("markOf(%o) is %s", (s, want) =>
     expect(markOf({ ...s, asOf: "", clippedTipSightings: 0 } as never)).toBe(want),
   );
+});
+
+describe("the Last seen bands (SYC-812 §3.5): fixed dates, no wall clock", () => {
+  const FIXED = new Date("2026-10-15T12:00:00Z");
+  const ago = (days: number) => new Date(FIXED.getTime() - days * 86_400_000);
+  const inBand = (band: Parameters<typeof inLastSeenBand>[0], days: number) =>
+    inLastSeenBand(band, ago(days), FIXED);
+
+  it("month means 8 to 30 days: 7 is out, 8 and 30 are in, 31 is out", () => {
+    expect(inBand("month", 7)).toBe(false);
+    expect(inBand("month", 8)).toBe(true);
+    expect(inBand("month", 30)).toBe(true);
+    expect(inBand("month", 31)).toBe(false);
+  });
+
+  it("week, month, 1to3 and over3 never overlap", () => {
+    for (let d = 0; d <= 120; d++) {
+      const hits = (["week", "month", "1to3", "over3"] as const).filter((b) => inBand(b, d));
+      expect(hits, `${d} days`).toHaveLength(1);
+    }
+  });
+
+  it("never matches only a cat with no sighting", () => {
+    expect(inLastSeenBand("never", null, FIXED)).toBe(true);
+    expect(inLastSeenBand("week", null, FIXED)).toBe(false);
+  });
+
+  it("quiet still works for old links", () => {
+    expect(inBand("quiet", NOT_SEEN_LATELY_DAYS)).toBe(true);
+    expect(inBand("quiet", NOT_SEEN_LATELY_DAYS - 1)).toBe(false);
+  });
 });
 
 describe("livesOf", () => {
@@ -219,9 +250,9 @@ describe("listTeamCats", () => {
   });
 
   it("filters by when it was last seen", async () => {
-    // The bands add up: a cat seen 3 days ago is in both This week and This month.
+    // The bands don't overlap (SYC-812): a cat seen 2 days ago is in "In the last week" only.
     expect(names((await list({ lastSeen: "week" })).items)).toEqual(["Ginger", "Mixed", "Tie"]);
-    expect(names((await list({ lastSeen: "month" })).items)).toEqual(["Ginger", "Mixed", "Tie", "Black"]);
+    expect(names((await list({ lastSeen: "month" })).items)).toEqual(["Black"]);
     expect(names((await list({ lastSeen: "1to3" })).items)).toEqual([]);
     expect(names((await list({ lastSeen: "never" })).items)).toEqual(["Never"]);
     expect(names((await list({ lastSeen: "over3" })).items)).toEqual([]);

@@ -119,7 +119,7 @@ describe("the page's requests, watched", () => {
       colours: ["ginger"],
       sterilised: ["not_known"],
       lives: expect.arrayContaining(["homed", "in_care", "street"]),
-      sort: "recent",
+      // No Sort on the Map (SYC-812): the form sends none unless a sort was chosen on the Grid.
     });
     expect(JSON.parse(t.asks[1]!.init.body)).toMatchObject({ colours: ["ginger"], q: "Mimi" });
     for (const a of t.asks) expect(a.init.body).not.toMatch(/"(?:view|lat|lng)"/);

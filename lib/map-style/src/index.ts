@@ -4,6 +4,7 @@ import {
   adjustedLayers,
   nameExpression,
   otherNameTextFields,
+  quietLayers,
   type MapLang,
 } from './adjusted';
 
@@ -18,9 +19,12 @@ export interface BuildStyleOptions {
   pmtilesUrl: string;
   glyphsUrl: string;
   spriteUrl: string;
+  /** Low-colour base map for the team dashboard (SYC-812). Off unless asked for; the app never asks. */
+  quiet?: boolean;
 }
 
 export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
+  const layers = adjustedLayers(opts.lang);
   return {
     version: 8,
     glyphs: opts.glyphsUrl,
@@ -28,7 +32,7 @@ export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
     sources: {
       protomaps: { type: 'vector', url: opts.pmtilesUrl, attribution: '© OpenStreetMap contributors' },
     },
-    layers: adjustedLayers(opts.lang),
+    layers: opts.quiet ? quietLayers(layers) : layers,
   };
 }
 
