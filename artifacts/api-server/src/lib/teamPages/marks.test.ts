@@ -152,6 +152,9 @@ describe("telling the four marks apart (SYC-783, option A)", () => {
   it("stripes Probably and outlines Not known in the bar, and sets only the colour inline so the stripes show", () => {
     expect(MARK_CSS).toContain(".markbar-seg.mark-probably{background-image:repeating-linear-gradient(45deg,");
     expect(MARK_CSS).toContain(".markbar-seg.mark-not_known{box-shadow:inset 0 0 0 1px var(--line-strong)}");
+    // The outline follows a segment's own corners, so the bar's ends must be rounded on the segment too.
+    expect(MARK_CSS).toContain(".markbar-seg:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}");
+    expect(MARK_CSS).toContain(".markbar-seg:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}");
     expect(MARK_CSS).toContain("print-color-adjust:exact");
     const html = markBar({ sterilised: 3, probably: 2, not_known: 1, not_sterilised: 1 });
     expect(html).not.toMatch(/background:var/);
