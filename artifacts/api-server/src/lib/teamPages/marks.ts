@@ -213,6 +213,9 @@ export const MARK_CSS =
   // Print the parts as drawn: without this a browser drops backgrounds and the bar prints empty.
   ".markbar-seg{display:block;min-width:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}" +
   `.markbar-seg.mark-probably{background-image:${HATCH}}` +
+  // The track clips the ends, but an inset outline follows the segment's own corners, so round those too.
+  ".markbar-seg:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}" +
+  ".markbar-seg:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}" +
   ".markbar-seg.mark-not_known{box-shadow:inset 0 0 0 1px var(--line-strong)}" +
   ".markbar-empty{border:2px solid var(--line-strong);box-sizing:border-box}" +
   ".markbar-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:6px 0 0;font-size:14px;color:var(--ink)}" +
