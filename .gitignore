@@ -57,3 +57,6 @@ design/coming-soon/cur/
 # map build output and work dir (SYC-705)
 /out/
 /.map-work/
+
+# graphify code map (built per checkout, see docs/graphify.md)
+graphify-out/
