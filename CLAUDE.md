@@ -37,8 +37,8 @@ Added 27 Oct 2026 from the project retrospective (Samuel chose each one):
 
 Added 10 Nov 2026 (Samuel: "make it automatic"). Setup and what it sends where: `docs/graphify.md`.
 
-- Each checkout has a code map at `graphify-out/` (ignored by git). A hook builds it in the background when a session starts and there is none yet (offline, code only, about 30 seconds); `graphify-out/build.log` shows progress.
-- When `graphify-out/graph.json` exists, start a codebase question with `graphify query "<question>"`, `graphify explain "<file or symbol>"` or `graphify path "<A>" "<B>"` before grepping or reading files, then read only the lines it points to. Put this rule in any subagent prompt that explores code.
-- `graphify-out/GRAPH_REPORT.md` gives the overview: most-connected parts, files that import each other in a loop, and the groups.
+- Each checkout has a code map at `graphify-out/` (ignored by git). When a session starts, a hook builds it in the background (offline, code only, about a minute), or refreshes it if the code has changed since; `graphify-out/build.log` shows progress.
+- When `graphify-out/graph.json` exists, use `graphify explain "<file or symbol>"`, `graphify path "<A>" "<B>"` or `graphify query "<question>"` to find where something lives and what touches it, then read only the lines it points to. Results can be noisy (a query may surface unrelated parts first), so grep for exact text once you know the files. Put this rule in any subagent prompt that explores code.
+- `graphify-out/GRAPH_REPORT.md` is long (about 18k tokens). Read only its top sections (most-connected parts, import loops) for an overview.
 - After changing code, `graphify update .` refreshes the map (offline, no cost).
 - Where graphify isn't installed (Replit, cloud sessions) the hooks do nothing; carry on as usual.

@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$CLAUDE_PROJECT_DIR/scripts/graphify-hook.sh\" start",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/scripts/graphify-hook.sh\" start",
             "timeout": 10
           }
         ]
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$CLAUDE_PROJECT_DIR/scripts/graphify-hook.sh\" compact",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/scripts/graphify-hook.sh\" compact",
             "timeout": 10
           }
         ]
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$CLAUDE_PROJECT_DIR/scripts/graphify-hook.sh\" search",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/scripts/graphify-hook.sh\" search",
             "timeout": 10
           }
         ]
@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"$CLAUDE_PROJECT_DIR/scripts/graphify-hook.sh\" read",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/scripts/graphify-hook.sh\" read",
             "timeout": 10
           }
         ]
