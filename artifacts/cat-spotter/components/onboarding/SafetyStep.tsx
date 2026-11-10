@@ -61,7 +61,7 @@ export function SafetyStep({ onNext }: { onNext: () => void }) {
               {t('howSafetyLeaveBe')}
             </Text>
             {/* SYC-524: the advice that was a card on the retired How it works screen. */}
-            <View style={[styles.feedBlock, { backgroundColor: palette.terra100 }]}>
+            <View style={[styles.feedBlock, { backgroundColor: colors.dangerSoft }]}>
               <Text style={[styles.feedTitle, { color: colors.foreground }]}>
                 <Text {...decorative}>🚫 </Text>
                 {t('howStepDontFeed')}

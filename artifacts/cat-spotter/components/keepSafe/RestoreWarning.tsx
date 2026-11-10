@@ -84,7 +84,7 @@ export function RestoreWarning({
       <View
         testID="restore-warning"
         accessibilityRole="alert"
-        style={[styles.box, { backgroundColor: palette.sun100, borderColor: palette.sun700 }]}
+        style={[styles.box, { backgroundColor: colors.warningSoft, borderColor: palette.sun700 }]}
       >
         <Text style={[styles.text, { color: colors.foreground }]}>{restoreWarningText(t, current)}</Text>
       </View>
