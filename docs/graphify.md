@@ -35,7 +35,7 @@ The last step adds the `/graphify` skill. It also adds a short graphify section 
 
 - The map is built offline from the code (`--code-only`, `GRAPHIFY_BACKEND=none`). No code is sent anywhere.
 - graphify says it collects no usage data. It keeps a log of queries on the Mac at `~/.cache/graphify-queries.log` (`GRAPHIFY_QUERY_LOG_DISABLE=1` turns it off).
-- Optional: `graphify label . --backend=claude-cli --model=sonnet` names the groups by sending lists of function and table names (not file contents) through your `claude` CLI.
+- Optional: `graphify label . --backend=claude-cli --model=sonnet` names the groups by sending lists of function and table names (not file contents) through your `claude` CLI. It needs a signed-in CLI (`claude auth status`); with an expired login it falls back to file names without saying so.
 
 ## Useful commands
 
