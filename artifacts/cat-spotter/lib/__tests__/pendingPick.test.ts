@@ -61,8 +61,15 @@ describe('pendingPick', () => {
     expect(await takePendingPick(storage, async () => ({ code: 'ERR', message: 'x' }))).toBeNull();
   });
 
-  it('ignores a pending photo with no mark: it did not start from the Spot buttons', async () => {
-    expect(await takePendingPick(storage, async () => success)).toBeNull();
+  it('leaves a pending photo with no mark with the picker: it did not start from the Spot buttons', async () => {
+    let asked = 0;
+    expect(
+      await takePendingPick(storage, async () => {
+        asked += 1;
+        return success;
+      }),
+    ).toBeNull();
+    expect(asked).toBe(0);
   });
 
   it('returns nothing, rather than throwing, when the picker or storage fails', async () => {

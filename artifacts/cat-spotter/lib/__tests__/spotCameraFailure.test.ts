@@ -82,4 +82,15 @@ describe('the camera photo on the phones (SYC-864: Android "low memory")', () =>
     expect(source).toMatch(/takePendingPick<[^>]+>\(\s*AsyncStorage,\s*ImagePicker\.getPendingResultAsync,?\s*\)/);
     expect(source).toMatch(/markPickStarted\(AsyncStorage/);
   });
+
+  it('collects it only once the queue has loaded, and again when the app returns', () => {
+    expect(source).toMatch(/if \(Platform\.OS !== 'android' \|\| !queueReady\) return;/);
+    expect(source).toMatch(/if \(state === 'active'\) void recover\(\);/);
+    // The "already logged" check reads the latest queue, not the first render's.
+    expect(handler('acceptPicked', 'recoveringRef')).toMatch(/pendingRef\.current\.map/);
+  });
+
+  it('does not re-encode a camera extra that is already at the stored size', () => {
+    expect(source.match(/picked\.prepared \? picked\.photo : await prepareExtraPhoto\(/g)).toHaveLength(2);
+  });
 });

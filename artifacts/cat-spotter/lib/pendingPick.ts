@@ -43,17 +43,19 @@ export async function clearPickMark(storage: PickStorage): Promise<void> {
 
 /**
  * The photo Android kept while the app was closed, with which button started
- * it, or null. The note is cleared either way.
+ * it, or null. With no note the picker isn't asked at all.
  */
 export async function takePendingPick<A>(
   storage: PickStorage,
   getPending: () => Promise<PendingAnswer>,
 ): Promise<{ kind: PickKind; asset: A } | null> {
   try {
-    const answer = await getPending();
+    // Read the note first: collecting the photo takes it from the picker, so
+    // a photo started elsewhere (a face or body photo) is left alone.
     const kind = await storage.getItem(PENDING_PICK_KEY);
-    await clearPickMark(storage);
     if (kind !== 'camera' && kind !== 'library') return null;
+    await clearPickMark(storage);
+    const answer = await getPending();
     if (!answer || !('canceled' in answer) || answer.canceled) return null;
     const asset = answer.assets?.[0];
     return asset ? { kind, asset: asset as A } : null;

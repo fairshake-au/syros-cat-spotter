@@ -191,6 +191,10 @@ export default function SpotScreen() {
     syncing,
   } =
     useOffline();
+  // The latest queue, for a photo recovered after Android closed the app
+  // (SYC-864): its "already logged" check runs from an effect, not a render.
+  const pendingRef = React.useRef(pending);
+  pendingRef.current = pending;
   // SYC-524: Spot never asks on open. It asks from the location card after a
   // camera photo, or straight after one for a spotter who shared before.
   const {
@@ -534,7 +538,7 @@ export default function SpotScreen() {
 
   const choosePhoto = async (
     fromCamera: boolean,
-  ): Promise<Awaited<ReturnType<typeof readPickedAsset>> | null> => {
+  ): Promise<(Awaited<ReturnType<typeof readPickedAsset>> & { prepared: boolean }) | null> => {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -606,13 +610,17 @@ export default function SpotScreen() {
     await acceptPicked(picked, fromCamera);
   };
 
-  /** The picker's photo turned into the photo to send. */
+  /**
+   * The picker's photo turned into the photo to send. `prepared` says it is
+   * already at the stored size and quality, so an extra isn't re-encoded.
+   */
   const readAsset = async (
     asset: ImagePicker.ImagePickerAsset,
     fromCamera: boolean,
-  ): Promise<Awaited<ReturnType<typeof readPickedAsset>> | null> => {
+  ): Promise<(Awaited<ReturnType<typeof readPickedAsset>> & { prepared: boolean }) | null> => {
     let source: ImagePicker.ImagePickerAsset = asset;
-    if (fromCamera && Platform.OS !== 'web') {
+    const prepare = fromCamera && Platform.OS !== 'web';
+    if (prepare) {
       // SYC-864: the camera gave a file only. Shrink it to the size the
       // server stores (2048px, as the extras), decoding it once.
       const prepared = await preparePhotoForUpload(asset.uri, { width: asset.width, height: asset.height });
@@ -622,13 +630,14 @@ export default function SpotScreen() {
       }
       source = { ...asset, uri: prepared.uri, base64: prepared.base64 };
     }
-    return readPickedAsset(source, {
+    const read = await readPickedAsset(source, {
       // A camera photo is taken now, so it is dated now.
       timeFrom: fromCamera ? 'nowhere' : Platform.OS === 'web' ? 'file' : 'pickerTags',
       now: Date.now(),
       shrink,
       maxUploadBytes: MAX_UPLOAD_BYTES,
     });
+    return { ...read, prepared: prepare };
   };
 
   /** A first photo from the picker (or recovered after Android closed the app). */
@@ -650,7 +659,7 @@ export default function SpotScreen() {
       const logged = findAlreadyLogged(
         fingerprint,
         await loadRecentPhotos(AsyncStorage, Date.now()),
-        new Set(pending.map((p) => p.localId)),
+        new Set(pendingRef.current.map((p) => p.localId)),
       );
       if (logged) {
         releasePhotoUri(next.uri);
@@ -669,27 +678,37 @@ export default function SpotScreen() {
   };
 
   // SYC-864: Android can close the app while its camera or photo library is
-  // open (short of memory). The picker keeps the photo; collect it here so
-  // the spotter doesn't lose the shot. Other platforms have nothing pending.
+  // open (short of memory). The picker keeps the photo; collect it once the
+  // queue has loaded (the "already logged" check needs it), and again each
+  // time the app comes back to the front, so the spotter doesn't lose the
+  // shot. Other platforms have nothing pending.
+  const recoveringRef = React.useRef(false);
   React.useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    let live = true;
-    void (async () => {
-      const pendingPick = await takePendingPick<ImagePicker.ImagePickerAsset>(
-        AsyncStorage,
-        ImagePicker.getPendingResultAsync,
-      );
-      if (!pendingPick || !live) return;
-      const fromCamera = pendingPick.kind === 'camera';
-      const picked = await readAsset(pendingPick.asset, fromCamera);
-      if (picked && live) await acceptPicked(picked, fromCamera);
-    })();
-    return () => {
-      live = false;
+    if (Platform.OS !== 'android' || !queueReady) return;
+    const recover = async () => {
+      if (recoveringRef.current) return;
+      recoveringRef.current = true;
+      try {
+        const pendingPick = await takePendingPick<ImagePicker.ImagePickerAsset>(
+          AsyncStorage,
+          ImagePicker.getPendingResultAsync,
+        );
+        if (!pendingPick) return;
+        const fromCamera = pendingPick.kind === 'camera';
+        const picked = await readAsset(pendingPick.asset, fromCamera);
+        if (picked) await acceptPicked(picked, fromCamera);
+      } finally {
+        recoveringRef.current = false;
+      }
     };
-    // Once, when the Spot screen opens.
+    void recover();
+    const sub = AppState.addEventListener?.('change', (state) => {
+      if (state === 'active') void recover();
+    });
+    return () => sub?.remove();
+    // The handlers read the latest queue through pendingRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [queueReady]);
 
   const openCameraSettings = async () => {
     if (Platform.OS === 'web') {
@@ -780,7 +799,8 @@ export default function SpotScreen() {
     }
     setPreparingExtra(true);
     try {
-      const prepared = await prepareExtraPhoto(picked.photo.uri);
+      // SYC-864: a phone camera photo is already at the stored size.
+      const prepared = picked.prepared ? picked.photo : await prepareExtraPhoto(picked.photo.uri);
       if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
       if (stale()) {
         releasePhotoUri(prepared?.uri);
@@ -870,7 +890,8 @@ export default function SpotScreen() {
   ) => {
     const picked = await choosePhoto(fromCamera);
     if (!picked) return;
-    const prepared = await prepareExtraPhoto(picked.photo.uri);
+    // SYC-864: a phone camera photo is already at the stored size.
+    const prepared = picked.prepared ? picked.photo : await prepareExtraPhoto(picked.photo.uri);
     if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
     if (!prepared) {
       notify(t('extraTooLarge'));
