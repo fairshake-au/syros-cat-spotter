@@ -108,7 +108,8 @@ import {
   type ExtraRole,
   type SpotPhoto,
 } from '@/lib/extraPhotos';
-import { prepareExtraPhoto } from '@/lib/prepareExtraPhoto';
+import { prepareExtraPhoto, preparePhotoForUpload } from '@/lib/prepareExtraPhoto';
+import { clearPickMark, markPickStarted, takePendingPick } from '@/lib/pendingPick';
 import { extrasOf } from '@/lib/offlineQueue';
 import {
   MAP_START_WAIT_MS,
@@ -190,6 +191,10 @@ export default function SpotScreen() {
     syncing,
   } =
     useOffline();
+  // The latest queue, for a photo recovered after Android closed the app
+  // (SYC-864): its "already logged" check runs from an effect, not a render.
+  const pendingRef = React.useRef(pending);
+  pendingRef.current = pending;
   // SYC-524: Spot never asks on open. It asks from the location card after a
   // camera photo, or straight after one for a spotter who shared before.
   const {
@@ -533,7 +538,7 @@ export default function SpotScreen() {
 
   const choosePhoto = async (
     fromCamera: boolean,
-  ): Promise<Awaited<ReturnType<typeof readPickedAsset>> | null> => {
+  ): Promise<(Awaited<ReturnType<typeof readPickedAsset>> & { prepared: boolean }) | null> => {
     try {
       if (fromCamera && Platform.OS !== 'web') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -557,8 +562,14 @@ export default function SpotScreen() {
       }
       const result = fromCamera
         ? await ImagePicker.launchCameraAsync({
+            // SYC-864: on the phones the camera hands back the file only.
+            // Turning a full-size photo (often 5–15 MB) into one long text
+            // string ran Android out of memory ("low memory"); readAsset
+            // shrinks it to the stored size instead. Quality stays 1: below
+            // 1, Android's picker decodes the whole photo to re-encode it.
+            // The website's picker still needs the text form.
             quality: 1,
-            base64: true,
+            base64: Platform.OS === 'web',
             // Without this the web picker sets capture="camera", a value that
             // is not in the HTML Media Capture spec; browsers fall back to an
             // implementation default that is commonly the selfie camera.
@@ -580,13 +591,7 @@ export default function SpotScreen() {
             exif: Platform.OS !== 'web',
           });
       if (!result.canceled && result.assets[0]) {
-        return await readPickedAsset(result.assets[0], {
-          // A camera photo is taken now, so it is dated now.
-          timeFrom: fromCamera ? 'nowhere' : Platform.OS === 'web' ? 'file' : 'pickerTags',
-          now: Date.now(),
-          shrink,
-          maxUploadBytes: MAX_UPLOAD_BYTES,
-        });
+        return await readAsset(result.assets[0], fromCamera);
       }
     } catch {
       notify(t('error'));
@@ -596,8 +601,50 @@ export default function SpotScreen() {
 
   const pickPhoto = async (fromCamera: boolean) => {
     setPhotoProblem(null);
+    // SYC-864: noted so a photo Android keeps while the app is closed can be
+    // collected on return (the effect calling takePendingPick).
+    await markPickStarted(AsyncStorage, fromCamera ? 'camera' : 'library');
     const picked = await choosePhoto(fromCamera);
+    await clearPickMark(AsyncStorage);
     if (!picked) return;
+    await acceptPicked(picked, fromCamera);
+  };
+
+  /**
+   * The picker's photo turned into the photo to send. `prepared` says it is
+   * already at the stored size and quality, so an extra isn't re-encoded.
+   */
+  const readAsset = async (
+    asset: ImagePicker.ImagePickerAsset,
+    fromCamera: boolean,
+  ): Promise<(Awaited<ReturnType<typeof readPickedAsset>> & { prepared: boolean }) | null> => {
+    let source: ImagePicker.ImagePickerAsset = asset;
+    const prepare = fromCamera && Platform.OS !== 'web';
+    if (prepare) {
+      // SYC-864: the camera gave a file only. Shrink it to the size the
+      // server stores (2048px, as the extras), decoding it once.
+      const prepared = await preparePhotoForUpload(asset.uri, { width: asset.width, height: asset.height });
+      if (!prepared) {
+        notify(t('error'));
+        return null;
+      }
+      source = { ...asset, uri: prepared.uri, base64: prepared.base64 };
+    }
+    const read = await readPickedAsset(source, {
+      // A camera photo is taken now, so it is dated now.
+      timeFrom: fromCamera ? 'nowhere' : Platform.OS === 'web' ? 'file' : 'pickerTags',
+      now: Date.now(),
+      shrink,
+      maxUploadBytes: MAX_UPLOAD_BYTES,
+    });
+    return { ...read, prepared: prepare };
+  };
+
+  /** A first photo from the picker (or recovered after Android closed the app). */
+  const acceptPicked = async (
+    picked: Awaited<ReturnType<typeof readPickedAsset>>,
+    fromCamera: boolean,
+  ) => {
     const { photo: next, timeInfo, fingerprint } = picked;
     // Every library photo, on the apps and the website (slice 2W). The camera
     // is untouched: a photo taken now is dated now and can't be a repeat.
@@ -612,7 +659,7 @@ export default function SpotScreen() {
       const logged = findAlreadyLogged(
         fingerprint,
         await loadRecentPhotos(AsyncStorage, Date.now()),
-        new Set(pending.map((p) => p.localId)),
+        new Set(pendingRef.current.map((p) => p.localId)),
       );
       if (logged) {
         releasePhotoUri(next.uri);
@@ -629,6 +676,39 @@ export default function SpotScreen() {
     setPickSource(fromCamera ? 'camera' : 'library');
     setFirstPhoto(next, timeInfo, fingerprint, takenAtMs);
   };
+
+  // SYC-864: Android can close the app while its camera or photo library is
+  // open (short of memory). The picker keeps the photo; collect it once the
+  // queue has loaded (the "already logged" check needs it), and again each
+  // time the app comes back to the front, so the spotter doesn't lose the
+  // shot. Other platforms have nothing pending.
+  const recoveringRef = React.useRef(false);
+  React.useEffect(() => {
+    if (Platform.OS !== 'android' || !queueReady) return;
+    const recover = async () => {
+      if (recoveringRef.current) return;
+      recoveringRef.current = true;
+      try {
+        const pendingPick = await takePendingPick<ImagePicker.ImagePickerAsset>(
+          AsyncStorage,
+          ImagePicker.getPendingResultAsync,
+        );
+        if (!pendingPick) return;
+        const fromCamera = pendingPick.kind === 'camera';
+        const picked = await readAsset(pendingPick.asset, fromCamera);
+        if (picked) await acceptPicked(picked, fromCamera);
+      } finally {
+        recoveringRef.current = false;
+      }
+    };
+    void recover();
+    const sub = AppState.addEventListener?.('change', (state) => {
+      if (state === 'active') void recover();
+    });
+    return () => sub?.remove();
+    // The handlers read the latest queue through pendingRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueReady]);
 
   const openCameraSettings = async () => {
     if (Platform.OS === 'web') {
@@ -719,7 +799,8 @@ export default function SpotScreen() {
     }
     setPreparingExtra(true);
     try {
-      const prepared = await prepareExtraPhoto(picked.photo.uri);
+      // SYC-864: a phone camera photo is already at the stored size.
+      const prepared = picked.prepared ? picked.photo : await prepareExtraPhoto(picked.photo.uri);
       if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
       if (stale()) {
         releasePhotoUri(prepared?.uri);
@@ -809,7 +890,8 @@ export default function SpotScreen() {
   ) => {
     const picked = await choosePhoto(fromCamera);
     if (!picked) return;
-    const prepared = await prepareExtraPhoto(picked.photo.uri);
+    // SYC-864: a phone camera photo is already at the stored size.
+    const prepared = picked.prepared ? picked.photo : await prepareExtraPhoto(picked.photo.uri);
     if (prepared?.uri !== picked.photo.uri) releasePhotoUri(picked.photo.uri);
     if (!prepared) {
       notify(t('extraTooLarge'));

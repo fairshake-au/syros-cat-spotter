@@ -13,9 +13,25 @@ const QUALITY = 0.8;
  * on null (spec §4.3, §6.1), so nothing un-sendable reaches the queue.
  */
 export async function prepareExtraPhoto(uri: string): Promise<{ uri: string; base64: string } | null> {
+  return preparePhotoForUpload(uri);
+}
+
+/**
+ * The same preparation, for a photo whose size is already known (SYC-864: the
+ * camera photo, whose size the picker reports). With the size known the photo
+ * is decoded once, not twice; an unknown size (0, or none) is measured first.
+ * The server keeps nothing larger than 2048px either (imageValidation.ts), so
+ * nothing it would store is lost.
+ */
+export async function preparePhotoForUpload(
+  uri: string,
+  size?: { width: number; height: number },
+): Promise<{ uri: string; base64: string } | null> {
   try {
-    const source = await ImageManipulator.manipulateAsync(uri, [], {});
-    const { width, height } = source;
+    const { width, height } =
+      size && size.width > 0 && size.height > 0
+        ? size
+        : await ImageManipulator.manipulateAsync(uri, [], {});
     const actions: ImageManipulator.Action[] = [];
     if (width >= height && width > LONG_SIDE) actions.push({ resize: { width: LONG_SIDE } });
     else if (height > width && height > LONG_SIDE) actions.push({ resize: { height: LONG_SIDE } });

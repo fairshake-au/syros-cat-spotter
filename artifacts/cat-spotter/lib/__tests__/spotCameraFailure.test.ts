@@ -63,3 +63,34 @@ describe('when Settings cannot be opened', () => {
     expect(settings).not.toMatch(/cameraUnavailableHint/);
   });
 });
+
+describe('the camera photo on the phones (SYC-864: Android "low memory")', () => {
+  const choose = handler('choosePhoto', 'pickPhoto');
+  const camera = choose.slice(choose.indexOf('launchCameraAsync'), choose.indexOf('launchImageLibraryAsync'));
+
+  it('asks the camera for the file only: no full-size text copy on the phones', () => {
+    expect(camera).toMatch(/base64: Platform\.OS === 'web'/);
+    // Below 1, Android's picker decodes the whole photo into memory to re-encode it.
+    expect(camera).toMatch(/quality: 1,/);
+  });
+
+  it('shrinks the camera photo to the stored size from the picker-given size', () => {
+    expect(source).toMatch(/preparePhotoForUpload\(asset\.uri, \{ width: asset\.width, height: asset\.height \}\)/);
+  });
+
+  it('collects a photo Android kept while the app was closed', () => {
+    expect(source).toMatch(/takePendingPick<[^>]+>\(\s*AsyncStorage,\s*ImagePicker\.getPendingResultAsync,?\s*\)/);
+    expect(source).toMatch(/markPickStarted\(AsyncStorage/);
+  });
+
+  it('collects it only once the queue has loaded, and again when the app returns', () => {
+    expect(source).toMatch(/if \(Platform\.OS !== 'android' \|\| !queueReady\) return;/);
+    expect(source).toMatch(/if \(state === 'active'\) void recover\(\);/);
+    // The "already logged" check reads the latest queue, not the first render's.
+    expect(handler('acceptPicked', 'recoveringRef')).toMatch(/pendingRef\.current\.map/);
+  });
+
+  it('does not re-encode a camera extra that is already at the stored size', () => {
+    expect(source.match(/picked\.prepared \? picked\.photo : await prepareExtraPhoto\(/g)).toHaveLength(2);
+  });
+});
