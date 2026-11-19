@@ -48,8 +48,66 @@ export interface MatchOutput {
   matches: { catId: number; confidence: number; reasoning: string }[];
 }
 
-const roleName = (r: NewPhotoInput["role"]) =>
+export const roleName = (r: NewPhotoInput["role"]) =>
   r === "first" ? "first photo" : r === "face" ? "face close-up" : "whole body";
+
+// A model sometimes sends a yes/no as the string "true"; reading that as
+// "no" would call a real cat "not a cat" (review of #212).
+export const yes = (v: unknown) => v === true || v === "true";
+
+/** The line that says which images are the spot's own photos. */
+export function describeNewPhotos(photos: readonly NewPhotoInput[]): string {
+  const n = photos.length;
+  return n > 1
+    ? `The FIRST ${n} images are newly submitted photos that should all show the SAME cat from different angles (${photos
+        .map((p, i) => `image ${i + 1} = ${roleName(p.role)}`)
+        .join(", ")}).`
+    : `The FIRST image is a newly submitted photo.`;
+}
+
+/** "image N = cat id X (name)" for each known cat, numbered after the spot's `n` photos. */
+export function describeKnownCats(n: number, candidates: readonly { catId: number; name: string }[]): string {
+  return candidates.map((c, i) => `image ${i + n + 1} = cat id ${c.catId} ("${c.name}")`).join(", ");
+}
+
+/** The model's matches, as the app reads them: only numeric cat ids, confidence held to 0-1. */
+export function normaliseMatches(raw: unknown): MatchOutput["matches"] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as { catId: unknown; confidence: unknown; reasoning: unknown }[])
+    .filter((m): m is { catId: number; confidence: unknown; reasoning: unknown } => typeof m?.catId === "number")
+    .map((m) => ({
+      catId: m.catId,
+      confidence: Math.max(0, Math.min(1, Number(m.confidence) || 0)),
+      reasoning: String(m.reasoning ?? ""),
+    }));
+}
+
+/** The JSON object in a model's reply, fences and chatter around it ignored. */
+export function parseModelJson(raw: string): Record<string, unknown> {
+  const jsonText = raw.replace(/```json|```/g, "").trim();
+  const start = jsonText.indexOf("{");
+  const end = jsonText.lastIndexOf("}");
+  if (start === -1 || end === -1) {
+    throw new Error("AI matching returned unparseable output");
+  }
+  return JSON.parse(jsonText.slice(start, end + 1)) as Record<string, unknown>;
+}
+
+/** One vision call: the text, then the images in order. The caller reads the reply. */
+export function callVision(text: string, images: readonly { mime: string; base64: string }[]) {
+  const content: any[] = [
+    { type: "text", text },
+    ...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mime};base64,${i.base64}` } })),
+  ];
+  return openai.chat.completions.create(
+    {
+      model: VISION_MODEL,
+      max_completion_tokens: 8192,
+      messages: [{ role: "user", content }],
+    },
+    { timeout: MATCH_TIMEOUT_MS, maxRetries: 0 },
+  );
+}
 
 /**
  * Compare a spot's photos against candidate cats using AI vision. Returns
@@ -68,14 +126,8 @@ export async function matchCatPhoto(
       : newPhotos;
   const n = photos.length;
   const many = n > 1;
-  const newDesc = many
-    ? `The FIRST ${n} images are newly submitted photos that should all show the SAME cat from different angles (${photos
-        .map((p, i) => `image ${i + 1} = ${roleName(p.role)}`)
-        .join(", ")}).`
-    : `The FIRST image is a newly submitted photo.`;
-  const known = candidates
-    .map((c, i) => `image ${i + n + 1} = cat id ${c.catId} ("${c.name}")`)
-    .join(", ");
+  const newDesc = describeNewPhotos(photos);
+  const known = describeKnownCats(n, candidates);
   const text =
     `You are an expert at identifying individual street cats by their coat pattern, colors, markings, face shape, eye color and other distinctive physical features.\n\n` +
     `${newDesc} The following ${candidates.length} images are known cats, in order: ${known}.\n\n` +
@@ -83,27 +135,11 @@ export async function matchCatPhoto(
     (many ? `2. Determine if the new photos appear to show MORE THAN ONE different cat.\n` : ``) +
     `${many ? 3 : 2}. For each known cat, assess the likelihood (0.0-1.0) that it is the SAME individual cat as in the new photo${many ? "s. Use every new photo together." : "."} Judge only by physical appearance; lighting, pose and background differ between photos.\n\n` +
     `Respond with ONLY valid JSON, no markdown: {"anyCat": boolean, "mixedCats": boolean, "matches": [{"catId": number, "confidence": number, "reasoning": "one short sentence"}]}. Include every known cat in "matches". If there are no known cats, return an empty matches array.`;
-  const content: any[] = [
-    { type: "text", text },
-    ...photos.map((p) => ({
-      type: "image_url",
-      image_url: { url: `data:${p.mime};base64,${p.photoBase64}` },
-    })),
-    ...candidates.map((c) => ({
-      type: "image_url",
-      image_url: { url: `data:${c.mime};base64,${c.photoBase64}` },
-    })),
-  ];
-
   const call = () =>
-    openai.chat.completions.create(
-      {
-        model: VISION_MODEL,
-        max_completion_tokens: 8192,
-        messages: [{ role: "user", content }],
-      },
-      { timeout: MATCH_TIMEOUT_MS, maxRetries: 0 },
-    );
+    callVision(text, [
+      ...photos.map((p) => ({ mime: p.mime, base64: p.photoBase64 })),
+      ...candidates.map((c) => ({ mime: c.mime, base64: c.photoBase64 })),
+    ]);
   // How long checks take, and how often they time out, is logged so the
   // 30-second limit can be tuned (spec D3).
   const started = Date.now();
@@ -129,36 +165,12 @@ export async function matchCatPhoto(
   logAiUsage(caller, response.usage);
 
   const raw = response.choices[0]?.message?.content ?? "";
-  const jsonText = raw.replace(/```json|```/g, "").trim();
-  const start = jsonText.indexOf("{");
-  const end = jsonText.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    throw new Error("AI matching returned unparseable output");
-  }
-  const parsed = JSON.parse(jsonText.slice(start, end + 1)) as {
-    anyCat?: unknown;
-    isCatPhoto?: unknown;
-    mixedCats?: unknown;
-    matches?: unknown;
-  };
-  // A model sometimes sends a yes/no as the string "true"; reading that as
-  // "no" would call a real cat "not a cat" (review of #212).
-  const yes = (v: unknown) => v === true || v === "true";
+  const parsed = parseModelJson(raw);
   return {
     // The new shape says "anyCat"; an answer in the old shape still works.
     isCatPhoto: yes(parsed.anyCat !== undefined ? parsed.anyCat : parsed.isCatPhoto),
     // One photo can't show two cats, whatever the model says.
     mixedCats: many && yes(parsed.mixedCats),
-    matches: Array.isArray(parsed.matches)
-      ? (parsed.matches as { catId: unknown; confidence: unknown; reasoning: unknown }[])
-          .filter((m): m is { catId: number; confidence: unknown; reasoning: unknown } =>
-            typeof m?.catId === "number",
-          )
-          .map((m) => ({
-            catId: m.catId,
-            confidence: Math.max(0, Math.min(1, Number(m.confidence) || 0)),
-            reasoning: String(m.reasoning ?? ""),
-          }))
-      : [],
+    matches: normaliseMatches(parsed.matches),
   };
 }

@@ -3,7 +3,7 @@ import { dirname, join, extname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { buildCheckPrompt, readCheckAnswer, type CatCheck } from "../lib/photoCheck";
-import type { NewPhotoInput } from "../lib/matching";
+import { callVision, type NewPhotoInput } from "../lib/matching";
 import { safeError } from "../lib/logger";
 
 // SYC-866 (spec docs/specs/photo-check-not-sure.md §7): proves the new photo
@@ -319,23 +319,15 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
     if (items[0]) {
       say(`prompt hash: ${promptHash(buildPrompt({ photos: items[0].photos, candidates: [] }))}${promptModule ? ` (from ${promptModule})` : " (committed)"}`);
     }
-    const { openai } = await import("@workspace/integrations-openai-ai-server");
-    const { VISION_MODEL } = await import("../lib/visionModel");
-    const { MATCH_TIMEOUT_MS } = await import("../lib/matching");
 
     const ask = async (it: Item, withCandidates: boolean): Promise<{ check: RunCheck; photoSeen: string | null; raw: string }> => {
       const cands = withCandidates ? it.candidates : [];
       const text = buildPrompt({ photos: it.photos, candidates: cands.map((c) => ({ catId: c.catId, name: c.name })) });
-      const content: any[] = [
-        { type: "text", text },
-        ...it.photos.map((p) => ({ type: "image_url", image_url: { url: `data:${p.mime};base64,${p.photoBase64}` } })),
-        ...cands.map((c) => ({ type: "image_url", image_url: { url: `data:${c.mime};base64,${c.photoBase64}` } })),
-      ];
       try {
-        const response = await openai.chat.completions.create(
-          { model: VISION_MODEL, max_completion_tokens: 8192, messages: [{ role: "user", content }] },
-          { timeout: MATCH_TIMEOUT_MS, maxRetries: 0 },
-        );
+        const response = await callVision(text, [
+          ...it.photos.map((p) => ({ mime: p.mime, base64: p.photoBase64 })),
+          ...cands.map((c) => ({ mime: c.mime, base64: c.photoBase64 })),
+        ]);
         const raw = response.choices[0]?.message?.content ?? "";
         const read = readCheckAnswer(raw, it.photos.length > 1);
         return { check: read.catCheck, photoSeen: read.photoSeen, raw };
