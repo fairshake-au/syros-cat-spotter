@@ -44,8 +44,8 @@ export function buildCheckPrompt(opts: {
     `Respond with ONLY valid JSON, no markdown, with the keys in this order: ` +
     `{"photoSeen": string, "catPartsSeen": string[], "catCheck": "cat" | "not_cat" | "unsure", "mixedCats": boolean, "matches": [{"catId": number, "confidence": number, "reasoning": "one short sentence"}]}\n\n` +
     `- "photoSeen": what ${many ? "the first photo shows" : "the photo shows"}, in a few words (for example "a black sock on a wooden floor"). Describe animals and objects only. Never describe people, faces, text, signs, house numbers or number plates.\n` +
-    `- "catPartsSeen": the cat parts you can actually see, only from this list: ${CAT_PARTS.join(", ")}. Leave out any you cannot see.\n` +
-    `- "catCheck": "cat" if at least one of face, eyes, ears or tail is visible, or two other parts are. Fur alone, or fur and paws alone, is not enough: a fuzzy sock has fur. "not_cat" if what is shown is clearly something else. "unsure" for everything in between: too dark, too blurry, too far away, or a shape that could be a cat.\n` +
+    `- "catPartsSeen": the cat parts you can clearly make out, only from this list: ${CAT_PARTS.join(", ")}. List a part only if you can clearly make it out; do not guess a part from a shape. Leave out any you cannot clearly see.${many ? ` With several photos, list the parts clearly visible in the ONE photo that best shows a cat, not a combined list across photos.` : ``}\n` +
+    `- "catCheck": "cat" only if you can clearly see at least one of face, eyes, ears or tail, or two other parts. Fur alone, or fur and paws alone, is not enough: a fuzzy sock has fur. "not_cat" if what is shown is clearly something else. "unsure" for everything in between: too dark, too blurry, too far away, or a shape that could be a cat. If in doubt between cat and unsure, choose unsure.\n` +
     (many
       ? `- With several photos: "cat" if any photo clearly shows a cat. "not_cat" only if every photo clearly shows something else. Otherwise "unsure".\n` +
         `- "mixedCats": true if the new photos appear to show MORE THAN ONE different cat.\n`
@@ -92,7 +92,8 @@ export function readCheckAnswer(
 
   let catCheck: CatCheck;
   if (parsed.catCheck !== undefined && parsed.catCheck !== null) {
-    const word = String(parsed.catCheck).trim().toLowerCase();
+    // A catCheck that isn't a word (e.g. ["cat"]) is present but unknown.
+    const word = typeof parsed.catCheck === "string" ? parsed.catCheck.trim().toLowerCase() : "";
     catCheck = word === "cat" ? "cat" : word === "not_cat" ? "not_cat" : "unsure";
     // The server double-check: "cat" needs enough parts to be believed.
     if (catCheck === "cat" && !enoughCatParts(parsed.catPartsSeen)) catCheck = "unsure";

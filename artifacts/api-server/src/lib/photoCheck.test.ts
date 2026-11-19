@@ -11,6 +11,10 @@ describe("readCheckAnswer", () => {
     expect(read({ catCheck: "UNSURE" }).catCheck).toBe("unsure");
     expect(read({ catCheck: "maybe" }).catCheck).toBe("unsure");
   });
+  it("reads a non-string catCheck as unsure", () => {
+    expect(read({ catCheck: ["cat"], catPartsSeen: ["face"] }).catCheck).toBe("unsure");
+    expect(read({ catCheck: true, anyCat: true }).catCheck).toBe("unsure");
+  });
   it("reads not_cat", () => {
     expect(read({ catCheck: "not_cat", catPartsSeen: [] }).catCheck).toBe("not_cat");
   });
@@ -87,6 +91,20 @@ describe("buildCheckPrompt", () => {
     expect(t).toMatch(/never describe people/i);
     expect(t).toContain("number plates");
     expect(t).toContain('cat id 7 ("Mimi")');
+  });
+  it("tells the model to be careful about parts", () => {
+    const t = buildCheckPrompt({ photos, candidates: [] });
+    expect(t).toContain("clearly see");
+    expect(t).toContain("do not guess a part from a shape");
+    expect(t).toContain("choose unsure");
+    expect(t).not.toContain("ONE photo that best shows");
+  });
+  it("says catPartsSeen comes from the one best photo when there are several", () => {
+    const t = buildCheckPrompt({
+      photos: [...photos, { role: "face", photoBase64: "y", mime: "image/jpeg" }],
+      candidates: [],
+    });
+    expect(t).toContain("ONE photo that best shows a cat");
   });
   it("applies the several-photos rule", () => {
     const t = buildCheckPrompt({
