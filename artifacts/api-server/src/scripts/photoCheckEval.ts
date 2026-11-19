@@ -106,9 +106,23 @@ export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto
     if (catCount() >= TARGET_CATS) break;
     if (!r.noCat) take(r);
   }
-  return [...chosen.values()]
-    .sort((a, b) => a.photoId - b.photoId)
-    .map((r) => ({ photoId: r.photoId, half: hash(`${seed}:half:${r.photoId}`) % 2 === 0 ? "tune" : "held" }));
+  // Split by stratum so each half gets some of each kind: non-cats (the sock
+  // and the not-a-cat photos), night cats, day cats. Within a stratum, seeded
+  // order, alternating. The sock is always held; the other non-cats start on
+  // held so a second non-cat is never left only in tune.
+  const picked = [...chosen.values()];
+  const stratumOf = (r: SpotRow) => (r.noCat || r.photoId === SOCK_PHOTO_ID ? 0 : isAthensNight(r.takenAt) ? 1 : 2);
+  const halves = new Map<number, Half>();
+  for (const stratum of [0, 1, 2]) {
+    const members = picked
+      .filter((r) => stratumOf(r) === stratum)
+      .sort((a, b) => (a.photoId === SOCK_PHOTO_ID ? -1 : b.photoId === SOCK_PHOTO_ID ? 1 : order(a) - order(b) || a.photoId - b.photoId));
+    // Stratum 0: the sock (if present) is held, the rest alternate from held. Others alternate from tune.
+    const rest = members.filter((r) => r.photoId !== SOCK_PHOTO_ID);
+    if (members.length > rest.length) halves.set(SOCK_PHOTO_ID, "held");
+    rest.forEach((r, i) => halves.set(r.photoId, (i % 2 === 0) === (stratum === 0) ? "held" : "tune"));
+  }
+  return picked.sort((a, b) => a.photoId - b.photoId).map((r) => ({ photoId: r.photoId, half: halves.get(r.photoId)! }));
 }
 
 // ---- scoring ----

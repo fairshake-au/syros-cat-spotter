@@ -73,6 +73,24 @@ describe("pickTestSet", () => {
     expect(cats.length).toBeLessThanOrEqual(46);
     expect(ids.filter((i) => i >= 400 && i < 410).length).toBeGreaterThanOrEqual(3);
   });
+  it("puts photo 62 always in held, and spreads non-cats and night cats over both halves", () => {
+    const picked = pickTestSet(manyRows(), EVAL_SEED);
+    const half = (id: number) => picked.find((p) => p.photoId === id)!.half;
+    expect(half(62)).toBe("held");
+    expect([half(500), half(501)]).toContain("held");
+    const night = [300, 301, 302, 303, 304, 305].map(half);
+    expect(night.filter((h) => h === "held").length).toBe(3);
+    const two = pickTestSet([row(62), row(500, { noCat: true })], EVAL_SEED);
+    expect(two.map((p) => p.half)).toEqual(["held", "held"]);
+    // Several seeds: the same guarantees hold.
+    for (const seed of ["aaa", "bbb", "ccc", "ddd"]) {
+      const p2 = pickTestSet(manyRows(), seed);
+      const h2 = (id: number) => p2.find((p) => p.photoId === id)!.half;
+      expect(h2(62)).toBe("held");
+      expect([h2(500), h2(501)]).toContain("held");
+      expect([300, 301, 302, 303, 304, 305].filter((i) => h2(i) === "held").length).toBe(3);
+    }
+  });
   it("splits into both halves, every photo in exactly one", () => {
     const picked = pickTestSet(manyRows(), EVAL_SEED);
     expect(picked.some((p) => p.half === "tune")).toBe(true);
