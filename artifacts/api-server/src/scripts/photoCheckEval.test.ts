@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
@@ -229,9 +230,9 @@ describe("parseArgs", () => {
 });
 
 describe("promptHash", () => {
-  it("is 8 characters and tells two prompts apart", () => {
+  it("is the first 8 hex characters of the sha256 of the text, and tells two prompts apart", () => {
+    expect(promptHash("one")).toBe(createHash("sha256").update("one").digest("hex").slice(0, 8));
     expect(promptHash("one")).toMatch(/^[0-9a-f]{8}$/);
-    expect(promptHash("one")).toBe(promptHash("one"));
     expect(promptHash("one")).not.toBe(promptHash("two"));
   });
 });

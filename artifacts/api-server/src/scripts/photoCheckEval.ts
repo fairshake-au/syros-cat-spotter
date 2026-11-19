@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
 import { dirname, join, extname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -87,15 +88,8 @@ export function isAthensNight(at: Date): boolean {
 
 // ---- the test set ----
 
-/** FNV-1a: the same text always gives the same number. */
-function hash(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
+/** SHA-256 of the text: the same text always gives the same bytes. */
+const sha256 = (text: string) => createHash("sha256").update(text).digest();
 
 export interface PickedPhoto {
   photoId: number;
@@ -110,7 +104,7 @@ export interface PickedPhoto {
 export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto[] {
   // The sock is always held and never counts as one of the cats; it is set aside first.
   const sock = rows.find((r) => r.photoId === SOCK_PHOTO_ID);
-  const order = (r: SpotRow) => hash(`${seed}:pick:${r.photoId}`);
+  const order = (r: SpotRow) => sha256(`${seed}:pick:${r.photoId}`).readUInt32BE(0);
   const bySeed = (a: SpotRow, b: SpotRow) => order(a) - order(b) || a.photoId - b.photoId;
   const byOrder = rows.filter((r) => r !== sock).sort(bySeed);
   const chosen = new Map<number, SpotRow>();
@@ -237,7 +231,7 @@ export async function candidatesFor<T extends { lum: number; catId: number }>(
 
 /** 8 hex characters of the prompt text, so runs with different prompts can be told apart. */
 export function promptHash(text: string): string {
-  return hash(text).toString(16).padStart(8, "0");
+  return sha256(text).toString("hex").slice(0, 8);
 }
 
 export type ParsedArgs = { ok: true; half: Half; promptModule: string | null } | { ok: false; error: string };
