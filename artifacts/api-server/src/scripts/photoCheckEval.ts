@@ -40,6 +40,10 @@ export const DARKEST_N = 3;
 const SYROS = { lat: 37.44, lng: 24.94 };
 const OUT_FILE = "./photo-check-eval-out.json";
 
+/** The two ways each photo is asked: plain, and with the darkest known cats beside it. */
+const VARIANTS = [["plain", false], ["withCandidates", true]] as const;
+type VariantName = (typeof VARIANTS)[number][0];
+
 export type Half = "tune" | "held";
 export type Truth = "cat" | "not_cat";
 export type OldAnswer = CatCheck | "failed" | "none";
@@ -352,24 +356,22 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
 
     const out: unknown[] = [];
     let failedTotal = 0;
-    const scored: Record<"plain" | "withCandidates", HeldResult[]> = { plain: [], withCandidates: [] };
+    const scored: Record<VariantName, HeldResult[]> = { plain: [], withCandidates: [] };
     for (const it of items) {
       const truth = it.photoId === null ? "not_cat" : truthOf.get(it.photoId);
       if (truth === "skip") continue;
-      const plainRuns = await Promise.all(Array.from({ length: RUNS }, () => ask(it, false)));
-      const candRuns = await Promise.all(Array.from({ length: RUNS }, () => ask(it, true)));
-      const variants = [
-        { name: "plain" as const, runs: plainRuns },
-        { name: "withCandidates" as const, runs: candRuns },
-      ];
-      for (const v of variants) {
-        const answers = v.runs.map((r) => r.check);
+      // All six calls for this item at once (never across items).
+      const calls = await Promise.all(VARIANTS.flatMap(([, withCandidates]) => Array.from({ length: RUNS }, () => ask(it, withCandidates))));
+      const runsOf = {} as Record<VariantName, Awaited<ReturnType<typeof ask>>[]>;
+      VARIANTS.forEach(([name], i) => {
+        const runs = (runsOf[name] = calls.slice(i * RUNS, (i + 1) * RUNS));
+        const answers = runs.map((r) => r.check);
         const worst = truth ? worstOf(answers, truth) : null;
-        say(`${v.name.padEnd(15)} ${formatPhotoLine({ label: it.label, old: it.old, answers, worst })}`);
-        if (truth && worst) scored[v.name].push({ id: it.label, truth, night: it.night, worst, failedCalls: answers.filter((a) => a === "failed").length });
-      }
-      failedTotal += [...plainRuns, ...candRuns].filter((r) => r.check === "failed").length;
-      out.push({ label: it.label, old: it.old, plain: plainRuns, withCandidates: candRuns });
+        say(`${name.padEnd(15)} ${formatPhotoLine({ label: it.label, old: it.old, answers, worst })}`);
+        if (truth && worst) scored[name].push({ id: it.label, truth, night: it.night, worst, failedCalls: answers.filter((a) => a === "failed").length });
+      });
+      failedTotal += calls.filter((r) => r.check === "failed").length;
+      out.push({ label: it.label, old: it.old, ...runsOf });
       // Written after every item, so a crash keeps what already ran.
       writeFileSync(OUT_FILE, JSON.stringify(out, null, 2));
     }
@@ -379,7 +381,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
       say(`Unscored: no labels yet. Photo numbers picked for the ${half} half, to label: ${items.filter((i) => i.photoId !== null).map((i) => i.photoId).join(", ")}`);
     } else if (half === "held") {
       let allPass = true;
-      for (const name of ["plain", "withCandidates"] as const) {
+      for (const [name] of VARIANTS) {
         const s = scoreHeld(scored[name]);
         say(`Held half, ${name}: ${s.status}`);
         s.lines.forEach(say);
@@ -435,19 +437,25 @@ async function loadItems(half: Half): Promise<Item[]> {
     return keptPhoto(p);
   };
 
-  // Every live cat's main-photo brightness, worked out only if some spot or extra file has no cat nearby.
+  // Each cat's main photo is read and measured once, however many spots (or the island-wide fallback) use it.
+  type CatPhoto = { photoBase64: string; mime: string; lum: number };
+  const catPhotoOf = new Map<number, CatPhoto | null>();
+  const withLuminance = async (list: readonly { id: number; name: string; primaryPhotoId: number }[]) => {
+    const todo = list.filter((c) => !catPhotoOf.has(c.id));
+    const photoIds = todo.length ? await catMatchingPhotoIds(todo) : null;
+    for (const cat of todo) {
+      const pid = photoIds?.get(cat.id) ?? null;
+      const b = pid === null ? null : await load(pid);
+      catPhotoOf.set(cat.id, b ? { ...b, lum: await meanLuminance(b.photoBase64) } : null);
+    }
+    return list.flatMap((cat) => {
+      const p = catPhotoOf.get(cat.id);
+      return p ? [{ catId: cat.id, name: cat.name, ...p }] : [];
+    });
+  };
+  // Every live cat's brightness, worked out only if some spot or extra file has no cat nearby.
   let islandCache: Awaited<ReturnType<typeof withLuminance>> | null = null;
   const island = async () => (islandCache ??= await withLuminance(cats));
-  const withLuminance = async (list: readonly { id: number; name: string; primaryPhotoId: number }[]) => {
-    const photoIds = await catMatchingPhotoIds(list);
-    const out: { catId: number; name: string; photoBase64: string; mime: string; lum: number }[] = [];
-    for (const cat of list) {
-      const pid = photoIds.get(cat.id) ?? null;
-      const b = pid === null ? null : await load(pid);
-      if (b) out.push({ catId: cat.id, name: cat.name, ...b, lum: await meanLuminance(b.photoBase64) });
-    }
-    return out;
-  };
 
   const items: Item[] = [];
   for (const p of picked) {
