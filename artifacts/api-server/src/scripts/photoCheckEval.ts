@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
-import { dirname, join, extname } from "node:path";
+import { dirname, join, extname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { buildCheckPrompt, readCheckAnswer, type CatCheck } from "../lib/photoCheck";
@@ -11,11 +11,20 @@ import { safeError } from "../lib/logger";
 // session is made read-only, the way calibrateDuplicateSweep does) and it
 // changes nothing in the app. It needs the AI keys, so it is run in Replit.
 //
-//   pnpm --filter @workspace/db exec tsx ../../artifacts/api-server/src/scripts/photoCheckEval.ts --half tune|held [--prompt-file <path>]
+//   pnpm --filter @workspace/db exec tsx ../../artifacts/api-server/src/scripts/photoCheckEval.ts --half tune|held [--prompt-module <path.ts>]
 //
 // Printed: a photo number (or an extra file's name), the old answer, the new
 // answers for each of two variants, and the worst. Never a photo, name,
 // position or photoSeen: those go to ./photo-check-eval-out.json only.
+//
+// labels.json (scripts/photoCheckEval/labels.json): [{ photoId, label }] with
+// label "cat" | "not_cat" | "skip". The tune/held split comes only from
+// pickTestSet (seeded), never from the labels. Photos in extra/ are not-a-cat,
+// held, and need no label. --prompt-module (tune only) swaps in a file that
+// exports buildCheckPrompt with the committed signature; held always uses the
+// committed one. Night is judged from sightings.created_at, which the app
+// already sets to the phone's capture time (clamped) for offline uploads; the
+// schema has no separate capture-time column.
 
 /** Fixed, letters only (no clock, no random digits): the test set is the same every run. */
 export const EVAL_SEED = "sockcheckseed";
@@ -212,12 +221,45 @@ export function darkestCandidates<T extends { lum: number; catId: number }>(cand
   return [...cands].sort((a, b) => a.lum - b.lum || a.catId - b.catId).slice(0, n);
 }
 
+export function darkestOrIsland<T extends { lum: number; catId: number }>(nearby: readonly T[], island: readonly T[], n: number): T[] {
+  return darkestCandidates(nearby.length > 0 ? nearby : island, n);
+}
+
+/** The with-candidates variant never skips: nearby cats if any, else the darkest live cats island-wide. */
+export const candidatesFor = darkestOrIsland;
+
+/** 8 hex characters of the prompt text, so runs with different prompts can be told apart. */
+export function promptHash(text: string): string {
+  return hash(text).toString(16).padStart(8, "0");
+}
+
+export type ParsedArgs = { ok: true; half: Half; promptModule: string | null } | { ok: false; error: string };
+
+export function parseArgs(args: readonly string[]): ParsedArgs {
+  const usage = "Usage: --half tune|held [--prompt-module <path.ts>]";
+  const known = new Set(["--half", "--prompt-module"]);
+  for (let i = 0; i < args.length; i++) {
+    if (args[i]!.startsWith("--") && !known.has(args[i]!)) return { ok: false, error: `Unknown option ${args[i]}. ${usage}` };
+  }
+  const val = (flag: string) => {
+    const i = args.indexOf(flag);
+    return i === -1 ? null : (args[i + 1] ?? "");
+  };
+  const half = val("--half");
+  if (half !== "tune" && half !== "held") return { ok: false, error: usage };
+  const promptModule = val("--prompt-module");
+  if (promptModule === "") return { ok: false, error: usage };
+  if (promptModule !== null && half === "held") {
+    return { ok: false, error: "--prompt-module can't be used with --half held: the held run always uses the committed prompt." };
+  }
+  return { ok: true, half, promptModule };
+}
+
 // ---- the script ----
 
 interface Label {
   photoId: number;
   label: "cat" | "not_cat" | "skip";
-  half: Half;
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -231,19 +273,24 @@ interface Item {
   photos: NewPhotoInput[];
   candidates: { catId: number; name: string; photoBase64: string; mime: string }[];
   old: OldAnswer;
-  /** Variant "with candidates" is skipped when there are no known cats nearby. */
-  noCandidatesNote: boolean;
 }
 
 export async function main(say: (l: string) => void, args: string[]): Promise<number> {
-  const halfIdx = args.indexOf("--half");
-  const half = args[halfIdx + 1];
-  if (halfIdx === -1 || (half !== "tune" && half !== "held")) {
-    say("Usage: --half tune|held [--prompt-file <path>]");
+  const parsed = parseArgs(args);
+  if (!parsed.ok) {
+    say(parsed.error);
     return 2;
   }
-  const promptIdx = args.indexOf("--prompt-file");
-  const promptOverride = promptIdx === -1 ? null : readFileSync(args[promptIdx + 1]!, "utf8");
+  const { half, promptModule } = parsed;
+  let buildPrompt = buildCheckPrompt;
+  if (promptModule !== null) {
+    const mod = await import(pathToFileURL(resolve(promptModule)).href);
+    if (typeof mod.buildCheckPrompt !== "function") {
+      say(`${promptModule} does not export buildCheckPrompt.`);
+      return 2;
+    }
+    buildPrompt = mod.buildCheckPrompt;
+  }
   const labels: Label[] = JSON.parse(readFileSync(join(here, "photoCheckEval", "labels.json"), "utf8"));
   if (half === "held" && labels.length === 0) {
     say("Refusing to run the held half: labels.json has no labels yet. Tune first, label the photos, then run held once.");
@@ -255,6 +302,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
   try {
     const { makeReadOnly } = await import("./smokeCheck");
     await makeReadOnly();
+    say("Night is judged by the spot's stored time (sightings.created_at: the phone's capture time for offline uploads, else upload time); there is no separate capture-time column.");
     const items = await loadItems(half);
     if (half === "held") {
       const missing = missingLabels(items, truthOf);
@@ -263,13 +311,16 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
         return 1;
       }
     }
+    if (items[0]) {
+      say(`prompt hash: ${promptHash(buildPrompt({ photos: items[0].photos, candidates: [] }))}${promptModule ? ` (from ${promptModule})` : " (committed)"}`);
+    }
     const { openai } = await import("@workspace/integrations-openai-ai-server");
     const { VISION_MODEL } = await import("../lib/visionModel");
     const { MATCH_TIMEOUT_MS } = await import("../lib/matching");
 
     const ask = async (it: Item, withCandidates: boolean): Promise<{ check: RunCheck; photoSeen: string | null; raw: string }> => {
       const cands = withCandidates ? it.candidates : [];
-      const text = promptOverride ?? buildCheckPrompt({ photos: it.photos, candidates: cands.map((c) => ({ catId: c.catId, name: c.name })) });
+      const text = buildPrompt({ photos: it.photos, candidates: cands.map((c) => ({ catId: c.catId, name: c.name })) });
       const content: any[] = [
         { type: "text", text },
         ...it.photos.map((p) => ({ type: "image_url", image_url: { url: `data:${p.mime};base64,${p.photoBase64}` } })),
@@ -296,16 +347,12 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
       const truth = it.photoId === null ? "not_cat" : truthOf.get(it.photoId);
       if (truth === "skip") continue;
       const plainRuns = await Promise.all(Array.from({ length: RUNS }, () => ask(it, false)));
-      const candRuns = it.candidates.length > 0 ? await Promise.all(Array.from({ length: RUNS }, () => ask(it, true))) : [];
+      const candRuns = await Promise.all(Array.from({ length: RUNS }, () => ask(it, true)));
       const variants = [
         { name: "plain" as const, runs: plainRuns },
         { name: "withCandidates" as const, runs: candRuns },
       ];
       for (const v of variants) {
-        if (v.runs.length === 0) {
-          say(`${it.label.padEnd(14)} ${v.name}: skipped, no known cats nearby`);
-          continue;
-        }
         const answers = v.runs.map((r) => r.check);
         const worst = truth ? worstOf(answers, truth) : null;
         say(`${v.name.padEnd(15)} ${formatPhotoLine({ label: it.label, old: it.old, answers, worst })}`);
@@ -374,6 +421,20 @@ async function loadItems(half: Half): Promise<Item[]> {
     return p && p.data !== null ? { photoBase64: p.data, mime: p.mime } : null;
   };
 
+  // Every live cat's main-photo brightness, worked out only if some spot or extra file has no cat nearby.
+  let islandCache: Awaited<ReturnType<typeof withLuminance>> | null = null;
+  const island = async () => (islandCache ??= await withLuminance(cats));
+  const withLuminance = async (list: readonly { id: number; name: string; primaryPhotoId: number }[]) => {
+    const photoIds = await catMatchingPhotoIds(list);
+    const out: { catId: number; name: string; photoBase64: string; mime: string; lum: number }[] = [];
+    for (const cat of list) {
+      const pid = photoIds.get(cat.id) ?? null;
+      const b = pid === null ? null : await load(pid);
+      if (b) out.push({ catId: cat.id, name: cat.name, ...b, lum: await meanLuminance(b.photoBase64) });
+    }
+    return out;
+  };
+
   const items: Item[] = [];
   for (const p of picked) {
     const r = rowOf.get(p.photoId)!;
@@ -386,22 +447,15 @@ async function loadItems(half: Half): Promise<Item[]> {
     if (photos.length === 0) continue;
     // The cats the live check would have compared for this spot, then the darkest few.
     const nearest = selectCandidateCats(cats, r.spot.lat, r.spot.lng);
-    const photoIds = await catMatchingPhotoIds(nearest);
-    const withLum: { catId: number; name: string; photoBase64: string; mime: string; lum: number }[] = [];
-    for (const cat of nearest) {
-      const pid = photoIds.get(cat.id) ?? null;
-      const b = pid === null ? null : await load(pid);
-      if (b) withLum.push({ catId: cat.id, name: cat.name, ...b, lum: await meanLuminance(b.photoBase64) });
-    }
+    const withLum = await withLuminance(nearest);
     items.push({
       label: String(p.photoId),
       photoId: p.photoId,
       half: p.half,
       night: isAthensNight(r.takenAt),
       photos,
-      candidates: darkestCandidates(withLum, DARKEST_N),
+      candidates: candidatesFor(withLum, withLum.length > 0 ? [] : await island(), DARKEST_N),
       old: oldAnswerOf(recOf.get(r.spot.id) ?? null),
-      noCandidatesNote: withLum.length === 0,
     });
   }
 
@@ -417,9 +471,8 @@ async function loadItems(half: Half): Promise<Item[]> {
         half: "held",
         night: false,
         photos: [{ role: "first", photoBase64: readFileSync(join(extraDir, f)).toString("base64"), mime }],
-        candidates: [],
+        candidates: candidatesFor([], await island(), DARKEST_N),
         old: "none",
-        noCandidatesNote: true,
       });
     }
   }

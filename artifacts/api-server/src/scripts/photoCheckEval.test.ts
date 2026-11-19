@@ -11,6 +11,9 @@ import {
   scoreHeld,
   worstOf,
   missingLabels,
+  parseArgs,
+  promptHash,
+  candidatesFor,
   type SpotRow,
 } from "./photoCheckEval";
 
@@ -209,5 +212,42 @@ describe("darkest known cats", () => {
     expect(darkestCandidates([c(1, 90), c(2, 10), c(3, 50), c(4, 20)], 3).map((x) => x.catId)).toEqual([2, 4, 3]);
     expect(darkestCandidates([c(1, 90)], 3).map((x) => x.catId)).toEqual([1]);
     expect(darkestCandidates([], 3)).toEqual([]);
+  });
+});
+
+describe("parseArgs", () => {
+  it("needs --half tune|held", () => {
+    expect(parseArgs([]).ok).toBe(false);
+    expect(parseArgs(["--half", "other"]).ok).toBe(false);
+    expect(parseArgs(["--half", "tune"])).toEqual({ ok: true, half: "tune", promptModule: null });
+  });
+  it("takes --prompt-module for tune", () => {
+    expect(parseArgs(["--half", "tune", "--prompt-module", "./p.ts"])).toEqual({ ok: true, half: "tune", promptModule: "./p.ts" });
+  });
+  it("refuses --prompt-module with --half held", () => {
+    const r = parseArgs(["--half", "held", "--prompt-module", "./p.ts"]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("held");
+  });
+  it("no longer knows --prompt-file", () => {
+    expect(parseArgs(["--half", "tune", "--prompt-file", "x"]).ok).toBe(false);
+  });
+});
+
+describe("promptHash", () => {
+  it("is 8 characters and tells two prompts apart", () => {
+    expect(promptHash("one")).toMatch(/^[0-9a-f]{8}$/);
+    expect(promptHash("one")).toBe(promptHash("one"));
+    expect(promptHash("one")).not.toBe(promptHash("two"));
+  });
+});
+
+describe("candidatesFor", () => {
+  const c = (catId: number, lum: number) => ({ catId, name: "Whiskerbeard", photoBase64: "", mime: "image/jpeg", lum });
+  it("uses the nearby cats when there are any", () => {
+    expect(candidatesFor([c(1, 80), c(2, 70)], [c(9, 1)], 3).map((x) => x.catId)).toEqual([2, 1]);
+  });
+  it("falls back to the darkest 3 live cats island-wide when none are nearby", () => {
+    expect(candidatesFor([], [c(5, 90), c(6, 10), c(7, 30), c(8, 20)], 3).map((x) => x.catId)).toEqual([6, 8, 7]);
   });
 });
