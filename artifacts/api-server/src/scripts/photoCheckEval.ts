@@ -108,35 +108,37 @@ export interface PickedPhoto {
  * Each is put in the tune or the held half by the seed. Deterministic.
  */
 export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto[] {
+  // The sock is always held and never counts as one of the cats; it is set aside first.
+  const sock = rows.find((r) => r.photoId === SOCK_PHOTO_ID);
   const order = (r: SpotRow) => hash(`${seed}:pick:${r.photoId}`);
-  const byOrder = [...rows].sort((a, b) => order(a) - order(b) || a.photoId - b.photoId);
+  const bySeed = (a: SpotRow, b: SpotRow) => order(a) - order(b) || a.photoId - b.photoId;
+  const byOrder = rows.filter((r) => r !== sock).sort(bySeed);
   const chosen = new Map<number, SpotRow>();
   const take = (r: SpotRow) => chosen.set(r.photoId, r);
-  for (const r of byOrder) if (r.noCat || r.photoId === SOCK_PHOTO_ID) take(r);
+  for (const r of byOrder) if (r.noCat) take(r);
   for (const r of byOrder) if (!r.noCat && isAthensNight(r.takenAt)) take(r);
   for (const r of byOrder.filter((r) => r.photoCount > 1 && !r.noCat).slice(0, MULTI_PHOTO_SPOTS)) take(r);
-  const catCount = () => [...chosen.values()].filter((r) => !r.noCat && r.photoId !== SOCK_PHOTO_ID).length;
+  const catCount = () => [...chosen.values()].filter((r) => !r.noCat).length;
   for (const r of byOrder) {
     if (catCount() >= TARGET_CATS) break;
     if (!r.noCat) take(r);
   }
-  // Split by stratum so each half gets some of each kind: non-cats (the sock
-  // and the not-a-cat photos), night cats, day cats. Within a stratum, seeded
-  // order, alternating. The sock is always held; the other non-cats start on
-  // held so a second non-cat is never left only in tune.
+  // Split by stratum so each half gets some of each kind: not-a-cat photos,
+  // night cats, day cats. Within a stratum, seeded order, alternating. The
+  // not-a-cat photos start on held so a second one is never left only in tune.
   const picked = [...chosen.values()];
-  const stratumOf = (r: SpotRow) => (r.noCat || r.photoId === SOCK_PHOTO_ID ? 0 : isAthensNight(r.takenAt) ? 1 : 2);
+  const stratumOf = (r: SpotRow) => (r.noCat ? 0 : isAthensNight(r.takenAt) ? 1 : 2);
   const halves = new Map<number, Half>();
   for (const stratum of [0, 1, 2]) {
-    const members = picked
+    picked
       .filter((r) => stratumOf(r) === stratum)
-      .sort((a, b) => (a.photoId === SOCK_PHOTO_ID ? -1 : b.photoId === SOCK_PHOTO_ID ? 1 : order(a) - order(b) || a.photoId - b.photoId));
-    // Stratum 0: the sock (if present) is held, the rest alternate from held. Others alternate from tune.
-    const rest = members.filter((r) => r.photoId !== SOCK_PHOTO_ID);
-    if (members.length > rest.length) halves.set(SOCK_PHOTO_ID, "held");
-    rest.forEach((r, i) => halves.set(r.photoId, (i % 2 === 0) === (stratum === 0) ? "held" : "tune"));
+      .sort(bySeed)
+      .forEach((r, i) => halves.set(r.photoId, (i % 2 === 0) === (stratum === 0) ? "held" : "tune"));
   }
-  return picked.sort((a, b) => a.photoId - b.photoId).map((r) => ({ photoId: r.photoId, half: halves.get(r.photoId)! }));
+  if (sock) halves.set(sock.photoId, "held");
+  return (sock ? [...picked, sock] : picked)
+    .sort((a, b) => a.photoId - b.photoId)
+    .map((r) => ({ photoId: r.photoId, half: halves.get(r.photoId)! }));
 }
 
 // ---- scoring ----
@@ -144,13 +146,11 @@ export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto
 /** What one call gave: an answer, or "failed" (an error or a timeout, never read as "unsure"). */
 export type RunCheck = CatCheck | "failed";
 
-const RANK_FOR_NOT_CAT: Record<RunCheck, number> = { failed: 3, cat: 2, unsure: 1, not_cat: 0 };
-const RANK_FOR_CAT: Record<RunCheck, number> = { failed: 3, not_cat: 2, unsure: 1, cat: 0 };
-
-/** The worst of the runs for what the photo really is: a non-cat's worst is "cat", a cat's worst is "not_cat"; a failed call is worse than either. */
+/** The worst of the runs for what the photo really is: a failed call is worse than anything, then the wrong answer (a non-cat's "cat", a cat's "not_cat"), then "unsure", then the right answer. */
 export function worstOf(answers: readonly RunCheck[], truth: Truth): RunCheck {
-  const rank = truth === "not_cat" ? RANK_FOR_NOT_CAT : RANK_FOR_CAT;
-  return answers.reduce((w, a) => (rank[a] > rank[w] ? a : w), answers[0]!);
+  const wrong: RunCheck = truth === "cat" ? "not_cat" : "cat";
+  const rank = (a: RunCheck) => (a === "failed" ? 3 : a === wrong ? 2 : a === "unsure" ? 1 : 0);
+  return answers.reduce((w, a) => (rank(a) > rank(w) ? a : w), answers[0]!);
 }
 
 export interface HeldResult {
@@ -226,12 +226,14 @@ export function darkestCandidates<T extends { lum: number; catId: number }>(cand
   return [...cands].sort((a, b) => a.lum - b.lum || a.catId - b.catId).slice(0, n);
 }
 
-export function darkestOrIsland<T extends { lum: number; catId: number }>(nearby: readonly T[], island: readonly T[], n: number): T[] {
-  return darkestCandidates(nearby.length > 0 ? nearby : island, n);
+/** The with-candidates variant never skips: nearby cats if any, else the darkest live cats island-wide (worked out only then). */
+export async function candidatesFor<T extends { lum: number; catId: number }>(
+  nearby: readonly T[],
+  island: () => Promise<readonly T[]>,
+  n: number,
+): Promise<T[]> {
+  return darkestCandidates(nearby.length > 0 ? nearby : await island(), n);
 }
-
-/** The with-candidates variant never skips: nearby cats if any, else the darkest live cats island-wide. */
-export const candidatesFor = darkestOrIsland;
 
 /** 8 hex characters of the prompt text, so runs with different prompts can be told apart. */
 export function promptHash(text: string): string {
@@ -314,7 +316,8 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
     buildPrompt = mod.buildCheckPrompt;
   }
   const labels: Label[] = JSON.parse(readFileSync(join(here, "photoCheckEval", "labels.json"), "utf8"));
-  if (half === "held" && labels.length === 0) {
+  const noLabels = labels.length === 0;
+  if (half === "held" && noLabels) {
     say("Refusing to run the held half: labels.json has no labels yet. Tune first, label the photos, then run held once.");
     return 2;
   }
@@ -377,7 +380,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
     }
     say(`Failed calls: ${failedTotal}`);
 
-    if (labels.length === 0) {
+    if (noLabels) {
       say(`Unscored: no labels yet. Photo numbers picked for the ${half} half, to label: ${items.filter((i) => i.photoId !== null).map((i) => i.photoId).join(", ")}`);
     } else if (half === "held") {
       let allPass = true;
@@ -476,7 +479,7 @@ async function loadItems(half: Half): Promise<Item[]> {
       half: p.half,
       night: isAthensNight(r.takenAt),
       photos,
-      candidates: candidatesFor(withLum, withLum.length > 0 ? [] : await island(), DARKEST_N),
+      candidates: await candidatesFor(withLum, island, DARKEST_N),
       old: oldAnswerOf(recOf.get(r.spot.id) ?? null),
     });
   }
@@ -495,7 +498,7 @@ async function loadItems(half: Half): Promise<Item[]> {
         half: "held",
         night: false,
         photos: [{ role: "first", ...photo }],
-        candidates: candidatesFor([], await island(), DARKEST_N),
+        candidates: await candidatesFor([], island, DARKEST_N),
         old: "none",
       });
     }

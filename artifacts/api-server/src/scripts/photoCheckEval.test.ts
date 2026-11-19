@@ -79,22 +79,14 @@ describe("pickTestSet", () => {
     expect(ids.filter((i) => i >= 400 && i < 410).length).toBeGreaterThanOrEqual(3);
   });
   it("puts photo 62 always in held, and spreads non-cats and night cats over both halves", () => {
-    const picked = pickTestSet(manyRows(), EVAL_SEED);
-    const half = (id: number) => picked.find((p) => p.photoId === id)!.half;
-    expect(half(62)).toBe("held");
-    expect([half(500), half(501)]).toContain("held");
-    const night = [300, 301, 302, 303, 304, 305].map(half);
-    expect(night.filter((h) => h === "held").length).toBe(3);
-    const two = pickTestSet([row(62), row(500, { noCat: true })], EVAL_SEED);
-    expect(two.map((p) => p.half)).toEqual(["held", "held"]);
-    // Several seeds: the same guarantees hold.
-    for (const seed of ["aaa", "bbb", "ccc", "ddd"]) {
-      const p2 = pickTestSet(manyRows(), seed);
-      const h2 = (id: number) => p2.find((p) => p.photoId === id)!.half;
-      expect(h2(62)).toBe("held");
-      expect([h2(500), h2(501)]).toContain("held");
-      expect([300, 301, 302, 303, 304, 305].filter((i) => h2(i) === "held").length).toBe(3);
+    for (const seed of [EVAL_SEED, "aaa", "bbb", "ccc", "ddd"]) {
+      const picked = pickTestSet(manyRows(), seed);
+      const half = (id: number) => picked.find((p) => p.photoId === id)!.half;
+      expect(half(62)).toBe("held");
+      expect([half(500), half(501)]).toContain("held");
+      expect([300, 301, 302, 303, 304, 305].filter((i) => half(i) === "held").length).toBe(3);
     }
+    expect(pickTestSet([row(62), row(500, { noCat: true })], EVAL_SEED).map((p) => p.half)).toEqual(["held", "held"]);
   });
   it("splits into both halves, every photo in exactly one", () => {
     const picked = pickTestSet(manyRows(), EVAL_SEED);
@@ -246,11 +238,18 @@ describe("promptHash", () => {
 
 describe("candidatesFor", () => {
   const c = (catId: number, lum: number) => ({ catId, name: "Whiskerbeard", photoBase64: "", mime: "image/jpeg", lum });
-  it("uses the nearby cats when there are any", () => {
-    expect(candidatesFor([c(1, 80), c(2, 70)], [c(9, 1)], 3).map((x) => x.catId)).toEqual([2, 1]);
+  it("uses the nearby cats when there are any, and never works out the island", async () => {
+    let asked = false;
+    const island = async () => {
+      asked = true;
+      return [c(9, 1)];
+    };
+    expect((await candidatesFor([c(1, 80), c(2, 70)], island, 3)).map((x) => x.catId)).toEqual([2, 1]);
+    expect(asked).toBe(false);
   });
-  it("falls back to the darkest 3 live cats island-wide when none are nearby", () => {
-    expect(candidatesFor([], [c(5, 90), c(6, 10), c(7, 30), c(8, 20)], 3).map((x) => x.catId)).toEqual([6, 8, 7]);
+  it("falls back to the darkest 3 live cats island-wide when none are nearby", async () => {
+    const island = async () => [c(5, 90), c(6, 10), c(7, 30), c(8, 20)];
+    expect((await candidatesFor([], island, 3)).map((x) => x.catId)).toEqual([6, 8, 7]);
   });
 });
 
