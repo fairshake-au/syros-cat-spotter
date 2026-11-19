@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, extname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { buildCheckPrompt, readCheckAnswer, type CatCheck } from "../lib/photoCheck";
-import { callVision, type NewPhotoInput } from "../lib/matching";
+import { callVision, parseModelJson, type NewPhotoInput } from "../lib/matching";
 import { safeError } from "../lib/logger";
 import { validatePhotoBase64 } from "../lib/imageValidation";
 
@@ -13,11 +14,16 @@ import { validatePhotoBase64 } from "../lib/imageValidation";
 // session is made read-only, the way calibrateDuplicateSweep does) and it
 // changes nothing in the app. It needs the AI keys, so it is run in Replit.
 //
-//   pnpm --filter @workspace/db exec tsx ../../artifacts/api-server/src/scripts/photoCheckEval.ts --half tune|held [--prompt-module <path.ts>]
+//   pnpm --filter @workspace/db exec tsx ../../artifacts/api-server/src/scripts/photoCheckEval.ts --half tune|held [--prompt-module <path.ts>] [--frozen <path>] [--out <path>]
+//
+// The first tune run freezes the test set to photoCheckEval/frozen-set.json (ids,
+// half, night, stratum only); every later run, tune or held, uses exactly that set.
+// --half held refuses if the file is missing. Raw answers go to the OS temp
+// folder (photo-check-eval-out.json) unless --out says otherwise; the path is printed.
 //
 // Printed: a photo number (or an extra file's name), the old answer, the new
 // answers for each of two variants, and the worst. Never a photo, name,
-// position or photoSeen: those go to ./photo-check-eval-out.json only.
+// position or photoSeen: those go to the --out file only.
 //
 // labels.json (scripts/photoCheckEval/labels.json): [{ photoId, label }] with
 // label "cat" | "not_cat" | "skip". The tune/held split comes only from
@@ -39,7 +45,6 @@ export const SOCK_PHOTO_ID = 62;
 export const RUNS = 3;
 export const DARKEST_N = 3;
 const SYROS = { lat: 37.44, lng: 24.94 };
-const OUT_FILE = "./photo-check-eval-out.json";
 
 /** The two ways each photo is asked: plain, and with the darkest known cats beside it. */
 const VARIANTS = [["plain", false], ["withCandidates", true]] as const;
@@ -94,6 +99,9 @@ const sha256 = (text: string) => createHash("sha256").update(text).digest();
 export interface PickedPhoto {
   photoId: number;
   half: Half;
+  night: boolean;
+  /** 0 not-a-cat, 1 night cat, 2 day cat (the sock is 0). */
+  stratum: 0 | 1 | 2;
 }
 
 /**
@@ -121,7 +129,7 @@ export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto
   // night cats, day cats. Within a stratum, seeded order, alternating. The
   // not-a-cat photos start on held so a second one is never left only in tune.
   const picked = [...chosen.values()];
-  const stratumOf = (r: SpotRow) => (r.noCat ? 0 : isAthensNight(r.takenAt) ? 1 : 2);
+  const stratumOf = (r: SpotRow): 0 | 1 | 2 => (r.noCat ? 0 : isAthensNight(r.takenAt) ? 1 : 2);
   const halves = new Map<number, Half>();
   for (const stratum of [0, 1, 2]) {
     picked
@@ -132,7 +140,82 @@ export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto
   if (sock) halves.set(sock.photoId, "held");
   return (sock ? [...picked, sock] : picked)
     .sort((a, b) => a.photoId - b.photoId)
-    .map((r) => ({ photoId: r.photoId, half: halves.get(r.photoId)! }));
+    .map((r) => ({ photoId: r.photoId, half: halves.get(r.photoId)!, night: isAthensNight(r.takenAt), stratum: r === sock ? 0 : stratumOf(r) }));
+}
+
+// ---- the frozen set ----
+
+/** The only fields the frozen file may hold: no names, positions or photoSeen. */
+export const FROZEN_FIELDS = ["id", "half", "night", "stratum"] as const;
+/** A photo number, or an extra file's name. */
+export interface FrozenEntry {
+  id: number | string;
+  half: Half;
+  night: boolean;
+  stratum: 0 | 1 | 2;
+}
+
+/** The picked set plus the extra files (always held, not-a-cat), ready to write once and reuse. */
+export function freezeSet(picked: readonly PickedPhoto[], extraNames: readonly string[]): FrozenEntry[] {
+  return [
+    ...picked.map((p) => ({ id: p.photoId, half: p.half, night: p.night, stratum: p.stratum })),
+    ...extraNames.map((name): FrozenEntry => ({ id: name, half: "held", night: false, stratum: 0 })),
+  ];
+}
+
+/** The frozen photo numbers that still have a spot, with their frozen half; the rest are named in `missing`. New spots are never added. */
+export function applyFrozen<R extends SpotRow>(frozen: readonly FrozenEntry[], rows: readonly R[]): { picked: { entry: FrozenEntry; row: R }[]; missing: number[] } {
+  const rowOf = new Map(rows.map((r) => [r.photoId, r]));
+  const picked: { entry: FrozenEntry; row: R }[] = [];
+  const missing: number[] = [];
+  for (const entry of frozen) {
+    if (typeof entry.id !== "number") continue;
+    const row = rowOf.get(entry.id);
+    if (row) picked.push({ entry, row });
+    else missing.push(entry.id);
+  }
+  return { picked, missing };
+}
+
+/** Written with exactly the allowed fields, whatever else the entries carry. */
+export function writeFrozen(path: string, entries: readonly FrozenEntry[]): void {
+  const clean = entries.map((e) => ({ id: e.id, half: e.half, night: e.night, stratum: e.stratum }));
+  writeFileSync(path, JSON.stringify(clean, null, 2));
+}
+
+const validEntry = (e: unknown): e is FrozenEntry => {
+  const o = e as Record<string, unknown> | null;
+  return (
+    !!o &&
+    (typeof o.id === "number" || typeof o.id === "string") &&
+    (o.half === "tune" || o.half === "held") &&
+    typeof o.night === "boolean" &&
+    (o.stratum === 0 || o.stratum === 1 || o.stratum === 2)
+  );
+};
+
+/** The frozen set if the file is there; null (tune only) if it is not; an error if held has no file or the file is damaged. */
+export function checkFrozenFile(half: Half, path: string): { ok: true; entries: FrozenEntry[] | null } | { ok: false; error: string } {
+  if (!existsSync(path)) {
+    return half === "held"
+      ? { ok: false, error: `Refusing to run the held half: there is no frozen set at ${path}. Run --half tune first; it freezes the set.` }
+      : { ok: true, entries: null };
+  }
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (Array.isArray(parsed) && parsed.every(validEntry)) return { ok: true, entries: parsed };
+  } catch {
+    // falls through to the same message
+  }
+  return { ok: false, error: `The frozen set at ${path} is damaged. Fix or delete it (deleting re-freezes on the next tune run).` };
+}
+
+/** What one reply gave. A reply with no catCheck (key missing or misspelt) is "failed": the old-shape fallback is production's, not the eval's. */
+export function readEvalAnswer(raw: string, many: boolean): { check: RunCheck; photoSeen: string | null } {
+  const parsed = parseModelJson(raw);
+  if (parsed.catCheck === undefined || parsed.catCheck === null) return { check: "failed", photoSeen: null };
+  const read = readCheckAnswer(raw, many);
+  return { check: read.catCheck, photoSeen: read.photoSeen };
 }
 
 // ---- scoring ----
@@ -234,11 +317,11 @@ export function promptHash(text: string): string {
   return sha256(text).toString("hex").slice(0, 8);
 }
 
-export type ParsedArgs = { ok: true; half: Half; promptModule: string | null } | { ok: false; error: string };
+export type ParsedArgs = { ok: true; half: Half; promptModule: string | null; frozen: string; out: string } | { ok: false; error: string };
 
 export function parseArgs(args: readonly string[]): ParsedArgs {
-  const usage = "Usage: --half tune|held [--prompt-module <path.ts>]";
-  const known = new Set(["--half", "--prompt-module"]);
+  const usage = "Usage: --half tune|held [--prompt-module <path.ts>] [--frozen <path>] [--out <path>]";
+  const known = new Set(["--half", "--prompt-module", "--frozen", "--out"]);
   for (let i = 0; i < args.length; i++) {
     if (args[i]!.startsWith("--") && !known.has(args[i]!)) return { ok: false, error: `Unknown option ${args[i]}. ${usage}` };
   }
@@ -253,7 +336,10 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
   if (promptModule !== null && half === "held") {
     return { ok: false, error: "--prompt-module can't be used with --half held: the held run always uses the committed prompt." };
   }
-  return { ok: true, half, promptModule };
+  const frozen = val("--frozen") ?? join(dirname(fileURLToPath(import.meta.url)), "photoCheckEval", "frozen-set.json");
+  const out = val("--out") ?? join(tmpdir(), "photo-check-eval-out.json");
+  if (frozen === "" || out === "") return { ok: false, error: usage };
+  return { ok: true, half, promptModule, frozen, out };
 }
 
 /** A photo's bytes only if it is still there: a photo removed for good (removed_at set, or no data) is left out. The query filters the same way; this is the tested rule. */
@@ -299,7 +385,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
     say(parsed.error);
     return 2;
   }
-  const { half, promptModule } = parsed;
+  const { half, promptModule, frozen, out: outFile } = parsed;
   let buildPrompt = buildCheckPrompt;
   if (promptModule !== null) {
     const mod = await import(pathToFileURL(resolve(promptModule)).href);
@@ -317,12 +403,18 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
   }
   const truthOf = new Map(labels.map((l) => [l.photoId, l.label]));
 
+  const frozenSet = checkFrozenFile(half, frozen);
+  if (!frozenSet.ok) {
+    say(frozenSet.error);
+    return 2;
+  }
+
   const { pool } = await import("@workspace/db");
   try {
     const { makeReadOnly } = await import("./smokeCheck");
     await makeReadOnly();
     say("Night is judged by the spot's stored time (sightings.created_at: the phone's capture time for offline uploads, else upload time); there is no separate capture-time column.");
-    const items = await loadItems(half);
+    const items = await loadItems(half, frozen, frozenSet.entries, say);
     if (half === "held") {
       const missing = missingLabels(items, truthOf);
       if (missing.length > 0) {
@@ -343,14 +435,14 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
           ...cands.map((c) => ({ mime: c.mime, base64: c.photoBase64 })),
         ]);
         const raw = response.choices[0]?.message?.content ?? "";
-        const read = readCheckAnswer(raw, it.photos.length > 1);
-        return { check: read.catCheck, photoSeen: read.photoSeen, raw };
+        return { ...readEvalAnswer(raw, it.photos.length > 1), raw };
       } catch (err) {
         // A failed or timed-out call is "failed", never "unsure": it must not look like an answer.
         return { check: "failed", photoSeen: null, raw: `ERROR ${JSON.stringify(safeError(err))}` };
       }
     };
 
+    say(`Raw answers are written to ${outFile}`);
     const out: unknown[] = [];
     let failedTotal = 0;
     const scored: Record<VariantName, HeldResult[]> = { plain: [], withCandidates: [] };
@@ -370,7 +462,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
       failedTotal += calls.filter((r) => r.check === "failed").length;
       out.push({ label: it.label, old: it.old, ...runsOf });
       // Written after every item, so a crash keeps what already ran.
-      writeFileSync(OUT_FILE, JSON.stringify(out, null, 2));
+      writeFileSync(outFile, JSON.stringify(out, null, 2));
     }
     say(`Failed calls: ${failedTotal}`);
 
@@ -392,7 +484,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
   return 0;
 }
 
-async function loadItems(half: Half): Promise<Item[]> {
+async function loadItems(half: Half, frozenPath: string, frozenIn: FrozenEntry[] | null, say: (l: string) => void): Promise<Item[]> {
   const { db } = await import("@workspace/db");
   const { sightingsTable, sightingPhotosTable, sightingMatchesTable, photosTable, catsTable } = await import("@workspace/db/schema");
   const { and, asc, eq, inArray, isNull, isNotNull } = await import("drizzle-orm");
@@ -421,7 +513,18 @@ async function loadItems(half: Half): Promise<Item[]> {
     photoCount: Math.max(1, photosOf.get(s.id)?.length ?? 1),
     spot: s,
   }));
-  const picked = pickTestSet(rows, EVAL_SEED).filter((p) => p.half === half);
+  const extraDir = join(here, "photoCheckEval", "extra");
+  const extraNames = existsSync(extraDir) ? readdirSync(extraDir).sort().filter((f) => IMAGE_EXTS.has(extname(f).toLowerCase())) : [];
+  // The first (tune) run freezes the set; every later run uses exactly it, whatever spots have come since.
+  let frozen = frozenIn;
+  if (!frozen) {
+    frozen = freezeSet(pickTestSet(rows, EVAL_SEED), extraNames);
+    writeFrozen(frozenPath, frozen);
+    say(`Froze the test set (${frozen.length} items) at ${frozenPath}. Commit it so the held run uses the same set.`);
+  }
+  const mine = frozen.filter((e) => e.half === half);
+  const { picked, missing } = applyFrozen(mine, rows);
+  for (const id of missing) say(`Frozen photo ${id} is no longer a finished, unredacted spot; left out.`);
   const rowOf = new Map(rows.map((r) => [r.photoId, r]));
 
   const cats = await liveCats(getTableColumns(catsTable));
@@ -455,23 +558,25 @@ async function loadItems(half: Half): Promise<Item[]> {
   const island = async () => (islandCache ??= await withLuminance(cats));
 
   const items: Item[] = [];
-  for (const p of picked) {
-    const r = rowOf.get(p.photoId)!;
+  for (const { entry, row: r } of picked) {
     const list = photosOf.get(r.spot.id) ?? [{ photoId: r.photoId, role: "first" as const }];
     const photos: NewPhotoInput[] = [];
     for (const l of list) {
       const b = await load(l.photoId);
       if (b) photos.push({ role: l.role, ...b });
     }
-    if (photos.length === 0) continue;
+    if (photos.length === 0) {
+      say(`Frozen photo ${entry.id} has no photo left; left out.`);
+      continue;
+    }
     // The cats the live check would have compared for this spot, then the darkest few.
     const nearest = selectCandidateCats(cats, r.spot.lat, r.spot.lng);
     const withLum = await withLuminance(nearest);
     items.push({
-      label: String(p.photoId),
-      photoId: p.photoId,
-      half: p.half,
-      night: isAthensNight(r.takenAt),
+      label: String(entry.id),
+      photoId: r.photoId,
+      half: entry.half,
+      night: entry.night,
       photos,
       candidates: await candidatesFor(withLum, island, DARKEST_N),
       old: oldAnswerOf(recOf.get(r.spot.id) ?? null),
@@ -479,23 +584,25 @@ async function loadItems(half: Half): Promise<Item[]> {
   }
 
   // Samuel's own non-cat photos: always the held half, no photo id, keyed by file name.
-  const extraDir = join(here, "photoCheckEval", "extra");
-  if (half === "held" && existsSync(extraDir)) {
-    for (const f of readdirSync(extraDir).sort()) {
-      if (!IMAGE_EXTS.has(extname(f).toLowerCase())) continue;
-      const photo = await normaliseExtra(readFileSync(join(extraDir, f))).catch((err: unknown) => {
-        throw new Error(`extra/${f}: ${err instanceof Error ? err.message : "could not be read"}`);
-      });
-      items.push({
-        label: f,
-        photoId: null,
-        half: "held",
-        night: false,
-        photos: [{ role: "first", ...photo }],
-        candidates: await candidatesFor([], island, DARKEST_N),
-        old: "none",
-      });
+  for (const entry of mine) {
+    if (typeof entry.id !== "string") continue;
+    const f = entry.id;
+    if (!extraNames.includes(f)) {
+      say(`Frozen extra file ${f} is no longer in extra/; left out.`);
+      continue;
     }
+    const photo = await normaliseExtra(readFileSync(join(extraDir, f))).catch((err: unknown) => {
+      throw new Error(`extra/${f}: ${err instanceof Error ? err.message : "could not be read"}`);
+    });
+    items.push({
+      label: f,
+      photoId: null,
+      half: "held",
+      night: false,
+      photos: [{ role: "first", ...photo }],
+      candidates: await candidatesFor([], island, DARKEST_N),
+      old: "none",
+    });
   }
   return items;
 }

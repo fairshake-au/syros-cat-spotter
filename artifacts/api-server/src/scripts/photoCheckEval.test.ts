@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
@@ -15,6 +18,12 @@ import {
   parseArgs,
   keptPhoto,
   normaliseExtra,
+  freezeSet,
+  applyFrozen,
+  writeFrozen,
+  checkFrozenFile,
+  readEvalAnswer,
+  FROZEN_FIELDS,
   promptHash,
   candidatesFor,
   type SpotRow,
@@ -214,10 +223,10 @@ describe("parseArgs", () => {
   it("needs --half tune|held", () => {
     expect(parseArgs([]).ok).toBe(false);
     expect(parseArgs(["--half", "other"]).ok).toBe(false);
-    expect(parseArgs(["--half", "tune"])).toEqual({ ok: true, half: "tune", promptModule: null });
+    expect(parseArgs(["--half", "tune"])).toMatchObject({ ok: true, half: "tune", promptModule: null });
   });
   it("takes --prompt-module for tune", () => {
-    expect(parseArgs(["--half", "tune", "--prompt-module", "./p.ts"])).toEqual({ ok: true, half: "tune", promptModule: "./p.ts" });
+    expect(parseArgs(["--half", "tune", "--prompt-module", "./p.ts"])).toMatchObject({ ok: true, half: "tune", promptModule: "./p.ts" });
   });
   it("refuses --prompt-module with --half held", () => {
     const r = parseArgs(["--half", "held", "--prompt-module", "./p.ts"]);
@@ -281,5 +290,72 @@ describe("normaliseExtra", () => {
   });
   it("refuses a file that is not a picture", async () => {
     await expect(normaliseExtra(Buffer.from("not a picture"))).rejects.toThrow();
+  });
+});
+
+describe("the frozen set", () => {
+  const tmp = () => mkdtempSync(join(tmpdir(), "frozen-"));
+  const frozenFrom = (rows: SpotRow[]) => freezeSet(pickTestSet(rows, EVAL_SEED), ["mysock.jpg"]);
+
+  it("a spot added after freezing changes no frozen photo's half and adds nothing", () => {
+    const rows = manyRows();
+    const frozen = frozenFrom(rows);
+    const later = [...rows, row(9001), row(9002, { takenAt: SUMMER_NIGHT }), row(9003, { noCat: true })];
+    const { picked, missing } = applyFrozen(frozen, later);
+    expect(missing).toEqual([]);
+    const ids = frozen.filter((f) => typeof f.id === "number").map((f) => f.id);
+    expect(picked.map((p) => p.entry.id).sort()).toEqual([...ids].sort());
+    for (const p of picked) expect(p.entry.half).toBe(frozen.find((f) => f.id === p.entry.id)!.half);
+    expect(picked.map((p) => p.row.photoId)).not.toContain(9001);
+  });
+  it("a frozen photo whose spot has gone is reported by number and drops out", () => {
+    const rows = manyRows();
+    const frozen = frozenFrom(rows);
+    const { picked, missing } = applyFrozen(frozen, rows.filter((r) => r.photoId !== 62));
+    expect(missing).toEqual([62]);
+    expect(picked.map((p) => p.row.photoId)).not.toContain(62);
+  });
+  it("the held half refuses when the file is missing; tune with no file freezes later", () => {
+    const missing = join(tmp(), "none.json");
+    const held = checkFrozenFile("held", missing);
+    expect(held.ok).toBe(false);
+    if (!held.ok) expect(held.error).toContain("frozen");
+    expect(checkFrozenFile("tune", missing)).toEqual({ ok: true, entries: null });
+  });
+  it("the file holds only id, half, night and stratum", () => {
+    const path = join(tmp(), "frozen-set.json");
+    const dirty = frozenFrom(manyRows()).map((e) => ({ ...e, name: "Whiskerbeard", lat: 37.44, photoSeen: "a black sock" }));
+    writeFrozen(path, dirty);
+    const text = readFileSync(path, "utf8");
+    for (const secret of ["Whiskerbeard", "37.44", "a black sock"]) expect(text).not.toContain(secret);
+    const read = JSON.parse(text) as Record<string, unknown>[];
+    expect(read.length).toBeGreaterThan(40);
+    for (const e of read) expect(Object.keys(e).sort()).toEqual([...FROZEN_FIELDS].sort());
+    const back = checkFrozenFile("held", path);
+    expect(back.ok && back.entries!.length).toBe(read.length);
+    expect(read.find((e) => e.id === "mysock.jpg")).toMatchObject({ half: "held", night: false, stratum: 0 });
+  });
+  it("a damaged file is refused, not guessed at", () => {
+    const path = join(tmp(), "bad.json");
+    writeFileSync(path, JSON.stringify([{ id: 1, half: "middle", night: false, stratum: 0 }]));
+    expect(checkFrozenFile("tune", path).ok).toBe(false);
+  });
+  it("parseArgs takes --frozen and --out, with defaults", () => {
+    expect(parseArgs(["--half", "tune", "--frozen", "/x/f.json", "--out", "/x/o.json"])).toMatchObject({ frozen: "/x/f.json", out: "/x/o.json" });
+    const d = parseArgs(["--half", "tune"]);
+    expect(d.ok && d.frozen).toMatch(/photoCheckEval[\\/]frozen-set\.json$/);
+    expect(d.ok && d.out).toBe(join(tmpdir(), "photo-check-eval-out.json"));
+  });
+});
+
+describe("readEvalAnswer", () => {
+  it("an answer with no catCheck (missing or misspelt) is failed, not read through the old shape", () => {
+    expect(readEvalAnswer(JSON.stringify({ anyCat: true }), false).check).toBe("failed");
+    expect(readEvalAnswer(JSON.stringify({ catchek: "cat", catPartsSeen: ["face"] }), false).check).toBe("failed");
+    expect(readEvalAnswer(JSON.stringify({ catCheck: null }), false).check).toBe("failed");
+  });
+  it("reads a proper answer as production does", () => {
+    expect(readEvalAnswer(JSON.stringify({ catCheck: "cat", catPartsSeen: ["face"], photoSeen: "a cat" }), false)).toEqual({ check: "cat", photoSeen: "a cat" });
+    expect(readEvalAnswer(JSON.stringify({ catCheck: "cat", catPartsSeen: ["fur"] }), false).check).toBe("unsure");
   });
 });
