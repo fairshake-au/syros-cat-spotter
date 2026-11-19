@@ -255,6 +255,11 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
   return { ok: true, half, promptModule };
 }
 
+/** A photo's bytes only if it is still there: a photo removed for good (removed_at set, or no data) is left out. The query filters the same way; this is the tested rule. */
+export function keptPhoto(p: { data: string | null; mime: string; removedAt: Date | null } | undefined): { photoBase64: string; mime: string } | null {
+  return p && p.removedAt === null && p.data !== null ? { photoBase64: p.data, mime: p.mime } : null;
+}
+
 // ---- the script ----
 
 interface Label {
@@ -386,7 +391,7 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
 async function loadItems(half: Half): Promise<Item[]> {
   const { db } = await import("@workspace/db");
   const { sightingsTable, sightingPhotosTable, sightingMatchesTable, photosTable, catsTable } = await import("@workspace/db/schema");
-  const { and, asc, eq, inArray, isNull } = await import("drizzle-orm");
+  const { and, asc, eq, inArray, isNull, isNotNull } = await import("drizzle-orm");
   const { getTableColumns } = await import("drizzle-orm");
   const { liveCats } = await import("../lib/catIdentity");
   const { selectCandidateCats } = await import("../lib/candidateSelection");
@@ -417,8 +422,12 @@ async function loadItems(half: Half): Promise<Item[]> {
 
   const cats = await liveCats(getTableColumns(catsTable));
   const load = async (photoId: number) => {
-    const [p] = await db.select().from(photosTable).where(eq(photosTable.id, photoId));
-    return p && p.data !== null ? { photoBase64: p.data, mime: p.mime } : null;
+    // Only the columns needed, and only a photo that is still there (SYC-462: removed_at null, data not null).
+    const [p] = await db
+      .select({ data: photosTable.data, mime: photosTable.mime, removedAt: photosTable.removedAt })
+      .from(photosTable)
+      .where(and(eq(photosTable.id, photoId), isNull(photosTable.removedAt), isNotNull(photosTable.data)));
+    return keptPhoto(p);
   };
 
   // Every live cat's main-photo brightness, worked out only if some spot or extra file has no cat nearby.

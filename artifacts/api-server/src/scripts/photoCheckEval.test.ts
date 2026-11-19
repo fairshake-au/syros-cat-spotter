@@ -12,6 +12,7 @@ import {
   worstOf,
   missingLabels,
   parseArgs,
+  keptPhoto,
   promptHash,
   candidatesFor,
   type SpotRow,
@@ -249,5 +250,21 @@ describe("candidatesFor", () => {
   });
   it("falls back to the darkest 3 live cats island-wide when none are nearby", () => {
     expect(candidatesFor([], [c(5, 90), c(6, 10), c(7, 30), c(8, 20)], 3).map((x) => x.catId)).toEqual([6, 8, 7]);
+  });
+});
+
+describe("keptPhoto", () => {
+  it("keeps a photo that is there", () => {
+    expect(keptPhoto({ data: "abc", mime: "image/png", removedAt: null })).toEqual({ photoBase64: "abc", mime: "image/png" });
+  });
+  it("leaves out a photo removed for good (no data, or removed_at set) and a missing row", () => {
+    expect(keptPhoto({ data: null, mime: "image/png", removedAt: new Date("2026-01-01T00:00:00Z") })).toBeNull();
+    expect(keptPhoto({ data: "abc", mime: "image/png", removedAt: new Date("2026-01-01T00:00:00Z") })).toBeNull();
+    expect(keptPhoto({ data: null, mime: "image/png", removedAt: null })).toBeNull();
+    expect(keptPhoto(undefined)).toBeNull();
+  });
+  it("a spot whose only photo was removed leaves photo 62 unscored, so the run is INCOMPLETE", () => {
+    const nightCats = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, truth: "cat" as const, night: true, worst: "cat" as const }));
+    expect(scoreHeld([...nightCats, { id: 500, truth: "not_cat", night: false, worst: "not_cat" }]).status).toBe("INCOMPLETE");
   });
 });
