@@ -5,6 +5,7 @@ import sharp from "sharp";
 import { buildCheckPrompt, readCheckAnswer, type CatCheck } from "../lib/photoCheck";
 import { callVision, type NewPhotoInput } from "../lib/matching";
 import { safeError } from "../lib/logger";
+import { validatePhotoBase64 } from "../lib/imageValidation";
 
 // SYC-866 (spec docs/specs/photo-check-not-sure.md §7): proves the new photo
 // check prompt on real photos before it goes live. READ-ONLY (the database
@@ -260,6 +261,18 @@ export function keptPhoto(p: { data: string | null; mime: string; removedAt: Dat
   return p && p.removedAt === null && p.data !== null ? { photoBase64: p.data, mime: p.mime } : null;
 }
 
+/**
+ * Production never sends a raw upload: every photo goes through
+ * validatePhotoBase64 first (upright, longest edge at most 2048, JPEG) and
+ * the stored copy is what the AI is sent. An extra file gets the same step,
+ * in memory, so the eval sends the AI what production would. Nothing is stored.
+ */
+export async function normaliseExtra(file: Buffer): Promise<{ photoBase64: string; mime: string }> {
+  const v = await validatePhotoBase64(file.toString("base64"));
+  if ("error" in v) throw new Error(v.error);
+  return { photoBase64: v.buffer.toString("base64"), mime: v.mime };
+}
+
 // ---- the script ----
 
 interface Label {
@@ -268,7 +281,7 @@ interface Label {
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIME_BY_EXT: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]);
 
 interface Item {
   label: string;
@@ -464,14 +477,16 @@ async function loadItems(half: Half): Promise<Item[]> {
   const extraDir = join(here, "photoCheckEval", "extra");
   if (half === "held" && existsSync(extraDir)) {
     for (const f of readdirSync(extraDir).sort()) {
-      const mime = MIME_BY_EXT[extname(f).toLowerCase()];
-      if (!mime) continue;
+      if (!IMAGE_EXTS.has(extname(f).toLowerCase())) continue;
+      const photo = await normaliseExtra(readFileSync(join(extraDir, f))).catch((err: unknown) => {
+        throw new Error(`extra/${f}: ${err instanceof Error ? err.message : "could not be read"}`);
+      });
       items.push({
         label: f,
         photoId: null,
         half: "held",
         night: false,
-        photos: [{ role: "first", photoBase64: readFileSync(join(extraDir, f)).toString("base64"), mime }],
+        photos: [{ role: "first", ...photo }],
         candidates: candidatesFor([], await island(), DARKEST_N),
         old: "none",
       });

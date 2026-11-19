@@ -13,6 +13,7 @@ import {
   missingLabels,
   parseArgs,
   keptPhoto,
+  normaliseExtra,
   promptHash,
   candidatesFor,
   type SpotRow,
@@ -266,5 +267,19 @@ describe("keptPhoto", () => {
   it("a spot whose only photo was removed leaves photo 62 unscored, so the run is INCOMPLETE", () => {
     const nightCats = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, truth: "cat" as const, night: true, worst: "cat" as const }));
     expect(scoreHeld([...nightCats, { id: 500, truth: "not_cat", night: false, worst: "not_cat" }]).status).toBe("INCOMPLETE");
+  });
+});
+
+describe("normaliseExtra", () => {
+  it("sends an extra file the way production sends an upload: upright JPEG, longest edge at most 2048", async () => {
+    const big = await sharp({ create: { width: 3000, height: 1500, channels: 3, background: { r: 20, g: 20, b: 20 } } }).png().toBuffer();
+    const out = await normaliseExtra(big);
+    expect(out!.mime).toBe("image/jpeg");
+    const meta = await sharp(Buffer.from(out!.photoBase64, "base64")).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(2048);
+  });
+  it("refuses a file that is not a picture", async () => {
+    await expect(normaliseExtra(Buffer.from("not a picture"))).rejects.toThrow();
   });
 });
