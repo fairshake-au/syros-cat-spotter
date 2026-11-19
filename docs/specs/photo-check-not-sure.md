@@ -1,7 +1,7 @@
 # When the photo check isn't sure it's a cat
 
 **Ticket:** SYC-866 (a sock became cat #32, "Captain Sprout"). **Related:** SYC-642 (letting a spotter overrule "no cat", parked), SYC-632 (server refuses "no cat" photos, backlog), SYC-249 (refuse off-island spots, backlog), SYC-503 (when the check fails), SYC-574 ("Is this {name}?"), SYC-760 (launch measures).
-**Status:** draft for Samuel's approval, 18 Nov 2026. Fix direction chosen by Samuel, 18 Nov: "Prompt + can't tell". Adversarial review done 18 Nov (16 findings, all folded in; see §11).
+**Status:** approved by Samuel, 18 Nov 2026: "D3 A otherwise good to go." So D1 A, D2 A, D3 A, D4 as recommended, D5 A. Fix direction chosen by Samuel, 18 Nov: "Prompt + can't tell". Adversarial review done 18 Nov (16 findings, all folded in).
 **Builds on:** [`when-the-photo-check-fails.md`](./when-the-photo-check-fails.md) (the "couldn't check" screen), [`photo-tips-and-extra-photos.md`](./photo-tips-and-extra-photos.md) (the "not a cat" screen and multi-photo spots).
 
 ## 1. The problem
@@ -101,7 +101,7 @@ The vision call is rewritten so the cat question comes first and is asked neutra
 
 **Team "find from photo" page:** a "not sure" answer is treated as a cat. The team are looking at the photo themselves and can judge it. Only "not a cat" stops the search, as today. That page needs no change.
 
-**Team cat page** (decision D3). A sighting whose check said "not sure" gets a short amber tag, using the same style as the "may be more than one cat" tag: **"Photo check wasn't sure this was a cat."** A sighting with this tag is never folded away among routine sightings.
+**Team cat page** (decision D3: the tag only). A sighting whose check said "not sure" gets a short amber tag, using the same style as the "may be more than one cat" tag: **"Photo check wasn't sure this was a cat."** A sighting with this tag is never folded away among routine sightings.
 
 ## 6. What's recorded
 
@@ -185,7 +185,9 @@ Cat #32 and its sighting stay as they are until this change is live. They're the
 - **Refusing spots from outside Syros** stays in SYC-249. It would have caught this sock (taken in Philadelphia), but not one photographed on Syros.
 - **SYC-632** (the server refusing "no cat" photos), when it's built, must let "not sure" spots through. A note goes on that ticket.
 
-## 11. Decisions for Samuel
+## 11. Decisions (decided 18 Nov 2026)
+
+Samuel: "D3 A otherwise good to go." Chosen: **D1 A, D2 A, D3 A, D4 as written, D5 A.** The options are kept below as the record.
 
 **D1. What "not sure" offers.**
 - **A (recommended): "Take another photo" as the main button, "Yes, there's a cat" as a small link.**
@@ -207,10 +209,10 @@ Cat #32 and its sighting stay as they are until this change is live. They're the
   - Risk: it needs a new "held points" state, plus team work on every "not sure" spot. That's a lot for a rare case.
 
 **D3. What the team sees.**
-- **A: The amber tag on the team cat page only.**
+- **A (chosen): The amber tag on the team cat page only.**
   - Good: cheap, and it's where the team already removes cats.
   - Risk: nobody is alerted. A sock is only found if someone opens that cat.
-- **B (recommended): The tag, plus these spots in the existing "Matches to check" list on the dashboard home.** That list already holds suggestions spotters took, for the team to confirm.
+- **B (was recommended): The tag, plus these spots in the existing "Matches to check" list on the dashboard home.** That list already holds suggestions spotters took, for the team to confirm.
   - Good: someone actually looks at every one, in a list the team already works through, and it only holds the rare "not sure" spots.
   - Risk: a little more for the team to look at, mostly real cats in bad light.
 - **C: The tag, plus an item in the welfare queue.**
@@ -225,7 +227,7 @@ Cat #32 and its sighting stay as they are until this change is live. They're the
 - A lower "not sure" limit is kinder to spotters but harder to hit.
 
 **D5. Extra non-cat photos for the test.** The test has few known non-cats: the sock, plus whatever the check has already turned away. More would make "socks get caught" a real test, not a test of one.
-- **A (recommended): Samuel takes 10–15 quick phone photos, in dim light, of things that could pass for a cat.** For example a dark bag, a cushion, a shoe, a scarf, a shadow, a dog or a toy. He adds them to a folder Claude names.
+- **A (recommended): Samuel takes 10–15 quick phone photos, in dim light, of things that could pass for a cat.** For example a dark bag, a cushion, a shoe, a scarf, a shadow, a dog or a toy. He adds them to a folder Claude names. Claude strips the location and other details from each photo before it goes anywhere, since phone photos carry where they were taken.
   - Good: real phone photos in the conditions that matter.
   - Risk: about 10 minutes of Samuel's time.
 - **B: Use only the photos the check has already turned away.**
