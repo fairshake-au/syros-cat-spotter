@@ -10,6 +10,7 @@ import {
   pickTestSet,
   scoreHeld,
   worstOf,
+  missingLabels,
   type SpotRow,
 } from "./photoCheckEval";
 
@@ -90,31 +91,66 @@ describe("worstOf", () => {
     expect(worstOf(["cat", "not_cat", "unsure"], "cat")).toBe("not_cat");
     expect(worstOf(["cat", "cat", "cat"], "cat")).toBe("cat");
   });
+  it("treats a failed call as the worst, for either truth", () => {
+    expect(worstOf(["cat", "failed", "cat"], "cat")).toBe("failed");
+    expect(worstOf(["not_cat", "failed", "unsure"], "not_cat")).toBe("failed");
+  });
 });
 
 describe("scoreHeld", () => {
-  const cats = (n: number, unsure: number) =>
+  const cats = (n: number, unsure: number, night = true) =>
     Array.from({ length: n }, (_, i) => ({
       id: i + 1,
       truth: "cat" as const,
-      night: true,
+      night,
       worst: i < unsure ? ("unsure" as const) : ("cat" as const),
     }));
+  const sock = (worst: "cat" | "unsure" | "not_cat" | "failed" = "not_cat") => ({ id: 62, truth: "not_cat" as const, night: false, worst });
+  it("passes a complete run that meets the bar", () => {
+    const r = scoreHeld([...cats(5, 1), sock()]);
+    expect(r.status).toBe("PASS");
+    expect(r.passed).toBe(true);
+  });
   it("fails when one non-cat reads cat", () => {
-    const r = scoreHeld([...cats(5, 0), { id: 62, truth: "not_cat", night: false, worst: "cat" }]);
-    expect(r.passed).toBe(false);
+    expect(scoreHeld([...cats(5, 0), sock("cat")]).status).toBe("FAIL");
   });
   it("fails when a cat reads not_cat", () => {
-    const r = scoreHeld([...cats(5, 0), { id: 70, truth: "cat", night: false, worst: "not_cat" }]);
-    expect(r.passed).toBe(false);
+    expect(scoreHeld([...cats(5, 0), sock(), { id: 70, truth: "cat", night: false, worst: "not_cat" }]).status).toBe("FAIL");
   });
   it("fails at 2 of 9 night cats unsure and passes at 1 of 5", () => {
-    expect(scoreHeld(cats(9, 2)).passed).toBe(false);
-    expect(scoreHeld(cats(5, 1)).passed).toBe(true);
+    expect(scoreHeld([...cats(9, 2), sock()]).status).toBe("FAIL");
+    expect(scoreHeld([...cats(5, 1), sock()]).status).toBe("PASS");
   });
-  it("passes a non-cat that reads unsure or not_cat", () => {
-    const r = scoreHeld([...cats(5, 0), { id: 62, truth: "not_cat", night: false, worst: "unsure" }]);
-    expect(r.passed).toBe(true);
+  it("passes a non-cat that reads unsure", () => {
+    expect(scoreHeld([...cats(5, 0), sock("unsure")]).status).toBe("PASS");
+  });
+  it("is INCOMPLETE when photo 62 is not scored", () => {
+    const r = scoreHeld([...cats(5, 0), { id: 500, truth: "not_cat", night: false, worst: "not_cat" }]);
+    expect(r.status).toBe("INCOMPLETE");
+    expect(r.passed).toBe(false);
+  });
+  it("is INCOMPLETE with no non-cats at all", () => {
+    expect(scoreHeld(cats(6, 0)).status).toBe("INCOMPLETE");
+  });
+  it("is INCOMPLETE with fewer than 5 night cats, and 0 night cats is never PASS", () => {
+    expect(scoreHeld([...cats(4, 0), sock()]).status).toBe("INCOMPLETE");
+    expect(scoreHeld([...cats(8, 0, false), sock()]).status).not.toBe("PASS");
+  });
+  it("fails when any call failed, and says how many", () => {
+    const r = scoreHeld([...cats(5, 0), { ...sock(), worst: "failed", failedCalls: 2 }]);
+    expect(r.status).toBe("FAIL");
+    expect(r.lines.join("\n")).toContain("2 calls failed");
+  });
+  it("prints n on each bar line", () => {
+    const r = scoreHeld([...cats(5, 1), sock()]);
+    expect(r.lines.filter((l) => l.includes("n=")).length).toBe(3);
+  });
+});
+
+describe("missingLabels", () => {
+  it("lists unlabelled photo numbers; skip counts as labelled; extra files are not asked about", () => {
+    const truthOf = new Map<number, "cat" | "not_cat" | "skip">([[1, "cat"], [2, "skip"]]);
+    expect(missingLabels([{ photoId: 1 }, { photoId: 2 }, { photoId: 3 }, { photoId: null }, { photoId: 4 }], truthOf)).toEqual([3, 4]);
   });
 });
 
@@ -124,6 +160,7 @@ describe("what is printed", () => {
     const line = formatPhotoLine({ label: String(fixture.photoId), old: "cat", answers: ["cat", "unsure", "cat"], worst: "cat" });
     expect(line).toContain("62");
     expect(line).toContain("cat, unsure, cat");
+    expect(formatPhotoLine({ label: "mysock.jpg", old: "none", answers: ["unsure", "failed", "cat"], worst: "failed" })).toContain("mysock.jpg");
     for (const secret of [fixture.name, String(fixture.lat), fixture.photoSeen, "sock"]) expect(line).not.toContain(secret);
     const scored = scoreHeld([{ id: 62, truth: "not_cat", night: false, worst: "cat" }]);
     for (const l of scored.lines) {

@@ -113,11 +113,14 @@ export function pickTestSet(rows: readonly SpotRow[], seed: string): PickedPhoto
 
 // ---- scoring ----
 
-const RANK_FOR_NOT_CAT: Record<CatCheck, number> = { cat: 2, unsure: 1, not_cat: 0 };
-const RANK_FOR_CAT: Record<CatCheck, number> = { not_cat: 2, unsure: 1, cat: 0 };
+/** What one call gave: an answer, or "failed" (an error or a timeout, never read as "unsure"). */
+export type RunCheck = CatCheck | "failed";
 
-/** The worst of the runs for what the photo really is: a non-cat's worst is "cat", a cat's worst is "not_cat". */
-export function worstOf(answers: readonly CatCheck[], truth: Truth): CatCheck {
+const RANK_FOR_NOT_CAT: Record<RunCheck, number> = { failed: 3, cat: 2, unsure: 1, not_cat: 0 };
+const RANK_FOR_CAT: Record<RunCheck, number> = { failed: 3, not_cat: 2, unsure: 1, cat: 0 };
+
+/** The worst of the runs for what the photo really is: a non-cat's worst is "cat", a cat's worst is "not_cat"; a failed call is worse than either. */
+export function worstOf(answers: readonly RunCheck[], truth: Truth): RunCheck {
   const rank = truth === "not_cat" ? RANK_FOR_NOT_CAT : RANK_FOR_CAT;
   return answers.reduce((w, a) => (rank[a] > rank[w] ? a : w), answers[0]!);
 }
@@ -126,28 +129,49 @@ export interface HeldResult {
   id: number | string;
   truth: Truth;
   night: boolean;
-  worst: CatCheck;
+  worst: RunCheck;
+  /** How many of its calls failed (defaults to 1 if worst is "failed"). */
+  failedCalls?: number;
 }
 
-/** Decision D4's bar, on the held half, worst of 3 runs. */
-export function scoreHeld(results: readonly HeldResult[]): { passed: boolean; lines: string[] } {
+/** Fewer night cats than this prove nothing about the 1-in-5 bar. */
+export const MIN_NIGHT_CATS = 5;
+
+/** Held-half photo numbers that have no label (a "skip" counts as labelled). Extra files (no photo number) are not-a-cat by definition. */
+export function missingLabels(items: readonly { photoId: number | null }[], truthOf: ReadonlyMap<number, string>): number[] {
+  return items.filter((i): i is { photoId: number } => i.photoId !== null && !truthOf.has(i.photoId)).map((i) => i.photoId);
+}
+
+/**
+ * Decision D4's bar, on the held half, worst of 3 runs. FAIL if any bar is
+ * missed or any call failed. INCOMPLETE (never PASS) when the run can't prove
+ * the bar: photo 62 not scored, no non-cats, or fewer than 5 night cats.
+ */
+export function scoreHeld(results: readonly HeldResult[]): { status: "PASS" | "FAIL" | "INCOMPLETE"; passed: boolean; lines: string[] } {
   const nonCats = results.filter((r) => r.truth === "not_cat");
   const cats = results.filter((r) => r.truth === "cat");
   const nightCats = cats.filter((r) => r.night);
   const nonCatsCalledCat = nonCats.filter((r) => r.worst === "cat");
   const catsCalledNotCat = cats.filter((r) => r.worst === "not_cat");
   const nightUnsure = nightCats.filter((r) => r.worst === "unsure");
+  const failedCalls = results.reduce((n, r) => n + (r.failedCalls ?? (r.worst === "failed" ? 1 : 0)), 0);
   const ok1 = nonCatsCalledCat.length === 0;
   const ok2 = catsCalledNotCat.length === 0;
   const ok3 = nightUnsure.length * 5 <= nightCats.length;
-  return {
-    passed: ok1 && ok2 && ok3,
-    lines: [
-      `Non-cats called "cat": ${nonCatsCalledCat.length} of ${nonCats.length}${nonCatsCalledCat.length ? ` (${nonCatsCalledCat.map((r) => r.id).join(", ")})` : ""}. Bar: none. ${ok1 ? "pass" : "FAIL"}`,
-      `Cats called "not a cat": ${catsCalledNotCat.length} of ${cats.length}${catsCalledNotCat.length ? ` (${catsCalledNotCat.map((r) => r.id).join(", ")})` : ""}. Bar: none. ${ok2 ? "pass" : "FAIL"}`,
-      `Night cats called "not sure": ${nightUnsure.length} of ${nightCats.length}. Bar: at most 1 in 5. ${ok3 ? "pass" : "FAIL"}`,
-    ],
-  };
+  const ok4 = failedCalls === 0;
+  const incomplete: string[] = [];
+  if (!results.some((r) => String(r.id) === String(SOCK_PHOTO_ID))) incomplete.push(`photo ${SOCK_PHOTO_ID} was not scored`);
+  if (nonCats.length === 0) incomplete.push("no non-cats were scored");
+  if (nightCats.length < MIN_NIGHT_CATS) incomplete.push(`only ${nightCats.length} night cats were scored (need ${MIN_NIGHT_CATS})`);
+  const status = !(ok1 && ok2 && ok3 && ok4) ? "FAIL" : incomplete.length ? "INCOMPLETE" : "PASS";
+  const lines = [
+    `Non-cats called "cat": ${nonCatsCalledCat.length} of n=${nonCats.length}${nonCatsCalledCat.length ? ` (${nonCatsCalledCat.map((r) => r.id).join(", ")})` : ""}. Bar: none. ${ok1 ? "pass" : "FAIL"}`,
+    `Cats called "not a cat": ${catsCalledNotCat.length} of n=${cats.length}${catsCalledNotCat.length ? ` (${catsCalledNotCat.map((r) => r.id).join(", ")})` : ""}. Bar: none. ${ok2 ? "pass" : "FAIL"}`,
+    `Night cats called "not sure": ${nightUnsure.length} of n=${nightCats.length}. Bar: at most 1 in 5. ${ok3 ? "pass" : "FAIL"}`,
+  ];
+  if (!ok4) lines.push(`FAIL: ${failedCalls} calls failed (an error or a timeout); run again.`);
+  for (const why of incomplete) lines.push(`INCOMPLETE: ${why}.`);
+  return { status, passed: status === "PASS", lines };
 }
 
 /** The old check's answer, read from the stored record (the old prompt is not re-run). */
@@ -158,7 +182,7 @@ export function oldAnswerOf(rec: { noCatInAnyPhoto: boolean | null; matcherFaile
 }
 
 /** One printed line: number (or file name), the answers, the worst. Nothing else. */
-export function formatPhotoLine(p: { label: string; old: OldAnswer; answers: readonly CatCheck[]; worst: CatCheck | null }): string {
+export function formatPhotoLine(p: { label: string; old: OldAnswer; answers: readonly RunCheck[]; worst: RunCheck | null }): string {
   return `${p.label.padEnd(14)} old=${p.old.padEnd(8)} new=[${p.answers.join(", ")}] worst=${p.worst ?? "-"}`;
 }
 
@@ -218,11 +242,18 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
     const { makeReadOnly } = await import("./smokeCheck");
     await makeReadOnly();
     const items = await loadItems(half);
+    if (half === "held") {
+      const missing = missingLabels(items, truthOf);
+      if (missing.length > 0) {
+        say(`Refusing to score the held half: no label in labels.json for photo numbers ${missing.join(", ")}.`);
+        return 1;
+      }
+    }
     const { openai } = await import("@workspace/integrations-openai-ai-server");
     const { VISION_MODEL } = await import("../lib/visionModel");
     const { MATCH_TIMEOUT_MS } = await import("../lib/matching");
 
-    const ask = async (it: Item, withCandidates: boolean): Promise<{ check: CatCheck; photoSeen: string | null; raw: string }> => {
+    const ask = async (it: Item, withCandidates: boolean): Promise<{ check: RunCheck; photoSeen: string | null; raw: string }> => {
       const cands = withCandidates ? it.candidates : [];
       const text = promptOverride ?? buildCheckPrompt({ photos: it.photos, candidates: cands.map((c) => ({ catId: c.catId, name: c.name })) });
       const content: any[] = [
@@ -239,12 +270,13 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
         const read = readCheckAnswer(raw, it.photos.length > 1);
         return { check: read.catCheck, photoSeen: read.photoSeen, raw };
       } catch (err) {
-        // A failed run counts as "unsure": it is neither a cat nor a not-a-cat call.
-        return { check: "unsure", photoSeen: null, raw: `ERROR ${JSON.stringify(safeError(err))}` };
+        // A failed or timed-out call is "failed", never "unsure": it must not look like an answer.
+        return { check: "failed", photoSeen: null, raw: `ERROR ${JSON.stringify(safeError(err))}` };
       }
     };
 
     const out: unknown[] = [];
+    let failedTotal = 0;
     const scored: Record<"plain" | "withCandidates", HeldResult[]> = { plain: [], withCandidates: [] };
     for (const it of items) {
       const truth = it.photoId === null ? "not_cat" : truthOf.get(it.photoId);
@@ -263,20 +295,26 @@ export async function main(say: (l: string) => void, args: string[]): Promise<nu
         const answers = v.runs.map((r) => r.check);
         const worst = truth ? worstOf(answers, truth) : null;
         say(`${v.name.padEnd(15)} ${formatPhotoLine({ label: it.label, old: it.old, answers, worst })}`);
-        if (truth && worst) scored[v.name].push({ id: it.label, truth, night: it.night, worst });
+        if (truth && worst) scored[v.name].push({ id: it.label, truth, night: it.night, worst, failedCalls: answers.filter((a) => a === "failed").length });
       }
+      failedTotal += [...plainRuns, ...candRuns].filter((r) => r.check === "failed").length;
       out.push({ label: it.label, old: it.old, plain: plainRuns, withCandidates: candRuns });
+      // Written after every item, so a crash keeps what already ran.
+      writeFileSync(OUT_FILE, JSON.stringify(out, null, 2));
     }
-    writeFileSync(OUT_FILE, JSON.stringify(out, null, 2));
+    say(`Failed calls: ${failedTotal}`);
 
     if (labels.length === 0) {
       say(`Unscored: no labels yet. Photo numbers picked for the ${half} half, to label: ${items.filter((i) => i.photoId !== null).map((i) => i.photoId).join(", ")}`);
     } else if (half === "held") {
+      let allPass = true;
       for (const name of ["plain", "withCandidates"] as const) {
         const s = scoreHeld(scored[name]);
-        say(`Held half, ${name}: ${s.passed ? "PASS" : "FAIL"}`);
+        say(`Held half, ${name}: ${s.status}`);
         s.lines.forEach(say);
+        if (!s.passed) allPass = false;
       }
+      if (!allPass) return 1;
     }
   } finally {
     await pool.end();
