@@ -60,3 +60,4 @@ design/coming-soon/cur/
 
 # graphify code map (built per checkout, see docs/graphify.md)
 graphify-out/
+photo-check-eval-out.json
